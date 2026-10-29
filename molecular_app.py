@@ -261,12 +261,13 @@ class MolecularApp(QuantumApp):
                     '해석적 힘의 중심 유한차분 변위. 기본 0.005. 원자 수 N이면 6N회 계산.', self._settings_changed)
         self._entry(advanced, '열역학 온도 [K]', 'thermo_temperature_k', '진동 열역학 온도. 기본 298.15.',
                     self._settings_changed)
-        self._combo(advanced, '초기 전자 추정', self.vars['initial_guess'], ['auto', 'core', 'perturbed'],
-                    'auto: 자체 core / PySCF minao. perturbed는 자체 엔진의 재현 가능한 궤도 혼합.', self._settings_changed)
+        self._combo(advanced, '초기 전자 추정', self.vars['initial_guess'], ['auto', 'core', 'minao', 'perturbed'],
+                    'auto/minao: 원자 밀도 중첩(PySCF minao). core: 핵 해밀토니안. perturbed: 자체 엔진의 재현 가능한 궤도 혼합.', self._settings_changed)
         for key, label, hint in (
             ('native_density_tol', '자체 SCF 밀도 수렴', 'ΔD Frobenius norm. 기본 1e-7.'),
             ('native_residual_tol', '자체 SCF 잔차 수렴', '직교 기저의 FDS−SDF norm. 기본 1e-6.'),
             ('native_damping', '자체 밀도 혼합 비율', '이전 밀도 비율 0~0.8. 기본 0.15.'),
+            ('native_damping_residual', '자체 혼합 적용 잔차', '잔차가 이 값보다 클 때만 혼합. 기본 1e-3, 0이면 항상.'),
             ('native_diis_space', '자체 DIIS 이력 수', '2~16. 기본 8. PySCF에는 적용하지 않습니다.'),
             ('max_cycle', 'SCF 최대 반복', '1~1000. 초과하면 미수렴으로 저장합니다.'),
             ('conv_tol', 'SCF 에너지 수렴 기준 [Ha]', '1e-12~1e-3. 기본 1e-9.'),
@@ -381,7 +382,7 @@ class MolecularApp(QuantumApp):
                 data[key] = int(data[key])
             except ValueError:
                 raise ValueError(f'{key}: 정수를 입력하세요.') from None
-        for key in ('conv_tol', 'cube_margin_bohr', 'native_density_tol', 'native_residual_tol', 'native_damping',
+        for key in ('conv_tol', 'cube_margin_bohr', 'native_density_tol', 'native_residual_tol', 'native_damping', 'native_damping_residual',
                     'freq_step_bohr', 'thermo_temperature_k'):
             try:
                 data[key] = float(data[key])

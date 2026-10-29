@@ -336,7 +336,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     elif config.initial_guess != 'auto':
         actual_guess = config.initial_guess
     else:
-        actual_guess = 'core' if config.engine == 'native' else 'minao'
+        actual_guess = 'minao'  # Native auto also uses PySCF init_guess_by_minao since 0.8.6.
     summary = {
         'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.5',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),

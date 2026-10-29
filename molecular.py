@@ -169,6 +169,7 @@ class DFTConfig:
     native_density_tol: float = 1e-7
     native_residual_tol: float = 1e-6
     native_damping: float = 0.15
+    native_damping_residual: float = 1e-3  # Damp only while the commutator norm exceeds this; 0 = always.
     native_diis_space: int = 8
     system: str = 'molecule'
     max_cycle: int = 100
@@ -201,7 +202,7 @@ class DFTConfig:
                              ('scf_solver', ('diis', 'newton')), ('ecp', ('auto', 'none', 'def2')),
                              ('relativity', ('auto', 'none', 'x2c')), ('nuclear_model', ('auto', 'point', 'gaussian')),
                              ('grid_scheme', ('auto', 'treutler', 'universal')),
-                             ('engine', ('pyscf', 'native')), ('initial_guess', ('auto', 'core', 'perturbed')),
+                             ('engine', ('pyscf', 'native')), ('initial_guess', ('auto', 'core', 'minao', 'perturbed')),
                              ('dispersion', DISPERSIONS)):
             value = getattr(self, key)
             if not isinstance(value, str) or value.lower().strip() not in choices:
@@ -262,6 +263,7 @@ class DFTConfig:
         real(self.native_density_tol, '자체 밀도 수렴', 1e-12, 1e-3)
         real(self.native_residual_tol, '자체 잔차 수렴', 1e-12, 1e-3)
         real(self.native_damping, '자체 밀도 혼합 비율', 0, 0.8)
+        real(self.native_damping_residual, '자체 밀도 혼합 적용 잔차', 0, 10)
         integer(self.charge, '전체 전하', -100, 100)
         integer(self.spin, '스핀 2S', 0, 200)
         if self.electrons <= 0:

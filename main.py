@@ -59,7 +59,7 @@ def main():
     parser.add_argument('--nuclear-model', choices=['auto', 'point', 'gaussian'])
     parser.add_argument('--grid-scheme', choices=['auto', 'treutler', 'universal'])
     parser.add_argument('--engine', choices=['pyscf', 'native'], help='SCF 구현: 외부 PySCF 또는 자체 엔진')
-    parser.add_argument('--initial-guess', choices=['auto', 'core', 'perturbed'])
+    parser.add_argument('--initial-guess', choices=['auto', 'core', 'minao', 'perturbed'])
     parser.add_argument('--restart', type=Path, help='기존 실행 폴더 또는 checkpoint.npz')
     parser.add_argument("--backend", choices=['auto', 'local', 'wsl'], default='auto')
     parser.add_argument("--hydrogen-check", action='store_true', help="기존 수소형 한 전자 검증 계산")

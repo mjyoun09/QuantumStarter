@@ -170,6 +170,23 @@ class NativePhysicsTests(unittest.TestCase):
         # Converged means stationary, not lowest: this OH state is internally unstable
         # (PySCF stability analysis finds a lower UKS solution ~8e-6 Ha below).
 
+    def test_atomic_density_guess_and_late_damping(self):
+        # 0.8.6: auto guess = superposition of atomic densities; mixing only while the
+        # residual is large. Water dropped from 14 to 9 cycles; the Fe atom (2S=4),
+        # which never converged with the core guess, now converges.
+        from engines import calculate
+        water = DFTConfig(atoms=parse_coordinates('O 0 0 0; H 0 -.757 .587; H 0 .757 .587'), xc='pbe',
+                          basis='def2-svp', engine='native', grid_level=3, cube_points=12, threads=1)
+        result = calculate(water, self.root / 'water', lambda _: None)
+        self.assertEqual(result['initial_guess_details']['resolved'], 'minao')
+        self.assertLessEqual(result['scf_cycles'], 11)
+        core = calculate(replace(water, initial_guess='core'), self.root / 'core', lambda _: None)
+        self.assertAlmostEqual(core['total_energy_hartree'], result['total_energy_hartree'], delta=1e-9)
+        iron = calculate(DFTConfig(atoms=parse_coordinates('Fe 0 0 0'), spin=4, xc='pbe', basis='sto-3g',
+                                   engine='native', grid_level=3, cube_points=12, threads=1, max_cycle=250),
+                         self.root / 'fe', lambda _: None)
+        self.assertTrue(iron['converged'])
+
     def test_external_checkpoint_and_restart(self):
         cfg = DFTConfig(basis='sto-3g', xc='lda,vwn', grid_level=1, cube_points=12, threads=1, max_cycle=1)
         for solver in ('diis', 'newton'):

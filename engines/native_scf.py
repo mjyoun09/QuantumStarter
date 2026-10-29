@@ -160,15 +160,30 @@ class NativeKS:
             random = rng.normal(size=self.hcore.shape)
             rotation = expm(.08 * (random - random.T))
             self.mo_coeff = self.mo_coeff @ rotation
+        if dm0 is None and self.config.initial_guess in ('auto', 'minao'):
+            # Superposition of minimal-basis atomic densities projected onto this basis
+            # (PySCF init_guess_by_minao; an external guess helper, recorded as such).
+            # Much better than the bare core Hamiltonian for transition metals. The
+            # projected density does not hold exactly N electrons, so it only builds
+            # the first Fock matrix; the SCF starts from that matrix's occupied orbitals.
+            from pyscf.scf.hf import init_guess_by_minao
+            total = init_guess_by_minao(self.mol)
+            _, guess_fock, _ = self.evaluate(np.stack((total / 2, total / 2)) if self.unrestricted else total)
+            self.mo_energy, self.mo_coeff = self.diagonalize(guess_fock)
         dm = self.density(self.mo_coeff) if dm0 is None else dm0.copy()
         energy, fock, components = self.evaluate(dm)
         diis = PulayDIIS(self.config.native_diis_space)
         for cycle in range(self.max_cycle):
             check_cancelled(self.directory)
-            extrapolated = diis.update(fock, self.residual(fock, dm))
+            error = self.residual(fock, dm)
+            extrapolated = diis.update(fock, error)
             energies, coeff = self.diagonalize(extrapolated)
             pure = self.density(coeff)
-            trial = (1 - self.config.native_damping) * pure + self.config.native_damping * dm
+            # Mix in the previous density only far from convergence: it stabilizes hard
+            # cases (Fe atom) but costs DIIS several cycles near the solution.
+            damping = (self.config.native_damping
+                       if np.linalg.norm(error) > self.config.native_damping_residual else 0.0)
+            trial = (1 - damping) * pure + damping * dm
             next_energy, next_fock, next_components = self.evaluate(trial)
             de = next_energy - energy
             ddm = float(np.linalg.norm(trial - dm))
