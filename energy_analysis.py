@@ -13,7 +13,10 @@ from molecular import DFTConfig
 from periodic import config_from_dict
 
 HARTREE_EV = physical_constants['Hartree energy in eV'][0]
-ENERGY_FIELDS = ('total_energy_hartree', 'free_energy_hartree', 'extrapolated_energy_hartree')
+ENERGY_FIELDS = ('total_energy_hartree', 'free_energy_hartree', 'extrapolated_energy_hartree',
+                 'zpe_corrected_energy_hartree', 'enthalpy_hartree', 'gibbs_free_energy_hartree')
+# Molecular frequency-run fields: comparable only at the same temperature and pressure.
+THERMO_FIELDS = ENERGY_FIELDS[3:]
 
 
 def read_result(path):
@@ -26,7 +29,7 @@ def read_result(path):
     return result, {'path': str(path.resolve()), 'sha256': hashlib.sha256(raw).hexdigest()}
 
 
-def compatibility(result):
+def compatibility(result, energy_field='total_energy_hartree'):
     cfg = config_from_dict(result['config'])
     engine = result.get('engine')
     if engine not in ('quantumstarter-native', 'pyscf-molecular', 'pyscf-pbc'):
@@ -44,6 +47,10 @@ def compatibility(result):
                       basis_by_element={e: b + ('+def2-ecp' if e in ecp else '')
                                         for e, b in cfg.basis_by_element.items()},
                       dispersion=cfg.dispersion)
+        if energy_field in THERMO_FIELDS:
+            gas = result.get('frequencies', {}).get('ideal_gas_thermochemistry', {})
+            common.update(thermo_temperature_k=gas.get('temperature_k'), thermo_pressure_pa=gas.get('pressure_pa'),
+                          thermo_model=gas.get('model'))
         if cfg.dispersion != 'none':
             details = result.get('dispersion') or {}
             common.update(dispersion_parameters=details.get('parameters'),
@@ -72,7 +79,7 @@ def reaction_energy(terms, energy_field='total_energy_hartree'):
         result, source = read_result(path)
         if result.get('status') != 'converged' or result.get('converged') is not True:
             raise ValueError(f'수렴하지 않은 계산은 에너지 분석에 사용할 수 없습니다: {path}')
-        key = compatibility(result)
+        key = compatibility(result, energy_field)
         for element, basis in key.pop('basis_by_element', {}).items():
             if element_bases.setdefault(element, basis) != basis:
                 raise ValueError(f'계산 조건 불일치: 원소 {element}의 기저/ECP가 항마다 다릅니다 '
@@ -101,7 +108,9 @@ def reaction_energy(terms, energy_field='total_energy_hartree'):
             'definition': 'sum(stoichiometric_coefficient * energy); products positive, reactants negative',
             'energy_hartree': energy, 'energy_ev': energy * HARTREE_EV, 'conditions': reference, 'terms': rows,
             'interpretation': '음수는 선택한 에너지 정의에서 생성물 쪽 에너지가 낮음을 뜻합니다.',
-            'limitations': ['전자 에너지이며 진동 ZPE/열역학 보정을 자동 포함하지 않음',
+            'limitations': [('이상기체·강체회전자·조화진동자 근사의 ZPE/열역학 포함; 저주파 모드·용매·표준상태 보정 없음'
+                             if energy_field in THERMO_FIELDS else
+                             '전자 에너지이며 진동 ZPE/열역학 보정을 자동 포함하지 않음'),
                             '촉매 활성·선택성·생산 효율 또는 반응 장벽의 증거가 아님',
                             'SCF 수렴과 기저/격자/스핀 바닥상태 검증은 별개',
                             '주기계는 동일 셀·k점·smearing 기준만 허용; 다른 참조 셀은 현재 미지원']}

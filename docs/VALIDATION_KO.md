@@ -1,5 +1,17 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.7: 이상기체 자유에너지 (RRHO)
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 7-A (담당 Claude). 환경 변경 없음. GUI 시험은 숨김 모드만.
+
+- 확인한 사실: PySCF `hessian.thermo.thermo`는 병진·회전 항에 동위원소 평균 질량을 쓴다. 우리 결과는 모든 항에서 최빈 동위원소 질량(Gaussian 관례). 비교 시에는 같은 평균 질량을 우리 함수에 넣었다.
+- 같은 Hessian·질량·진동수에서 PySCF thermo와 항목별 비교(물, CO, NH₃, 삼중항 O₂; 개발 확인): S_trans·S_rot·S_elec 상대 차 3.3~4.2e-7(물리상수 CODATA 판 차이와 같은 크기의 일정한 차), ZPE 1e-10, H·G 상대 1e-10 이하(≈1e-8 Ha). 선형/비선형 판정과 대칭수(물 2, CO 1, O₂ 2) 일치.
+- `test_frequencies` **8개 통과(26.3초, RuntimeWarning을 오류로 둔 실행)**: 위 비교(엔트로피 상대 1e-5, H·G 1e-7 Ha), 반응 분석에서 G 선택 시 값 = 수동 합, 원자의 rotor = atom, 온도가 다른 항(298.15 vs 500 K) 거부, 같은 실행의 전자 에너지 반응은 온도와 무관하게 허용.
+- 개발 중 경고: 원자(관성 모멘트 0)에서 쓰이지 않는 회전 온도 계산의 0 나눗셈 경고 → 회전체일 때만 계산하도록 수정.
+- 회귀: WSL 77개 통과(test_frequencies 8 + 나머지 69). Windows(숨김 GUI 포함) 37개 중 31 통과·6 skip(PySCF 필요, WSL 통과).
+
+한계: RRHO만(quasi-RRHO·비조화·내부 회전자 없음), 들뜬 전자 상태 무시, 용매·표준상태(1 M) 변환 없음, 대칭수 자동 판정은 PySCF 점군 판정의 허용오차에 의존(필요하면 `symmetry_number`로 지정).
+
 ## 0.8.6: 자체 SCF 품질 — 초기 추정·혼합·안정성 분석
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 7-B (담당 Claude). 환경 변경 없음. **사용자 요청에 따라 이번부터 GUI 시험은 숨김 모드(`QUANTUMSTARTER_TK_HIDDEN=1`)로만 실행**했다.

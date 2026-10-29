@@ -259,7 +259,11 @@ class MolecularApp(QuantumApp):
         self._entry(advanced, '구조 최적화 최대 단계', 'opt_max_steps', '1~1000. 기본 100.', self._settings_changed)
         self._entry(advanced, '진동수 변위 [bohr]', 'freq_step_bohr',
                     '해석적 힘의 중심 유한차분 변위. 기본 0.005. 원자 수 N이면 6N회 계산.', self._settings_changed)
-        self._entry(advanced, '열역학 온도 [K]', 'thermo_temperature_k', '진동 열역학 온도. 기본 298.15.',
+        self._entry(advanced, '열역학 압력 [Pa]', 'thermo_pressure_pa', '이상기체 G의 압력. 기본 101325 (1 atm).',
+                    self._settings_changed)
+        self._entry(advanced, '회전 대칭수', 'symmetry_number', '0이면 점군 자동 판정. 예: 물 2, NH3 3, CH4 12.',
+                    self._settings_changed)
+        self._entry(advanced, '열역학 온도 [K]', 'thermo_temperature_k', '열역학 온도. 기본 298.15.',
                     self._settings_changed)
         self._combo(advanced, '초기 전자 추정', self.vars['initial_guess'], ['auto', 'core', 'minao', 'perturbed'],
                     'auto/minao: 원자 밀도 중첩(PySCF minao). core: 핵 해밀토니안. perturbed: 자체 엔진의 재현 가능한 궤도 혼합.', self._settings_changed)
@@ -380,13 +384,13 @@ class MolecularApp(QuantumApp):
     def read_config(self):
         data = {key: var.get().strip() for key, var in self.vars.items()}
         for key in ('charge', 'spin', 'max_cycle', 'grid_level', 'cube_points', 'threads', 'memory_mb', 'native_diis_space',
-                    'opt_max_steps'):
+                    'opt_max_steps', 'symmetry_number'):
             try:
                 data[key] = int(data[key])
             except ValueError:
                 raise ValueError(f'{key}: 정수를 입력하세요.') from None
         for key in ('conv_tol', 'cube_margin_bohr', 'native_density_tol', 'native_residual_tol', 'native_damping', 'native_damping_residual',
-                    'freq_step_bohr', 'thermo_temperature_k'):
+                    'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa'):
             try:
                 data[key] = float(data[key])
             except ValueError:

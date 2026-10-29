@@ -80,6 +80,55 @@ def vibrational_thermo(frequencies_cm1, temperature):
             'model': 'harmonic oscillator, real modes only; translation/rotation/electronic terms not included'}
 
 
+def symmetry_number(elements, coords_bohr):
+    """Rotational symmetry number from PySCF's point-group detection (external helper)."""
+    from pyscf import gto
+    from pyscf.hessian.thermo import rotational_symmetry_number
+    mol = gto.Mole()
+    mol._atom = [(e, tuple(c)) for e, c in zip(elements, coords_bohr)]
+    return rotational_symmetry_number(mol)
+
+
+def ideal_gas_thermo(electronic_energy, frequencies_cm1, masses, coords_bohr, multiplicity, sigma,
+                     temperature, pressure):
+    """Rigid-rotor / harmonic-oscillator ideal gas; energies in Hartree, entropies in Hartree/K."""
+    kb = Boltzmann / HARTREE_J
+    kt = kb * temperature
+    vib = vibrational_thermo(frequencies_cm1, temperature)
+    total_mass = masses.sum() * AMU_KG
+    q_trans = (2 * np.pi * total_mass * Boltzmann * temperature / Planck**2)**1.5 * Boltzmann * temperature / pressure
+    centred = coords_bohr - masses @ coords_bohr / masses.sum()
+    inertia = np.einsum('i,ij,ik->jk', masses, centred, centred)
+    moments = np.sort(np.linalg.eigvalsh(np.trace(inertia) * np.eye(3) - inertia))  # amu bohr^2
+    def theta(moment):  # Rotational temperature h^2 / (8 pi^2 I k_B) of a nonzero moment.
+        return Planck**2 / (8 * np.pi**2 * moment * AMU_KG * BOHR_M**2 * Boltzmann)
+    if len(masses) == 1:
+        rotor, s_rot, u_rot = 'atom', 0.0, 0.0
+    elif moments[0] < 1e-6 * moments[2]:
+        rotor = 'linear'
+        s_rot, u_rot = kb * (1 + np.log(temperature / (sigma * theta(moments[2])))), kt
+    else:
+        rotor = 'nonlinear'
+        q_rot = np.sqrt(np.pi) / sigma * np.sqrt(temperature**3 / np.prod([theta(m) for m in moments]))
+        s_rot, u_rot = kb * (1.5 + np.log(q_rot)), 1.5 * kt
+    terms = {
+        'electronic': {'energy': electronic_energy, 'entropy': kb * np.log(multiplicity)},
+        'translational': {'energy': 1.5 * kt, 'entropy': kb * (2.5 + np.log(q_trans))},
+        'rotational': {'energy': u_rot, 'entropy': float(s_rot)},
+        'vibrational': {'energy': vib['u_vib_hartree'], 'entropy': vib['s_vib_hartree_per_k']}}
+    internal = sum(t['energy'] for t in terms.values())
+    entropy = sum(t['entropy'] for t in terms.values())
+    enthalpy = internal + kt  # H = U + pV = U + kT for an ideal gas
+    return {'model': 'ideal gas, rigid rotor, harmonic oscillator (real modes); no quasi-RRHO, no scaling',
+            'temperature_k': temperature, 'pressure_pa': pressure, 'multiplicity': multiplicity,
+            'symmetry_number': sigma, 'rotor': rotor, 'moments_of_inertia_amu_bohr2': moments.tolist(),
+            'terms_hartree': terms, 'zpe_hartree': vib['zpe_hartree'],
+            'zpe_corrected_energy_hartree': electronic_energy + vib['zpe_hartree'],
+            'internal_energy_hartree': internal, 'enthalpy_hartree': enthalpy,
+            'entropy_hartree_per_k': entropy, 'gibbs_free_energy_hartree': enthalpy - temperature * entropy,
+            'thermal_correction_to_g_hartree': enthalpy - temperature * entropy - electronic_energy}
+
+
 def frequency_molecule(config, directory, progress=print):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -131,6 +180,11 @@ def frequency_molecule(config, directory, progress=print):
     summary = calculate_molecule(replace(base, cube_points=config.cube_points), directory, progress, reference_density)
     save_dft_config(config, directory / 'settings.json')
     final_gradient = np.asarray(summary['gradient']['gradient_hartree_per_bohr'])
+    sigma = config.symmetry_number or symmetry_number([a.element for a in atoms], coords)
+    gas = ideal_gas_thermo(summary['total_energy_hartree'], frequencies, masses, coords, config.spin + 1, sigma,
+                           config.thermo_temperature_k, config.thermo_pressure_pa)
+    gas['symmetry_number_source'] = 'user' if config.symmetry_number else 'pyscf point-group detection'
+    low = [float(f) for f in frequencies if 0 < f < 100]
     imaginary = [float(f) for f in frequencies if f < 0]
     significant = [f for f in imaginary if -f > SIGNIFICANT_IMAGINARY_CM1]
     summary['frequencies'] = {
@@ -147,7 +201,12 @@ def frequency_molecule(config, directory, progress=print):
         'hessian_hartree_per_bohr2': hessian.tolist(), 'hessian_asymmetry_max': asymmetry,
         'reference_max_gradient_hartree_per_bohr': float(np.abs(final_gradient).max()),
         'reference_gradient_recompute_difference': float(np.abs(final_gradient.ravel() - reference_gradient).max()),
-        'thermochemistry': thermo, 'completed_at_utc': datetime.now(timezone.utc).isoformat()}
+        'thermochemistry': thermo, 'ideal_gas_thermochemistry': gas,
+        'completed_at_utc': datetime.now(timezone.utc).isoformat()}
+    # Top-level fields that the reaction/adsorption analysis can select.
+    summary['zpe_corrected_energy_hartree'] = gas['zpe_corrected_energy_hartree']
+    summary['enthalpy_hartree'] = gas['enthalpy_hartree']
+    summary['gibbs_free_energy_hartree'] = gas['gibbs_free_energy_hartree']
     summary['calculation'] = 'frequencies'
     summary['config'] = config.to_dict()
     summary['assumptions'] = ['isolated finite molecule', 'harmonic vibrations at the input geometry',
@@ -161,8 +220,13 @@ def frequency_molecule(config, directory, progress=print):
     elif imaginary:
         warnings.append(f'작은 허수 진동 {len(imaginary)}개(≤ {SIGNIFICANT_IMAGINARY_CM1:g} cm⁻¹): 수치 잡음일 수 있습니다. '
                         '격자 수준·SCF/최적화 수렴 기준을 높여 확인하세요.')
-    warnings.append('조화 근사 진동수입니다. 비조화성·실험 진동수 보정 인자는 적용하지 않았으며 ZPE/열역학에는 '
-                    '허수 모드를 제외했습니다. 병진·회전·전자 열역학 항은 포함하지 않았습니다.')
+    if low:
+        warnings.append(f'100 cm⁻¹ 미만 저주파 모드 {len(low)}개: 조화 진동자 엔트로피가 과대평가될 수 있습니다'
+                        '(quasi-RRHO 보정은 적용하지 않음). G 해석에 주의하세요.')
+    warnings.append('조화 근사 진동수입니다. 비조화성·보정 인자 없음, ZPE/열역학에서 허수 모드 제외. '
+                    f'G는 이상기체·강체회전자·조화진동자 근사(T={config.thermo_temperature_k:g} K, '
+                    f'p={config.thermo_pressure_pa:g} Pa, 대칭수 {sigma:g}, 다중도 {config.spin + 1}, '
+                    '들뜬 전자 상태 무시)입니다.')
     summary['warnings'] = warnings + summary['warnings']
     temporary = directory / 'results.json.tmp'
     temporary.write_text(json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')

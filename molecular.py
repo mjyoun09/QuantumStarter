@@ -165,6 +165,8 @@ class DFTConfig:
     opt_max_steps: int = 100
     freq_step_bohr: float = 0.005  # Central-difference displacement for the Hessian.
     thermo_temperature_k: float = 298.15
+    thermo_pressure_pa: float = 101325.0
+    symmetry_number: int = 0  # Rotational symmetry number; 0 = detect the point group.
     initial_guess: str = 'auto'
     native_density_tol: float = 1e-7
     native_residual_tol: float = 1e-6
@@ -192,6 +194,8 @@ class DFTConfig:
         integer(self.opt_max_steps, '구조 최적화 최대 단계', 1, 1000)
         real(self.freq_step_bohr, '진동수 유한차분 변위 [bohr]', 1e-4, 0.05)
         real(self.thermo_temperature_k, '열역학 온도 [K]', 1, 5000)
+        real(self.thermo_pressure_pa, '열역학 압력 [Pa]', 1, 1e9)
+        integer(self.symmetry_number, '회전 대칭수 (0=자동)', 0, 1000)
         if not isinstance(self.atoms, (tuple, list)) or not 1 <= len(self.atoms) <= 100:
             raise ValueError('한 구조에 원자 1~100개를 입력하세요.')
         if not all(isinstance(atom, Atom) for atom in self.atoms):

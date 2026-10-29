@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 7-A (이상기체 자유에너지) 완료 2026-10-29 · 0.8.7 · Claude
+
+- 진동수 계산에 RRHO 이상기체 열역학 추가: 병진·회전(선형/비선형/원자)·전자(다중도)·진동 항, H/S/G, ZPE 보정 에너지. 결과 최상위 `zpe_corrected_energy_hartree`·`enthalpy_hartree`·`gibbs_free_energy_hartree`. 설정 `thermo_pressure_pa`, `symmetry_number`(0=PySCF 점군 판정), GUI·CLI(`--pressure`, `--symmetry-number`).
+- 반응·흡착 분석에서 ZPE/H/G 선택 가능, 이때 온도·압력·모델 일치 검사. 한계 문구를 선택한 에너지에 맞게 표시.
+- 주요 파일: engines/frequencies.py, energy_analysis.py, molecular.py, scf_control.py, main.py, molecular_app.py, workflow.py, test_frequencies.py, test_basis_overrides.py, README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: PySCF thermo와 항목별 일치(H·G 1e-10 상대), WSL 77개, Windows 숨김 31개(+6 skip WSL 통과).
+- 한계: quasi-RRHO·비조화·용매·표준상태 변환 없음, 들뜬 전자 상태 무시.
+
 ## QS-20261029-NATIVE-DFT · 단계 7-B (자체 SCF 품질) 완료 2026-10-29 · 0.8.6 · Claude
 
 - 자체 SCF `auto` 초기 추정을 원자 밀도 중첩(PySCF minao 보조, 첫 Fock 생성에만 사용)으로, 밀도 혼합을 잔차 기준(`native_damping_residual`, 기본 1e-3)으로 변경(커밋 d5f9399). 반복 수 물 14→9, CH4 14→7, NH2 14→10, O2 10→8, Fe 원자 수렴.

@@ -123,6 +123,56 @@ class FrequencyPhysicsTests(unittest.TestCase):
         expected = np.sqrt(curvature / (1.007825 / 2)) * AU_TO_CM1
         self.assertAlmostEqual(result['frequencies']['frequencies_cm1'][0], expected, delta=1.0)
 
+    def test_ideal_gas_thermo_matches_pyscf(self):
+        # Same Hessian, masses (PySCF thermo uses isotope-averaged masses) and frequencies:
+        # entropies differ only by the CODATA constant versions (~4e-7 relative).
+        from pyscf import dft, gto
+        from pyscf.hessian import thermo
+        from engines.frequencies import harmonic_analysis, ideal_gas_thermo, symmetry_number
+        for atoms, spin, rotor in ((WATER, 0, 'nonlinear'), ('O 0 0 0; O 0 0 1.21', 2, 'linear')):
+            with self.subTest(atoms=atoms):
+                mol = gto.M(atom=atoms, basis='sto-3g', spin=spin, verbose=0)
+                mf = dft.UKS(mol) if spin else dft.RKS(mol)
+                mf.xc = 'lda,vwn'
+                mf.kernel()
+                hessian = mf.Hessian().kernel()
+                masses = mol.atom_mass_list(isotope_avg=True)
+                reference = thermo.thermo(mf, thermo.harmonic_analysis(mol, hessian, mass=masses)['freq_au'],
+                                          298.15, 101325)
+                flat = hessian.transpose(0, 2, 1, 3).reshape(3 * mol.natm, 3 * mol.natm)
+                frequencies = harmonic_analysis(flat, mol.atom_coords(), masses)['frequencies_cm1']
+                sigma = symmetry_number([mol.atom_pure_symbol(i) for i in range(mol.natm)], mol.atom_coords())
+                ours = ideal_gas_thermo(mf.e_tot, frequencies, masses, mol.atom_coords(), spin + 1, sigma,
+                                        298.15, 101325)
+                self.assertEqual((ours['rotor'], sigma), (rotor, reference['sym_number'][0]))
+                terms = ours['terms_hartree']
+                for name, value in (('S_trans', terms['translational']['entropy']),
+                                    ('S_rot', terms['rotational']['entropy']),
+                                    ('S_elec', terms['electronic']['entropy'])):
+                    self.assertAlmostEqual(value, reference[name][0], delta=1e-5 * max(abs(reference[name][0]), 1e-12))
+                self.assertAlmostEqual(ours['enthalpy_hartree'], reference['H_tot'][0], delta=1e-7)
+                self.assertAlmostEqual(ours['gibbs_free_energy_hartree'], reference['G_tot'][0], delta=1e-7)
+
+    def test_gibbs_in_reaction_analysis_requires_same_conditions(self):
+        from engines import calculate
+        from energy_analysis import reaction_energy
+        h2 = replace(self.cfg, atoms=parse_coordinates('H 0 0 0; H 0 0 .74'), calculation='frequencies', grid_level=2)
+        h = replace(h2, atoms=parse_coordinates('H 0 0 0'), spin=1)
+        mol_run = calculate(h2, self.root / 'h2', lambda _: None)
+        atom_run = calculate(h, self.root / 'h', lambda _: None)
+        for field in ('zpe_corrected_energy_hartree', 'enthalpy_hartree', 'gibbs_free_energy_hartree'):
+            self.assertIn(field, mol_run)
+        report = reaction_energy([(1, self.root / 'h2'), (-2, self.root / 'h')], 'gibbs_free_energy_hartree')
+        expected = mol_run['gibbs_free_energy_hartree'] - 2 * atom_run['gibbs_free_energy_hartree']
+        self.assertAlmostEqual(report['energy_hartree'], expected, places=12)
+        self.assertEqual(report['conditions']['thermo_temperature_k'], 298.15)
+        self.assertEqual(atom_run['frequencies']['ideal_gas_thermochemistry']['rotor'], 'atom')
+        calculate(replace(h, thermo_temperature_k=500), self.root / 'h500', lambda _: None)
+        with self.assertRaisesRegex(ValueError, 'thermo_temperature_k'):
+            reaction_energy([(1, self.root / 'h2'), (-2, self.root / 'h500')], 'gibbs_free_energy_hartree')
+        # The electronic energy of the same runs stays comparable regardless of temperature.
+        reaction_energy([(1, self.root / 'h2'), (-2, self.root / 'h500')])
+
     def test_planar_ammonia_is_a_saddle_and_failures_stop(self):
         from engines import calculate
         planar = replace(self.cfg, atoms=parse_coordinates('N 0 0 0; H 0 1.01 0; H .8747 -.505 0; H -.8747 -.505 0'),
