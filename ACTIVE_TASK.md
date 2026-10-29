@@ -21,7 +21,7 @@
 - CLI 실계산 보존: outputs/basis_override_validation/20261029_202537_953szltv(pyscf), 20261029_202543_ocuvwdck(native), 차이 3.1e-11 Ha.
 - 문서 갱신 완료: README_KO, docs/ELEMENTS·NATIVE_DFT·VALIDATION(0.8.1 절)·REQUIREMENTS_STATUS, PROJECT_STATE(사용자 목표 = DFT 프로그램 자체 제작, Git 상태), CHANGELOG. CLAUDE.md에 `@AGENTS.md` import 추가(Codex 문장은 유지).
 
-### 단계 3: 분산 보정 (Claude, 진행 중)
+### 단계 3: 분산 보정 (Claude, 완료 — CHANGELOG 0.8.2)
 
 - 사용자 결정(2026-10-29): "더 정확한 것". 해석: 같은 모델이면 직접 구현과 라이브러리는 결과가 같고 정확도는 모델이 정한다 → **DFT-D4(EEQ 전하 의존 C6, BJ 감쇠 + ATM 3체)**를 Grimme 그룹 공식 구현 `dftd4` Python 패키지로 계산. D3 자체 구현은 하지 않음.
 - 계획: (1) WSL .venv-dft에 dftd4 설치·API/원소 범위/매개변수 조회 확인 → (2) `DFTConfig.dispersion` none|d4, XC별 감쇠 매개변수(pbe/pbe0/b3lyp; LDA 거부), 원소 범위 검증 → (3) engines/dispersion.py: PySCF mol의 bohr 좌표·원자번호·총전하로 에너지, 결과에 성분 `dispersion`·모델·매개변수·버전 기록, 총에너지 = SCF + 분산 → (4) 체크포인트 서명에서 dispersion 제외(밀도 무관), 반응 분석은 분산 모델 일치 검사 → (5) GUI/CLI → (6) 검증: 이원자 장거리 −E·R⁶ → s6·C6 점근, 단위(Å/bohr) 불변, 병진·회전 불변, 전하 전달, 패키지 없을 때 명확한 오류·기본 기능 유지, 기존 회귀 → (7) 문서/CHANGELOG/커밋.
@@ -34,7 +34,7 @@
 - CLI 실계산: outputs/dispersion_validation/ (PySCF+D4, 자체+D4, D4 없음). 두 엔진 차 2e-12 Ha, D4 −1.953413873068e-4 Ha. 실행 당시 version 필드는 0.8.1(문자열 변경 직전).
 - 문서: README(분산 절·예제), START_HERE(선택 설치), docs/NATIVE_DFT·VALIDATION(0.8.2)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG 갱신. **단계 3 완료.**
 
-### 단계 4: DFT 원자 힘 (Claude, 진행 중)
+### 단계 4: DFT 원자 힘 (Claude, 완료 — CHANGELOG 0.8.3)
 
 - 계획: `calculation='gradient'` 추가. 자체 엔진은 신규 engines/native_gradient.py에서 해석적 기울기를 직접 조립(1전자 기저·핵연산자 미분, J/K는 int2e_ip1 셸 단위 블록으로 메모리 제한, LDA/GGA XC는 AO 2차 도함수, 에너지가중 밀도 W=½DFD(RKS)/ΣD_sF_sD_s(UKS), 핵반발). 격자 가중치 미분 없음(PySCF 기본과 동일)을 결과에 명시. PySCF 엔진은 `mf.nuc_grad_method()`. D4 기울기는 dftd4 grad=True. SCF 미수렴이면 힘을 내지 않음.
 - 검증 계획: (a) **고정 격자** 중심 유한차분(격자를 기준 구조에 고정하면 해석식이 정확한 미분이어야 함) RKS/UKS × LDA/PBE/PBE0, (b) 같은 격자의 PySCF 기울기와 비교, (c) 움직이는 격자 유한차분과의 차이(격자 응답 크기)를 격자 수준별로 기록, (d) D4 기울기 유한차분, (e) PySCF 경로 ECP 실행, (f) 회귀·GUI.
@@ -43,13 +43,18 @@
 - 첫 비교에서 자체 해석 기울기 = PySCF 기울기(같은 격자) 1e-15 수준으로 일치(물 LDA/PBE/PBE0, OH UKS PBE).
 - 오류·조치: test_gradient 첫 실행 1 실패 — OH UKS(격자 1, 엄격 수렴)에서 **자체 SCF가 300회 진동하며 미수렴**(ΔD ~2e-5 정체; 거의 축퇴한 π 궤도 점유 교대로 추정, 기울기 문제 아님). 시험 대상을 비축퇴 라디칼 NH2로 교체해 통과. **미해결 기록: 자체 DIIS의 근축퇴 열린 껍질 수렴 문제**(Codex의 OH 관찰과 같은 계열 가능성). 차후 레벨 시프트/점유 고정 등 검토 필요.
 - test_gradient 6개 WSL 통과(11초). scripts/validate_gradient.py → outputs/gradient_validation/20261029_211817/report.json: 고정 격자 FD 최대차 1.2e-9~3.3e-9 Ha/bohr(5조건 × 전 좌표), 움직이는 격자와 차(격자 응답 크기) 수준1~4: 6.0e-4/4.4e-5/1.1e-5/1.1e-6, 자체 vs PySCF def2-SVP 8.8e-13/5.7e-13, PySCF Newton·sfX2C 기울기 지원 확인.
-- 다음: 전체 회귀 → CLI 실계산 → 문서/CHANGELOG/PROJECT_STATE → 커밋.
+- 회귀: WSL 60개 통과(56.7초). Windows 50개 중 38 통과·12 skip(11개 WSL에서 통과, 기존 주기계 GUI 1개). 새 실계산 GUI 기울기 시험 통과(7.8초). 버전 0.8.3 변경 후 빠른 시험 재통과.
+- CLI 실계산: outputs/gradient_validation/cli/ (물 PBE-D4/def2-SVP, 두 엔진 최대 힘 1.168150/1.168146 eV/Å, 기본 수렴 기준 차 ~1e-7 Ha/bohr). 실행 당시 version 필드 0.8.2.
+- 문서 갱신: README(원자 힘 절), docs/NATIVE_DFT·VALIDATION(0.8.3)·REQUIREMENTS_STATUS, PROJECT_STATE(알려진 문제 포함), CHANGELOG. 커밋 c9719b1. **단계 4 완료.**
+- (인수 당시의 단계 4 사전 계획 문단은 구현과 달라진 내용 — "calculation은 single_point만 허용" — 이 있어 삭제했다. 실제 구현은 위 기록과 커밋을 따른다.)
 
-- 현재 `DFTConfig.calculation`은 `single_point`만 허용(molecular.py `__post_init__`).
-- 권장 순서: (1) 자체 엔진 해석적 RKS/UKS 기울기 — 필요한 적분은 PySCF 제공(int1e_ipovlp, int1e_ipkin, int1e_ipnuc + 핵 연산자 미분 int1e_iprinv, int2e_ip1), 에너지가중 밀도행렬, XC 기울기(AO 2차 도함수; 격자 가중치 미분 포함 여부를 명시), 핵반발 미분, D4 기울기(dftd4 `get_dispersion(..., grad=True)`). (2) 검증: 총에너지 중심 유한차분(각 좌표 ±h, h~1e-4 bohr, 격자 고정 여부 주의)과 비교, PySCF `mf.nuc_grad_method()`와 비교, 병진 불변(힘 합 0)·회전 불변. (3) 결과에 힘(Ha/bohr, eV/Å) 저장, `calculation='gradient'` 추가. (4) 그 다음 구조 최적화: 자체 BFGS vs geomeTRIC/pyberny 선택은 사용자 결정 필요.
-- 주의: 격자 가중치 미분을 빼면 유한차분과 ~1e-5 Ha/bohr 수준 차이가 날 수 있음(격자 수준 의존). ECP/X2C 힘은 자체 엔진 범위 밖(PySCF 엔진 경로에서만 가능 여부 확인).
+### 단계 5 재개 지점: 구조 최적화 (미착수)
 
-(아래는 결정 전 기록, 참고용)
+1. **먼저 자체 SCF 근축퇴 수렴 문제 수정.** 재현 조건: OH `O 0 0 0; H 0.1 0 .97`, spin 1, PBE, STO-3G, engine native, grid_level 1, conv_tol 1e-12, native_density_tol 1e-10, native_residual_tol 1e-9, max_cycle 300 → 300회 미수렴, ΔD ~2e-5 정체. 후보: 레벨 시프트(가상 궤도 에너지 올림), 최대 중첩 점유(MOM), DIIS 이력 리셋 조건. 수정 후 test_native 전체와 Codex 기록의 OH 독립 SCF 차이(2.4e-6 Ha)도 재확인.
+2. 구조 최적화: **사용자 결정 필요** — 자체 BFGS(직교좌표, 신뢰영역) 구현 vs geomeTRIC/pyberny(내부좌표, 검증된 외부 최적화기). 수렴 기준(최대 힘·RMS 힘·변위·에너지 변화), 매 단계 구조/에너지/힘 저장, 중단·재시작, 단계별 SCF 미수렴 시 중단. 격자 응답 미포함이므로 grid_level ≥ 3 권장(수준 3에서 ~1e-5 Ha/bohr).
+3. 이후: Hessian(힘 유한차분)/진동/ZPE → NEB → 주기계 힘/응력/밴드/DOS.
+
+### 단계 3 결정 전 기록 (참고용, 결정은 단계 3 절 참조)
 - 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.
 - 영향 파일 예상: molecular.py(DFTConfig.dispersion 필드·검증), engines/pyscf_engine.py(성분 합산·출처), engines/native_scf.py(성분 표시만; SCF에는 영향 없음 — D3는 밀도 비의존), scf_control.signature(분산은 밀도에 영향 없으므로 서명에서 제외 검토), energy_analysis.compatibility(분산 모델 일치 검사), GUI/CLI, 테스트.
 - 이후 순서(인계 원문 유지): 힘(유한차분 검증) → 구조 최적화/제약/스캔 → Hessian/진동/ZPE → NEB → 주기계 응력/밴드/DOS.
