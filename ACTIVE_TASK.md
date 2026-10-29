@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: IN_PROGRESS — 단계 7 진행 중 (Claude, 2026-10-29 사용자 "전부 해": 후보 B(자체 SCF 품질) → A(자유에너지) → C(제약·스캔·NEB/TS) 순). 단계 2~6 완료. **사용자 요청: 화면에 창을 띄우는 검증 금지 → GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 상태: HANDOFF_READY — 단계 2~7 완료(최신: 7-B 0.8.6, 7-A 0.8.7, 7-C 0.8.8 커밋). 남은 것: 단계 8(NEB 등, 아래 재개 지점). 실행 중인 계산·미저장 코드 없음. **사용자 요청: 화면에 창을 띄우는 검증 금지 → GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -74,7 +74,7 @@
 - CLI 실계산: outputs/frequency_validation/cli/(0.8.4 최적화 물 구조, PBE-D4/def2-SVP; 자체 1608.48/3690.73/3790.01, PySCF 1608.43/3690.50/3789.62 cm⁻¹, minimum, ZPE 54.366/54.362 kJ/mol). 실행 당시 version 0.8.4.
 - 문서: README(진동수 절·예제), docs/VALIDATION(0.8.5)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG. **단계 6 완료.**
 
-### 단계 7: 전부 진행 (Claude, 진행 중 — 순서 B → A → C)
+### 단계 7: 전부 진행 (Claude, 완료 — B 0.8.6, A 0.8.7, C 0.8.8; NEB는 단계 8로)
 
 - B-2/3) 자체 SCF 반복 수·전이금속 (커밋 예정 0.8.6 일부): 진단 — 기본 밀도 혼합 0.15가 쉬운 계에 3~4회, core 초기 추정이 2~3회 추가. 변경: (a) native `auto` 초기 추정 = PySCF `init_guess_by_minao`(원자 밀도 중첩, 외부 보조로 명시; 투영 밀도는 전자 수가 정확하지 않아 첫 Fock 생성에만 쓰고 그 점유 궤도에서 시작 — 처음엔 밀도를 직접 썼다가 취소 체크포인트의 전자 수 검사 실패를 test_native가 잡아 수정), (b) `native_damping_residual`(기본 1e-3): 교환자 노름이 이보다 클 때만 혼합. 결과 물 14→9, CH4 14→7, NH2 14→10, O2 10→8회; Fe 원자(STO-3G, 2S=4) 미수렴→수렴. 
   - 미해결(진단 기록): Cr(2S=6)·Co 원자는 어떤 혼합·추정에서도 정수 점유 미수렴. 페르미 스미어링(σ=0.01~0.03 Ha) 상태는 13~25회 수렴하지만 정수 점유로 되돌리면 다시 진동. 진동 에너지가 PySCF 수렴해보다 ~1e-5 Ha 낮음(PySCF 해도 최저가 아닐 수 있음). 축퇴 d 껍질의 aufbau 고정점 부재로 추정 → 2차(Newton) 해법 또는 분수 점유 모델 필요(미구현).
@@ -82,10 +82,16 @@
 - A) 자유에너지 완료(0.8.7): engines/frequencies.py `ideal_gas_thermo`·`symmetry_number`, energy_analysis THERMO_FIELDS, 설정·GUI·CLI. PySCF thermo가 평균 질량을 쓰는 점 확인(비교 시 동일 질량 사용). test_frequencies 8 통과(경고=오류), WSL 77, Windows 숨김 31(+6 skip). **7-A 완료.** 다음: 7-C 제약·스캔(geomeTRIC constraints), NEB/TS.
 - 0) 숨김 GUI 시험 모드 추가: test_molecular_gui `QUANTUMSTARTER_TK_HIDDEN=1`(루트 withdraw + Toplevel 생성 즉시 withdraw, 화면 배치 단언 2곳만 생략). 실계산 포함 14개 통과(79초). 수소·주기계 GUI 시험은 숨김 모드가 없어 실행하지 않음.
 
-- 후보 A — 자유에너지: 병진·회전·전자 열역학(이상기체·강체회전자, 대칭수(점군 판정 또는 사용자 입력), 전자 축퇴도 2S+1, 압력 명시) → H/S/G, 반응 분석에 ZPE·G 옵션. 검증: PySCF `hessian.thermo.thermo`와 비교.
-- 후보 B — 자체 SCF 품질: SCF 안정성 분석(내부 불안정 → 낮은 해 추종), Fe 원자 미수렴, 단계당 반복 수(PySCF 대비 ~2배) 개선.
-- 후보 C — 제약·스캔(geomeTRIC 제약 입력), NEB/TS.
-- 이후: 주기계 힘/응력/밴드/DOS → 연구용 HEA DFT 기준값.
+- (계획 당시 후보 A/B/C 목록은 아래 완료 기록으로 대체됨.)
+- C) 제약·스캔·전이상태 완료(0.8.8): engines/optimizer.py(`opt_constraints`→constraints.txt, transition=True·hessian='first', `scan_molecule`), molecular.py `parse_scan`. 개발 오류: 사용자 제약이 내부 gradient 단계 설정으로 넘어가 검증에 걸림 → 내부·최종 설정에서 제약 제거. 첫 python3 실행이 stdin 대기로 멈춤(내 명령 실수, 파일 무변경 확인 후 .venv python 재실행). test_constraints 4 통과, WSL 81, Windows 숨김 27(+3 skip). **7-C 완료(NEB 제외).**
+
+### 단계 8 재개 지점 (미착수)
+
+1. **NEB**(사용자 "전부 해"의 남은 항목): geomeTRIC 1.1.1 `geometric.neb` — `ElasticBand(molecule, engine, tmpdir, params, coords=None, plain=0)`, `OptimizeChain(chain, engine, params, save_callback=None)`, `NEBParams`. 우리 `optimize_molecule`의 내부 `Engine.calc_new`를 이미지 계산에 재사용 가능. 필요: 생성물 구조 입력(예: `neb_product_xyz` 또는 다중 프레임 XYZ), 이미지 수, 이미지별 기록(neb/image_NN/step_NNN), 최고 에너지 이미지→`transition_state` 정밀화 연결. 검증 후보: H 이동 반응 또는 NH₃ 반전(두 피라미드 구조 사이 → 최고점이 평면 TS 근처, 위 TS 에너지와 비교).
+2. IRC(선택), 다차원 스캔(선택).
+3. 미해결 기록: Cr·Co 원자 자체 SCF 정수 점유 미수렴(2차 해법 필요), 삼중항·복소 SCF 불안정 미검사, quasi-RRHO 없음.
+4. 이후: 주기계 힘/응력/밴드/DOS → 연구용 HEA DFT 기준값.
+- **검증 규칙(사용자 요청)**: GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`로만. test_gui/test_periodic_gui는 화면에 창을 띄우므로 실행하지 않는다.
 
 ### 단계 3 결정 전 기록 (참고용, 결정은 단계 3 절 참조)
 - 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.

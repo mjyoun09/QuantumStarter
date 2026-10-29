@@ -3,9 +3,12 @@
 
 def calculate(config, directory, progress=print):
     if config.system == 'molecule':
-        if config.calculation == 'optimize':
+        if config.calculation in ('optimize', 'transition_state'):
             from .optimizer import optimize_molecule
             return optimize_molecule(config, directory, progress)
+        if config.calculation == 'scan':
+            from .optimizer import scan_molecule
+            return scan_molecule(config, directory, progress)
         if config.calculation == 'frequencies':
             from .frequencies import frequency_molecule
             return frequency_molecule(config, directory, progress)

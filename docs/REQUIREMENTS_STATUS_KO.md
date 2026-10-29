@@ -17,13 +17,14 @@
 | 분산 보정 | **분자 D4 에너지 구현·검증** | 선택 의존성 dftd4 4.3.1. PBE/PBE0/B3LYP, 110원소, 절단 없는 분자 합. 분산 힘·주기계 D4는 미구현 |
 | DFT 원자 힘 (분자) | **구현·검증** | 자체 해석적 RKS/UKS 기울기(LDA/GGA/global hybrid), PySCF 경로, D4 기울기. 격자 응답 항 없음 |
 | 구조 최적화 (분자) | **구현·검증** | geomeTRIC(선택 의존성) + 자체/PySCF 해석적 힘. PySCF 자체 geomeTRIC 드라이버와 구조 일치 |
-| 고정/거리 제약·스캔 | 미구현 | geomeTRIC 제약 입력으로 확장 가능. MLIP의 H만 완화 기능과 구분 |
+| 고정/거리 제약·스캔 (분자) | **구현·검증** | geomeTRIC `$freeze`/`$set` 제약, 이완 스캔(점마다 제약 최적화). 고정은 geomeTRIC 허용오차(~1e-4 Å) 내 |
 | Hessian·진동·ZPE (분자) | **구현·검증** | 해석적 힘 유한차분 Hessian, 정확한 병진·회전 제거, 허수 진동 판정, ZPE·진동 열역학. PySCF 해석적 Hessian과 ≤0.5 cm⁻¹ |
 | SCF 안정성 분석 (자체) | **구현·검증** | 실수 내부 회전, check/follow, PySCF 판정과 일치. 삼중항(RKS→UKS)·복소 불안정은 미검사 |
 | 전이금속 원자 SCF (자체) | 부분 | Fe 수렴(0.8.6), Cr·Co 정수 점유 미수렴 — 2차 해법 필요 |
 | 병진·회전 열역학, 자유에너지 G | **구현·검증 (분자, RRHO)** | ZPE/H/G 결과 필드, 대칭수 자동/입력, 반응 분석 선택. PySCF thermo와 H·G 1e-10 상대. quasi-RRHO·용매·표준상태 미구현 |
 | 반응/흡착에너지 및 호환성 검사 | 구현·검증 (제한 있음) | energy_analysis.py: 수렴/조건/수지/출처 검사. 주기계 동일 셀·k점만 허용, ZPE/열역학 없음 |
-| TS/NEB | 미구현 | 힘 검증 기반 필요 |
+| 전이상태 탐색 (분자) | **구현·검증** | geomeTRIC P-RFO(초기 Hessian은 우리 힘의 유한차분). NH₃ 반전 TS: 허수 진동 정확히 1개 확인 |
+| NEB·IRC | 미구현 | geomeTRIC `ElasticBand`/`OptimizeChain`/`NEBParams` 존재 확인(1.1.1). 생성물 구조 입력 필요 |
 | 주기계 k점·smearing·2D/3D 정전기 | 외부 PySCF에서 구현 | GDF+Gaussian/GTH, 평면파 아님 |
 | 결정·표면·진공/합금 후보 비교 | 부분 구현 | HEA/Pt 등 fcc111 후보 생성 |
 | 주기계 힘·응력·셀 최적화·표면 전하 보정 | 미구현 | 중성 slab만 지원 |

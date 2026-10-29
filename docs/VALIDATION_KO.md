@@ -1,5 +1,21 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.8: 제약 최적화·이완 스캔·전이상태 탐색
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 7-C (담당 Claude). 환경 변경 없음. GUI 시험은 숨김 모드만.
+
+- `wsl ... -m unittest test_constraints -v`: **4개 통과(30.0초)**. 전부 자체 엔진 PBE/STO-3G/grid3.
+  - 물 `$set angle 2 1 3 100`: 최종 각도 100.00000000000003°(시험 1e-6), 두 O–H 1.035081 Å 대칭, 제약 하에서 힘 기준 판정은 기록하지 않음(None).
+  - 물 `$freeze xyz 1`: O 원자 이동 3.4e-5 Å(시험 < 1e-3 Å). geomeTRIC은 제약을 수렴 허용오차 안에서 강제하며 정확히 0은 아니다.
+  - 잘못된 제약(`angle 2 1 100`) → 실행 전 parse_constraints 단계에서 ValueError.
+  - H₂ 이완 스캔 0.6–1.0 Å 5점: 거리 오차 < 1e-6 Å, 같은 거리 단일점 에너지와 2e-10 Ha 이내(이원자는 다른 자유도가 없으므로 같아야 함), 최저점 0.7 Å, scan.csv·상단 density.cube 생성.
+  - NH₃ 반전 전이상태(거의 평면 시작): 29회 기울기 계산(초기 Hessian 24 = 4원자×3×2, geomeTRIC dirname의 hessian 표시로 분류), 평면 구조(N과 H 평균 z 차 1.1e-4 Å), **진동수: 허수 정확히 1개 −880.6 cm⁻¹, 분자면 수직 우산 모드**, 판정 transition_state_candidate.
+- 개발 중 오류: 사용자 제약 문자열이 최적화 내부의 단계별 기울기 설정(calculation=gradient)으로 넘어가 새 검증 규칙에 걸림 → 내부 단계·최종 재계산 설정에서 제약을 비움.
+- 외부 라이브러리 경고: geomeTRIC 1.1.1 `optimize.py`가 제약 파일을 닫지 않아 ResourceWarning(결과 무관).
+- 회귀: WSL 81개 통과(120.0초). Windows(숨김 GUI) test_molecular_gui·test_workflow·test_solver·test_constraints 30개 중 27 통과·3 skip(WSL 통과).
+
+한계: NEB·IRC 없음(geomeTRIC 1.1.1에 `ElasticBand`/`OptimizeChain`/`NEBParams` 존재 확인 — 다음 단계 후보), 스캔은 1차원만, 전이상태는 시작 구조 근처의 1차 안장점만 찾으며 원하는 반응 경로인지 사용자가 확인해야 한다.
+
 ## 0.8.7: 이상기체 자유에너지 (RRHO)
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 7-A (담당 Claude). 환경 변경 없음. GUI 시험은 숨김 모드만.

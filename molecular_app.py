@@ -233,7 +233,7 @@ class MolecularApp(QuantumApp):
         self._combo(method, '교환·상관 함수', self.vars['xc'], FUNCTIONALS, 'LDA / PBE / B3LYP / PBE0', self._settings_changed)
         self._combo(method, '계산 종류', self.vars['calculation'], list(CALCULATIONS),
                     'gradient: 에너지와 원자 힘. optimize: geomeTRIC 구조 최적화(격자 수준 3 이상 권장). '
-                    'frequencies: 조화 진동수·ZPE(최적화된 구조에서).',
+                    'frequencies: 조화 진동수·ZPE·G. scan: 이완 스캔. transition_state: 전이상태 탐색(진동수로 확인).',
                     self._settings_changed)
         self._combo(method, '분산 보정', self.vars['dispersion'], list(DISPERSIONS),
                     'd4: Grimme DFT-D4 (dftd4 라이브러리). PBE/PBE0/B3LYP만, LDA 불가. '
@@ -257,6 +257,10 @@ class MolecularApp(QuantumApp):
         self._combo(advanced, '구조 최적화 수렴 기준', self.vars['opt_convergence'], list(OPT_CONVERGENCE),
                     'default: geomeTRIC 기본(최대 기울기 4.5e-4 Ha/bohr). tight: 10배 엄격.', self._settings_changed)
         self._entry(advanced, '구조 최적화 최대 단계', 'opt_max_steps', '1~1000. 기본 100.', self._settings_changed)
+        self._entry(advanced, '구조 제약 (geomeTRIC)', 'opt_constraints',
+                    '; 로 줄 구분. 예: $freeze;xyz 1  또는  $set;angle 2 1 3 100', self._settings_changed)
+        self._entry(advanced, '이완 스캔 (calculation=scan)', 'scan_spec',
+                    '예: distance 1 2 0.7 1.2 6 (Å·도, 원자 번호 1부터).', self._settings_changed)
         self._entry(advanced, '진동수 변위 [bohr]', 'freq_step_bohr',
                     '해석적 힘의 중심 유한차분 변위. 기본 0.005. 원자 수 N이면 6N회 계산.', self._settings_changed)
         self._entry(advanced, '열역학 압력 [Pa]', 'thermo_pressure_pa', '이상기체 G의 압력. 기본 101325 (1 atm).',

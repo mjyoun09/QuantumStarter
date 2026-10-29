@@ -24,7 +24,7 @@ BASES = tuple(MOLECULAR_CAPABILITIES)
 RELATIVISTIC_BASES = frozenset({'dyall-v2z', 'dyall-v3z'})
 FUNCTIONALS = ('lda,vwn', 'pbe', 'b3lyp', 'pbe0')
 DISPERSIONS = ('none', 'd4')
-CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies')
+CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies', 'scan', 'transition_state')
 # Thresholds handed to geomeTRIC: energy change [Ha], RMS/max gradient [Ha/bohr], RMS/max step [Angstrom].
 # 'default' equals geomeTRIC's own defaults (as documented by PySCF's geomeTRIC driver).
 OPT_CONVERGENCE = {
@@ -70,6 +70,28 @@ def describe_bases(default, basis_by_element):
     """'def2-svp (O=def2-tzvp)': the default plus the elements that differ from it."""
     different = {e: b for e, b in basis_by_element.items() if b != default}
     return default + (f' ({format_basis_overrides(different)})' if different else '')
+
+
+SCAN_ATOMS = {'distance': 2, 'angle': 3, 'dihedral': 4}
+
+
+def parse_scan(spec, natoms):
+    """'distance 1 2 0.7 1.2 6' -> ('distance', (1, 2), [0.7, ..., 1.2]); Angstrom / degrees, 1-based atoms."""
+    parts = spec.split()
+    if not parts or parts[0] not in SCAN_ATOMS or len(parts) != SCAN_ATOMS[parts[0]] + 4:
+        raise ValueError('스캔 형식: distance i j 시작 끝 점수 / angle i j k ... / dihedral i j k l ... '
+                         '(Å·도, 원자 번호는 1부터).')
+    count = SCAN_ATOMS[parts[0]]
+    try:
+        atoms = tuple(int(x) for x in parts[1:1 + count])
+        start, stop, points = float(parts[1 + count]), float(parts[2 + count]), int(parts[3 + count])
+    except ValueError:
+        raise ValueError('스캔의 원자 번호·시작·끝·점수가 숫자가 아닙니다.') from None
+    if len(set(atoms)) != count or not all(1 <= a <= natoms for a in atoms):
+        raise ValueError(f'스캔 원자 번호는 1~{natoms} 사이의 서로 다른 값이어야 합니다.')
+    if not 2 <= points <= 101 or not (math.isfinite(start) and math.isfinite(stop)) or start == stop:
+        raise ValueError('스캔 점수는 2~101, 시작과 끝은 서로 다른 유한한 값이어야 합니다.')
+    return parts[0], atoms, [start + (stop - start) * k / (points - 1) for k in range(points)]
 
 
 def integer(value, label, low, high):
@@ -163,6 +185,8 @@ class DFTConfig:
     calculation: str = 'single_point'  # 'gradient': also dE/dR; 'optimize': geomeTRIC minimization.
     opt_convergence: str = 'default'  # Key of OPT_CONVERGENCE.
     opt_max_steps: int = 100
+    opt_constraints: str = ''  # geomeTRIC constraint text ($freeze / $set ...); ';' may separate lines.
+    scan_spec: str = ''  # calculation=scan: 'distance i j start stop points' (Angstrom / degrees, 1-based).
     freq_step_bohr: float = 0.005  # Central-difference displacement for the Hessian.
     thermo_temperature_k: float = 298.15
     thermo_pressure_pa: float = 101325.0
@@ -192,6 +216,14 @@ class DFTConfig:
         if self.opt_convergence not in OPT_CONVERGENCE:
             raise ValueError('구조 최적화 수렴 기준: ' + ', '.join(OPT_CONVERGENCE))
         integer(self.opt_max_steps, '구조 최적화 최대 단계', 1, 1000)
+        if not isinstance(self.opt_constraints, str) or not isinstance(self.scan_spec, str):
+            raise ValueError('opt_constraints와 scan_spec은 문자열이어야 합니다.')
+        if self.calculation == 'scan':
+            parse_scan(self.scan_spec, len(self.atoms))
+        elif self.scan_spec.strip():
+            raise ValueError('scan_spec은 calculation=scan에서만 사용합니다.')
+        if self.opt_constraints.strip() and self.calculation not in ('optimize', 'scan', 'transition_state'):
+            raise ValueError('구조 제약은 optimize / scan / transition_state 계산에서만 사용합니다.')
         real(self.freq_step_bohr, '진동수 유한차분 변위 [bohr]', 1e-4, 0.05)
         real(self.thermo_temperature_k, '열역학 온도 [K]', 1, 5000)
         real(self.thermo_pressure_pa, '열역학 압력 [Pa]', 1, 1e9)

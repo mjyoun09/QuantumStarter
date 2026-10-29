@@ -3,6 +3,13 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 7-C (제약·스캔·전이상태) 완료 2026-10-29 · 0.8.8 · Claude
+
+- 제약 최적화 `opt_constraints`(geomeTRIC `$freeze`/`$set` 문법, 실행 전 구문 검사, constraints.txt 기록), 이완 스캔 `calculation=scan` + `scan_spec`(distance/angle/dihedral, 점별 제약 최적화, scan.csv·scan.xyz, 상단 폴더에 마지막 점 출력), 전이상태 탐색 `calculation=transition_state`(geomeTRIC P-RFO, 초기 Hessian은 우리 힘 유한차분, 단계 종류 기록). GUI·CLI(`--constraints`, `--scan`).
+- 주요 파일: engines/optimizer.py, engines/__init__.py, molecular.py(`parse_scan`, 필드·검증), scf_control.py, main.py, molecular_app.py, workflow.py, 신규 test_constraints.py, test_basis_overrides.py, README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: 각도 제약 100° 정확, 원자 고정 3.4e-5 Å 이내, H₂ 스캔 = 단일점 에너지(2e-10 Ha), NH₃ 반전 TS 허수 진동 정확히 1개. WSL 81개, Windows 숨김 27개(+3 skip WSL 통과).
+- 미착수: NEB·IRC(geomeTRIC API 확인만), 다차원 스캔. ACTIVE_TASK.md 유지.
+
 ## QS-20261029-NATIVE-DFT · 단계 7-A (이상기체 자유에너지) 완료 2026-10-29 · 0.8.7 · Claude
 
 - 진동수 계산에 RRHO 이상기체 열역학 추가: 병진·회전(선형/비선형/원자)·전자(다중도)·진동 항, H/S/G, ZPE 보정 에너지. 결과 최상위 `zpe_corrected_energy_hartree`·`enthalpy_hartree`·`gibbs_free_energy_hartree`. 설정 `thermo_pressure_pa`, `symmetry_number`(0=PySCF 점군 판정), GUI·CLI(`--pressure`, `--symmetry-number`).

@@ -44,7 +44,7 @@ def main():
                         help='원소별 기저, 반복 가능: --basis-element O=def2-tzvp --basis-element H=sto-3g. '
                              '설정 파일의 원소별 지정을 대체합니다.')
     parser.add_argument("--xc", help="교환·상관 함수")
-    parser.add_argument('--calculation', choices=['single_point', 'gradient', 'optimize', 'frequencies'],
+    parser.add_argument('--calculation', choices=['single_point', 'gradient', 'optimize', 'frequencies', 'scan', 'transition_state'],
                         help='gradient: 에너지+원자 힘. optimize: geomeTRIC 구조 최적화(geometric 필요). '
                              'frequencies: 조화 진동수·ZPE')
     parser.add_argument('--freq-step', dest='freq_step_bohr', type=float, help='진동수 유한차분 변위 [bohr] (기본 0.005)')
@@ -53,6 +53,8 @@ def main():
     parser.add_argument('--symmetry-number', dest='symmetry_number', type=int, help='회전 대칭수 (0=자동 판정)')
     parser.add_argument('--opt-convergence', choices=['default', 'tight'], help='구조 최적화 수렴 기준')
     parser.add_argument('--opt-max-steps', type=int, help='구조 최적화 최대 단계 (기본 100)')
+    parser.add_argument('--constraints', dest='opt_constraints', help='geomeTRIC 제약. 예: "$freeze;xyz 1" 또는 "$set;angle 2 1 3 100"')
+    parser.add_argument('--scan', dest='scan_spec', help='이완 스캔. 예: "distance 1 2 0.7 1.2 6" (Å·도, 원자 1부터)')
     parser.add_argument('--dispersion', choices=['none', 'd4'],
                         help='분산 보정. d4: Grimme DFT-D4 (dftd4 필요, PBE/PBE0/B3LYP)')
     parser.add_argument("--scf-solver", choices=['diis', 'newton'], help="SCF 반복 방식 (기본 diis)")
@@ -72,7 +74,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.hydrogen_check:
-            if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or args.basis_element or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'native_stability', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
+            if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or args.basis_element or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'native_stability', 'opt_constraints', 'scan_spec', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
                 parser.error('--hydrogen-check에는 분자 DFT 옵션을 함께 사용할 수 없습니다.')
             run(load_config(args.config or ROOT / 'config.json'), args.output or ROOT / 'outputs' / 'hydrogen', show=not args.no_show)
         else:
@@ -85,9 +87,9 @@ def main():
                 parser.error('--structure는 --config / --xyz와 함께 사용할 수 없습니다.')
             config = (read_periodic_structure(args.structure, **({'boundary': args.boundary} if args.boundary else {}))
                       if args.structure else load_calculation_config(args.config or ROOT / 'molecule.json'))
-            overrides = {key: getattr(args, key) for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme', 'engine', 'initial_guess', 'native_stability') if getattr(args, key) is not None}
+            overrides = {key: getattr(args, key) for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'opt_constraints', 'scan_spec', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme', 'engine', 'initial_guess', 'native_stability') if getattr(args, key) is not None}
             if config.system == 'periodic':
-                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None or args.thermo_pressure_pa is not None or args.symmetry_number is not None or args.native_stability:
+                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None or args.thermo_pressure_pa is not None or args.symmetry_number is not None or args.native_stability or args.opt_constraints or args.scan_spec:
                     parser.error('주기계는 --xyz / --ecp / --scf-solver / --relativity / --nuclear-model / --grid-scheme / --engine / --initial-guess / --restart / --basis-element / --dispersion / --calculation을 지원하지 않습니다.')
                 overrides.update({key: getattr(args, key) for key in ('boundary', 'kmesh', 'smearing_ev') if getattr(args, key) is not None})
             elif args.boundary or args.kmesh or args.smearing_ev is not None:

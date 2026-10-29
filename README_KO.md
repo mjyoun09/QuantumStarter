@@ -53,7 +53,7 @@ XYZ는 단일 프레임 형식(원자 수, 주석 한 행, 좌표)이며 Å 단�
 | 교환·상관 | LDA/VWN, PBE, B3LYP, PBE0 |
 | 시각화 | 구조 3D 산점도, 총밀도·스핀밀도·HOMO/LUMO의 xy/xz/yz 단면 |
 | 결과 | 총에너지, 전자 수, SCF 이력, MO 에너지/점유수/계수, 밀도행렬, CUBE |
-| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, 구조 제약·스캔·전이상태, quasi-RRHO·용매 자유에너지, 들뜬 상태; 주기계는 별도 화면 사용 |
+| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, NEB·IRC, quasi-RRHO·용매 자유에너지, 들뜬 상태; 주기계는 별도 화면 사용 |
 
 UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여러 스핀 상태 탐색은 자동 제공하지 않습니다.
 란타넘족·악티늄족·초중원소를 포함한 118개 원소의 고립 분자·이온·착물을 입력할 수 있습니다.
@@ -99,6 +99,12 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 - **자유에너지 (0.8.7)**: 이상기체·강체회전자·조화진동자(RRHO)로 병진·회전·전자(다중도 2S+1) 항을 더해 `zpe_corrected_energy_hartree`, `enthalpy_hartree`, `gibbs_free_energy_hartree`를 결과 최상위에 저장합니다. 압력 `thermo_pressure_pa`(기본 101325 Pa), 회전 대칭수 `symmetry_number`(0이면 PySCF 점군 판정으로 자동). 질량은 모든 항에서 최빈 동위원소. 들뜬 전자 상태·quasi-RRHO·용매·표준상태 변환은 없습니다(100 cm⁻¹ 미만 모드가 있으면 경고).
 - 반응·흡착 분석(`energy_analysis.py --energy-field gibbs_free_energy_hartree` 등)은 ZPE/H/G를 선택할 수 있고, 이때 모든 항의 온도·압력이 같아야 합니다.
 - 격자 응답 항이 없는 힘을 쓰므로 병진·회전 잔여 진동수(물/def2-SVP/격자 3에서 ~17 cm⁻¹)가 생기며, 이 성분은 정확히 제거되고 진단값으로 기록됩니다.
+
+## 제약·이완 스캔·전이상태 (0.8.8)
+
+- **제약 최적화**: `opt_constraints`(화면 `수치 설정 > 구조 제약`, CLI `--constraints`)에 geomeTRIC 제약 문법을 씁니다. `;`로 줄을 나눌 수 있습니다. 예: `$freeze;xyz 1`(원자 1 고정), `$set;angle 2 1 3 100`(각도 100°로 고정), `$set;distance 1 2 1.5`. 원자 번호는 1부터, 단위는 Å·도입니다. 고정은 geomeTRIC 수렴 허용오차(~1e-4 Å) 안에서 지켜집니다.
+- **이완 스캔**: `calculation=scan`, `scan_spec="distance 1 2 0.6 1.0 5"`(또는 `angle i j k …`, `dihedral i j k l …`; 시작·끝·점수). 점마다 해당 좌표를 고정한 최적화를 수행하고 다음 점은 이전 점의 최적 구조에서 시작합니다. `scan/point_NNN/`, `scan.csv`(상대 에너지 kJ/mol 포함), `scan.xyz`. 이완 스캔 최대값은 장벽의 근사이며 전이상태가 아닙니다.
+- **전이상태 탐색**: `calculation=transition_state`. geomeTRIC P-RFO가 1차 안장점을 찾으며 시작 Hessian은 우리 엔진 힘의 유한차분(6N회, 결과에 `kind=hessian`으로 기록)입니다. **반드시 진동수 계산으로 허수 진동이 정확히 1개인지 확인하세요.** IRC·NEB는 아직 없습니다.
 
 ## 구조 최적화 (geomeTRIC, 0.8.4)
 
