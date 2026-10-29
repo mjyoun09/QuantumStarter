@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 from app import AppCanvas, QuantumApp, ROOT, WHITE, INK, MUTED
 from dft_workflow import CalculationError, RunControl, list_dft_runs, run_calculation
 from element_catalog import PERIODIC_CAPABILITIES
-from molecular import (BASES, CALCULATIONS, DISPERSIONS, ELEMENTS, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
+from molecular import (BASES, CALCULATIONS, DISPERSIONS, ELEMENTS, OPT_CONVERGENCE, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
                        describe_bases, format_basis_overrides, parse_basis_overrides, parse_coordinates, read_xyz,
                        save_dft_config)
 from molecular_plotting import create_molecular_figure
@@ -232,7 +232,8 @@ class MolecularApp(QuantumApp):
                     'auto: Dyall은 Gaussian 유한 핵, 그 외 점핵.', self._settings_changed)
         self._combo(method, '교환·상관 함수', self.vars['xc'], FUNCTIONALS, 'LDA / PBE / B3LYP / PBE0', self._settings_changed)
         self._combo(method, '계산 종류', self.vars['calculation'], list(CALCULATIONS),
-                    'gradient: 에너지와 원자 힘(해석적 기울기). 구조는 바꾸지 않습니다.', self._settings_changed)
+                    'gradient: 에너지와 원자 힘. optimize: geomeTRIC 구조 최적화(격자 수준 3 이상 권장).',
+                    self._settings_changed)
         self._combo(method, '분산 보정', self.vars['dispersion'], list(DISPERSIONS),
                     'd4: Grimme DFT-D4 (dftd4 라이브러리). PBE/PBE0/B3LYP만, LDA 불가. '
                     'SCF 후 총에너지에 더하는 기하 보정입니다.', self._settings_changed)
@@ -252,6 +253,9 @@ class MolecularApp(QuantumApp):
             self._button(advanced, name + ' 적용', lambda key=name: self.use_preset(key), True).pack(fill='x', pady=3)
             ttk.Label(advanced, text=', '.join(f'{key}={value}' for key, value in values.items()),
                       wraplength=280, style='Muted.TLabel').pack(anchor='w')
+        self._combo(advanced, '구조 최적화 수렴 기준', self.vars['opt_convergence'], list(OPT_CONVERGENCE),
+                    'default: geomeTRIC 기본(최대 기울기 4.5e-4 Ha/bohr). tight: 10배 엄격.', self._settings_changed)
+        self._entry(advanced, '구조 최적화 최대 단계', 'opt_max_steps', '1~1000. 기본 100.', self._settings_changed)
         self._combo(advanced, '초기 전자 추정', self.vars['initial_guess'], ['auto', 'core', 'perturbed'],
                     'auto: 자체 core / PySCF minao. perturbed는 자체 엔진의 재현 가능한 궤도 혼합.', self._settings_changed)
         for key, label, hint in (
@@ -366,7 +370,8 @@ class MolecularApp(QuantumApp):
 
     def read_config(self):
         data = {key: var.get().strip() for key, var in self.vars.items()}
-        for key in ('charge', 'spin', 'max_cycle', 'grid_level', 'cube_points', 'threads', 'memory_mb', 'native_diis_space'):
+        for key in ('charge', 'spin', 'max_cycle', 'grid_level', 'cube_points', 'threads', 'memory_mb', 'native_diis_space',
+                    'opt_max_steps'):
             try:
                 data[key] = int(data[key])
             except ValueError:
@@ -619,6 +624,8 @@ class MolecularApp(QuantumApp):
                     if event[1].startswith('SCF_JSON '):
                         self.scf_rows.append(json.loads(event[1][9:]))
                         redraw_scf = True
+                    elif event[1].startswith('OPT_JSON '):
+                        pass  # Machine-readable twin of the optimization line already logged.
                     else:
                         self._log(event[1])
                         self.status.set(event[1][-180:])
@@ -667,7 +674,9 @@ class MolecularApp(QuantumApp):
         iteration = '외부 반복' if summary.get('scf_solver') == 'newton' else '반복'
         gradient = summary.get('gradient')
         self.metrics[1].set(f'{"수렴" if summary["converged"] else "미수렴"} / {iteration} {summary["scf_cycles"]}회'
-                            + (f' · 최대 힘 {gradient["max_atomic_force_ev_per_angstrom"]:.4f} eV/Å' if gradient else ''))
+                            + (f' · 최대 힘 {gradient["max_atomic_force_ev_per_angstrom"]:.4f} eV/Å' if gradient else '')
+                            + (f' · 최적화 {"수렴" if summary["optimization"]["converged"] else "미수렴"} '
+                               f'{summary["optimization"]["steps"]}단계' if summary.get('optimization') else ''))
         engine_label = '자체' if summary['engine'] == 'quantumstarter-native' else 'PySCF'
         self.metrics[2].set(f'{engine_label} · {summary["method"]} / {summary["xc"].upper()}'
                             + ('-D4' if dispersion else ''))

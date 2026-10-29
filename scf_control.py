@@ -22,7 +22,7 @@ def signature(config):
     data = config.to_dict()
     for key in ('engine', 'calculation', 'max_cycle', 'conv_tol', 'threads', 'memory_mb', 'cube_points', 'cube_margin_bohr',
                 'initial_guess', 'scf_solver', 'native_density_tol', 'native_residual_tol',
-                'native_damping', 'native_diis_space', 'dispersion'):
+                'native_damping', 'native_diis_space', 'dispersion', 'opt_convergence', 'opt_max_steps'):
         data.pop(key, None)
     # Only overrides for elements in the structure change the AO basis. Without any,
     # the hash equals the one written before per-element bases existed.

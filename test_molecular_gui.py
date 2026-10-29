@@ -232,6 +232,22 @@ class MolecularGuiTests(unittest.TestCase):
         self.assertEqual(load_dft_config(app.current_dir / 'settings.json'), cfg)
 
     @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
+    def test_real_native_optimization_run(self):
+        app = self.app
+        cfg = DFTConfig(atoms=(Atom('H', (0, 0, 0)), Atom('H', (0, 0, .9))), basis='sto-3g', xc='pbe',
+                        engine='native', calculation='optimize', cube_points=12, grid_level=3, threads=1)
+        app.apply_config(cfg)
+        self.assertEqual(app.read_config(), cfg)
+        with patch('molecular_app.messagebox.showerror') as error:
+            app.start_calculation()
+            self.wait_finished()
+            error.assert_not_called()
+        self.assertTrue(app.summary['optimization']['converged'])
+        self.assertIn('최적화 수렴', app.metrics[1].get())
+        self.assertNotIn('OPT_JSON', '\n'.join(app.log_lines))
+        self.assertTrue((app.current_dir / 'optimized.xyz').is_file())
+
+    @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
     def test_real_ecp_run_and_serialized_metadata(self):
         app = self.app
         app.example.set('지르코늄 이온 · Zr4+ (ECP 예제)')

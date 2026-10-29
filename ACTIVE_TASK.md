@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: IN_PROGRESS — 단계 5 진행 중 (Claude, 2026-10-29 사용자 "ㄱㄱ": 5-1 자체 SCF 근축퇴 수렴 수정 → 5-2 geomeTRIC 구조 최적화). 단계 2·3·4는 커밋 4fd9f1d·e84a2f4·c9719b1로 완료.
+- 상태: HANDOFF_READY — 단계 2~5 완료(원소별 기저 4fd9f1d, D4 e84a2f4, 원자 힘 c9719b1, DIIS 수정 de7d245, 구조 최적화 0.8.4 커밋). 다음은 단계 6(Hessian·진동수). 실행 중인 계산·미저장 코드 없음.
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -48,13 +48,24 @@
 - 문서 갱신: README(원자 힘 절), docs/NATIVE_DFT·VALIDATION(0.8.3)·REQUIREMENTS_STATUS, PROJECT_STATE(알려진 문제 포함), CHANGELOG. 커밋 c9719b1. **단계 4 완료.**
 - (인수 당시의 단계 4 사전 계획 문단은 구현과 달라진 내용 — "calculation은 single_point만 허용" — 이 있어 삭제했다. 실제 구현은 위 기록과 커밋을 따른다.)
 
-### 단계 5: SCF 수렴 수정 + 구조 최적화 (Claude, 진행 중 — 사용자 결정: 최적화기 geomeTRIC)
+### 단계 5: SCF 수렴 수정 + 구조 최적화 (Claude, 완료 — CHANGELOG 0.8.4; 사용자 결정: 최적화기 geomeTRIC)
 
 1. **[완료] 자체 SCF 수렴 정체 수정.** 진단(재현 조건: OH `O 0 0 0; H 0.1 0 .97`, spin 1, PBE, STO-3G, native, grid 1, conv_tol 1e-12, 밀도 1e-10, 잔차 1e-9): 점유 교대가 아니었다(연속 β 점유공간 겹침 0.9999999999, β HOMO-LUMO 간격 0.027 Ha 일정). **원인은 PulayDIIS의 계수 상한 30**: 수렴 근처에서 오차 벡터가 거의 평행해 계수가 커지는 것이 정상인데, 300회 중 289회 이력을 버려 사실상 DIIS 없이 느린 Roothaan 반복이 됨. 밀도 혼합 0·레벨 시프트 0.1/0.2·DIIS 16은 효과 없음. 수정: B 행렬 고유분해 의사역행렬(상대 1e-14 이하 고유값만 제거), 상한 제거, 비유한일 때만 리셋. 결과 OH 25회 수렴, H2O/NH2/O2 반복 수·에너지 불변. 회귀 시험 test_native `test_near_degenerate_open_shell_converges`(수정 전 코드에서 실패 확인).
    - **물리적 발견**: 수렴한 자체 OH 해는 PySCF 해보다 8.27e-6 Ha 높고, PySCF `stability()`로 **내부 불안정(안장점)** 판정. 불안정 방향을 따라가면 더 낮아짐. PySCF 자체 해도 불안정 판정 → 이 계는 다중 UKS 해. Codex 기록의 OH 2.4e-6 Ha 독립 차이도 같은 계열로 보인다. **수렴 ≠ 최소**; SCF 안정성 분석 기능은 미구현(향후).
    - 남은 한계: Fe 원자(STO-3G, 2S=4, PBE)는 수정 전후 모두 300회 미수렴(PySCF는 수렴).
-2. 구조 최적화: **사용자 결정: geomeTRIC**(2026-10-29 "ㄱㄱ"). WSL .venv-dft에 geometric 1.1.1(+networkx 3.7) 설치. 수렴 기준(최대 힘·RMS 힘·변위·에너지 변화), 매 단계 구조/에너지/힘 저장, 중단·재시작, 단계별 SCF 미수렴 시 중단. 격자 응답 미포함이므로 grid_level ≥ 3 권장(수준 3에서 ~1e-5 Ha/bohr).
-3. 이후: Hessian(힘 유한차분)/진동/ZPE → NEB → 주기계 힘/응력/밴드/DOS.
+2. 구조 최적화: **사용자 결정: geomeTRIC**(2026-10-29 "ㄱㄱ"). WSL .venv-dft에 geometric 1.1.1(+networkx 3.7) 설치, requirements-optimize.txt.
+   - 구현(진행 중): engines/optimizer.py(geomeTRIC Engine.calc_new → calculate_molecule(gradient) 단계별 steps/step_NNN, 이전 단계 밀도를 초기 추정 `guess_density`로 전달, 단계 SCF 미수렴 시 중단, 최종 구조 재계산, optimization.xyz/optimized.xyz/final_settings.json, results.json `optimization` 블록, settings.json = 요청), engines/geometric_log.ini(로그는 파일만), pyscf_engine `guess_density`(initial_guess_details.resolved='previous_geometry_density', restarted는 체크포인트만), molecular.py `optimize`·`OPT_CONVERGENCE`(default=geomeTRIC 기본, tight=10배)·`opt_max_steps`, signature에서 opt 필드 제외, CLI `--calculation optimize --opt-convergence --opt-max-steps`, GUI 콤보/입력·지표.
+   - 첫 실계산(tight, PBE/def2-SVP, grid 3): H2 자체 6단계 r=0.768334 Å, H2O 자체/PySCF 각 5단계 r(OH)=0.974677 Å ∠=102.044013°, **PySCF 자체 geomeTRIC 드라이버(pyscf.geomopt) 결과와 소수 6자리 일치**. 최종 재계산 에너지 차 ≤2.4e-10 Ha.
+   - test_optimize.py 4개 통과(PySCF 자체 geomeTRIC 드라이버와 구조 비교, 기록, 단계 한도·SCF 실패·중단·라이브러리 부재, 작업자 경유). 실계산 GUI 최적화 시험 추가. 회귀: WSL 65 통과(첫 실행 1 실패 = test_gradient가 'optimize'를 잘못된 값 예시로 쓴 시험 문제 → 'hessian'으로 교체), Windows 56 중 41 통과·15 skip(14개 WSL 통과 + 기존 주기계 GUI 1).
+   - CLI 실계산: outputs/optimization_validation/cli/ (왜곡 물 examples/water_distorted.xyz, PBE-D4/def2-SVP, 두 엔진 4단계, r(OH) 0.974723 Å, ∠ 102.0410°, 동일). 실행 당시 version 0.8.3.
+   - 문서: README(구조 최적화 절), START_HERE(선택 설치 8), docs/NATIVE_DFT·VALIDATION(0.8.4)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG. **단계 5 완료.**
+   - 미구현으로 남긴 것: 최적화 체크포인트 재시작, 제약/스캔/TS, 진동수 확인.
+
+### 단계 6 재개 지점: Hessian·진동수·ZPE (미착수)
+
+- 권장: 해석적 힘의 중심 유한차분 Hessian(각 좌표 ±h, 2·3N 회 기울기, 격자 고정 여부와 h 선택을 검증), 질량가중·병진/회전 투영 후 진동수(cm⁻¹), 허수 진동 판정으로 최적화 결과가 최소점인지 확인, ZPE·열역학(조화 근사, 온도/압력 명시). 검증: PySCF `hessian`(지원 범위) 및 geomeTRIC 내장 진동 분석과 비교, 물 진동수 대칭·병진/회전 0 확인. 최적화 결과에 자동 진동수 확인 옵션 연결 검토.
+- 별도 검토 항목: 자체 SCF 안정성 분석(내부 불안정 → 낮은 해 추종), Fe 원자 자체 SCF 미수렴, 자체 SCF 단계당 반복 수 개선.
+- 이후: NEB/TS → 주기계 힘/응력/밴드/DOS → 연구용 HEA DFT 기준값.
 
 ### 단계 3 결정 전 기록 (참고용, 결정은 단계 3 절 참조)
 - 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.

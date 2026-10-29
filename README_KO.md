@@ -53,7 +53,7 @@ XYZ는 단일 프레임 형식(원자 수, 주석 한 행, 좌표)이며 Å 단�
 | 교환·상관 | LDA/VWN, PBE, B3LYP, PBE0 |
 | 시각화 | 구조 3D 산점도, 총밀도·스핀밀도·HOMO/LUMO의 xy/xz/yz 단면 |
 | 결과 | 총에너지, 전자 수, SCF 이력, MO 에너지/점유수/계수, 밀도행렬, CUBE |
-| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, 구조 최적화(원자 힘은 0.8.3부터 계산), 들뜬 상태; 주기계는 별도 화면 사용 |
+| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, 구조 제약·스캔·진동수(최적화는 0.8.4부터), 들뜬 상태; 주기계는 별도 화면 사용 |
 
 UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여러 스핀 상태 탐색은 자동 제공하지 않습니다.
 란타넘족·악티늄족·초중원소를 포함한 118개 원소의 고립 분자·이온·착물을 입력할 수 있습니다.
@@ -81,6 +81,18 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 결과에는 `basis_by_element`가 저장되고, 반응·흡착 분석은 **같은 원소의 기저·ECP가 모든 항에서 같을 때만** 계산합니다.
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
+
+## 구조 최적화 (geomeTRIC, 0.8.4)
+
+`calculation=optimize`(화면 `계산 종류`, CLI `--calculation optimize`)는 입력 구조에서 출발해 국소 최소 구조를 찾습니다.
+**geomeTRIC**(TRIC 내부좌표, Wang & Song, J. Chem. Phys. 144, 214108, 2016)이 다음 구조를 제안하고,
+매 단계의 에너지와 힘은 선택한 엔진(자체/PySCF, D4 포함)이 아래 해석적 기울기로 계산합니다.
+
+- 선택 설치: `wsl --exec .venv-dft/bin/python -m pip install -r requirements-optimize.txt` (검증: geomeTRIC 1.1.1).
+- 수렴 기준 `opt_convergence`: `default`(geomeTRIC 기본: ΔE 1e-6 Ha, RMS/최대 기울기 3e-4/4.5e-4 Ha/bohr, RMS/최대 이동 1.2e-3/1.8e-3 Å), `tight`(10배 엄격). 최대 단계 `opt_max_steps`(기본 100).
+- 실행 폴더: `steps/step_NNN`(단계별 전체 계산 기록), `optimization.xyz`(궤적), `optimized.xyz`, `final_settings.json`(최종 구조 설정), `geometric.log`. 최종 구조는 요청한 출력 설정으로 한 번 더 계산해 `results.json`에 저장하며 `optimization` 블록에 단계별 에너지·힘과 기준을 기록합니다. `settings.json`은 요청 그대로입니다.
+- 단계의 SCF가 수렴하지 않으면 최적화를 중단합니다. 최대 단계 안에 기준을 못 맞추면 상태는 `not_converged`입니다.
+- 격자 응답 항이 없는 힘을 쓰므로 `grid_level` 3 이상을 권장합니다(2 이하이면 경고). 결과는 **국소 최소점 후보**이며 진동수 분석은 아직 없습니다. 체크포인트 재시작은 지원하지 않습니다.
 
 ## 원자 힘 (해석적 기울기, 0.8.3)
 
@@ -189,6 +201,7 @@ NPZ는 `numpy.load(path, allow_pickle=False)`로 읽을 수 있습니다.
 .\.venv\Scripts\python.exe main.py --xyz examples\h2.xyz --basis sto-3g --xc pbe --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis sto-3g --basis-element O=def2-svp --xc lda,vwn --engine native --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis def2-svp --xc pbe --dispersion d4 --no-show
+.\.venv\Scripts\python.exe main.py --xyz examples\water_distorted.xyz --basis def2-svp --xc pbe --dispersion d4 --calculation optimize --no-show
 .\.venv\Scripts\python.exe main.py --config molecule.json --output outputs\study --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\kcl.xyz --charge 0 --spin 0 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\fe3plus.xyz --charge 3 --spin 5 --no-show

@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 5 (DIIS 수정 + 구조 최적화) 완료 2026-10-29 · 0.8.4 · Claude
+
+- 자체 DIIS: Pulay 계수 상한 30을 없애고 B 행렬 고유분해 의사역행렬로 풀도록 수정(커밋 de7d245). OH에서 300회 중 289회 이력을 버려 정체하던 문제 해결(→ 약 25회 수렴), 다른 계 불변. 수렴한 OH 해가 PySCF 안정성 분석상 불안정임을 기록(다중 UKS 해).
+- `calculation=optimize`(GUI `계산 종류`, CLI `--calculation optimize --opt-convergence --opt-max-steps`): geomeTRIC(TRIC)이 단계를 제안하고 자체/PySCF 엔진이 에너지·해석적 힘(D4 포함)을 계산. 단계별 전체 기록 steps/step_NNN, 이전 구조 밀도를 초기 추정으로 사용, 단계 SCF 미수렴 시 중단, 최종 구조 재계산, optimization.xyz/optimized.xyz/final_settings.json/geometric.log, results.json `optimization` 블록. geomeTRIC은 선택 의존성(requirements-optimize.txt).
+- 주요 파일: 신규 engines/optimizer.py, engines/geometric_log.ini, requirements-optimize.txt, test_optimize.py, examples/water_distorted.xyz; engines/native_scf.py, engines/pyscf_engine.py(guess_density), engines/__init__.py, molecular.py(OPT_CONVERGENCE·opt 필드), scf_control.py, main.py, molecular_app.py, workflow.py, test_native.py, test_gradient.py, test_basis_overrides.py, test_molecular_gui.py, README_KO.md, START_HERE_KO.md, docs/NATIVE_DFT_KO.md·VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: PySCF 자체 geomeTRIC 드라이버와 물·H2 최적 구조 소수 6자리 일치(테스트 허용 2e-4), CLI 물 PBE-D4 두 엔진 동일 구조, test_optimize 4개, WSL 65개, Windows 41개(+15 skip 사유 기록) 통과. 상세 docs/VALIDATION_KO.md 0.8.4.
+- 한계: 국소 최소점 후보(진동수 확인 없음), 제약/스캔/전이상태·최적화 재시작 없음, SCF 안정성 분석 없음, Fe 원자 자체 엔진 미수렴. ACTIVE_TASK.md 유지.
+
 ## QS-20261029-NATIVE-DFT · 단계 4 (원자 힘) 완료 2026-10-29 · 0.8.3 · Claude
 
 - 분자 계산에 `calculation=gradient`(GUI `계산 종류`, CLI `--calculation gradient`)를 추가했다. 입력 구조에서 총에너지의 핵 좌표 기울기와 힘을 계산하며 구조는 바꾸지 않는다.

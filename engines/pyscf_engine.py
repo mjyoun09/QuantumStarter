@@ -72,7 +72,7 @@ def configure_grids(grids, config):
         grids.atomic_radii = radi.BRAGG_RADII
 
 
-def calculate_molecule(config, directory, progress=print):
+def calculate_molecule(config, directory, progress=print, guess_density=None):
     try:
         import pyscf
         from pyscf import dft, gto, lib
@@ -174,6 +174,14 @@ def calculate_molecule(config, directory, progress=print):
         with np.load(restart, allow_pickle=False) as checkpoint:
             restart_engine = str(checkpoint['source_engine'])
         progress('호환성 검사를 통과한 밀도 체크포인트에서 재시작합니다. DIIS 이력은 새로 시작합니다.')
+    restarted, guess_from_geometry = dm0 is not None, False
+    if dm0 is None and guess_density is not None:
+        # Geometry optimization: the previous step's AO density is only a starting
+        # guess (atoms moved, so no signature check); SCF re-establishes N and occupations.
+        guess = np.asarray(guess_density, dtype=float)
+        expected = (2, mol.nao_nr(), mol.nao_nr()) if config.resolved_method == 'uks' else (mol.nao_nr(),) * 2
+        if guess.shape == expected and np.isfinite(guess).all():
+            dm0, guess_from_geometry = guess, True
     energy = float(mf.kernel(dm0=dm0))
     if not np.isfinite(energy):
         raise RuntimeError('유한한 SCF 에너지를 얻지 못했습니다.')
@@ -321,21 +329,23 @@ def calculate_molecule(config, directory, progress=print):
         else:
             warnings.append('SCF 미수렴: 원자 힘을 계산하지 않았습니다. 수렴한 계산의 힘만 의미가 있습니다.')
     xc_hybrid, xc_terms = dft.libxc.parse_xc(config.xc)
-    if dm0 is not None:
+    if restarted:
         actual_guess = 'checkpoint'
+    elif guess_from_geometry:
+        actual_guess = 'previous_geometry_density'
     elif config.initial_guess != 'auto':
         actual_guess = config.initial_guess
     else:
         actual_guess = 'core' if config.engine == 'native' else 'minao'
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.3',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.4',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
                        'integrals': 'PySCF/libcint', 'xc_library': 'Libxc',
                        'xc_functional_ids_and_weights': [[int(i), float(w)] for i, w in xc_terms],
                        'exact_exchange_fraction': float(dft.libxc.hybrid_coeff(config.xc)),
-                       'restarted': dm0 is not None, 'restart_source_engine': restart_engine},
+                       'restarted': restarted, 'restart_source_engine': restart_engine},
         'initial_guess_details': {'requested': config.initial_guess,
                                   'resolved': actual_guess,
                                   'perturbation_seed': 1729 if config.engine == 'native' and config.initial_guess == 'perturbed' and dm0 is None else None},

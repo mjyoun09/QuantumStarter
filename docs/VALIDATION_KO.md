@@ -1,5 +1,22 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.4: 자체 DIIS 정체 수정과 구조 최적화
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 5 (담당 Claude). WSL `.venv-dft`에 geomeTRIC 1.1.1(+networkx 3.7) 추가 설치.
+
+**DIIS 수정 (커밋 de7d245).** OH(UKS PBE/STO-3G, 격자 1, 엄격 수렴)가 300회 미수렴. 진단: β 점유공간 연속 겹침 0.9999999999·HOMO-LUMO 간격 0.027 Ha 일정 → 점유 교대 아님.
+Pulay 계수 상한 30 때문에 300회 중 289회 이력이 버려졌다(밀도 혼합 0, 레벨 시프트 0.1/0.2, DIIS 16으로는 불변). 의사역행렬 풀이로 바꾼 뒤 OH 25회, 계수 상한 1e3도 22회 수렴.
+H2O(def2-SVP)/NH2/O2/선형 OH의 반복 수와 에너지는 변화 없음(1e-13 Ha). 회귀 시험은 수정 전 코드에서 실패함을 확인했다.
+수렴한 OH 해는 PySCF 해보다 +8.27e-6 Ha이며 PySCF `stability()`가 내부 불안정으로 판정(불안정 방향 추종 시 −7.98e-6 Ha). PySCF 해도 불안정 판정 → 다중 UKS 해. Fe 원자(STO-3G, 2S=4)는 수정 전후 모두 미수렴.
+
+**구조 최적화.**
+- `wsl ... -m unittest test_optimize -v`: **4개 통과, 19.6초**. 물 PBE/STO-3G/grid3/tight: 자체 엔진+우리 geomeTRIC 연결 vs **PySCF 자체 SCF·기울기·geomeTRIC 드라이버(pyscf.geomopt)** 구조 차 < 2e-4 Å/°, 최종 최대 기울기 < 기준, 기록 파일·단계 폴더·이전 구조 밀도 초기 추정 확인, 최대 단계 1 → not_converged, 단계 SCF 실패 시 중단, 중단 요청 반영, geomeTRIC 부재 시 명확한 오류, 작업자 프로세스 경유 실행.
+- 개발 중 비교(tight, PBE/def2-SVP, grid 3): H2 자체 6단계 r = 0.768334 Å, H2O 자체·PySCF 각 5단계 r(OH) = 0.974677 Å, ∠HOH = 102.044013° — 독립 드라이버와 소수 6자리 일치. 최종 재계산 에너지 차 ≤ 2.4e-10 Ha.
+- 실제 CLI(Windows→WSL) 왜곡 물 `examples/water_distorted.xyz`, PBE-D4/def2-SVP/grid3/default, `outputs/optimization_validation/cli/`: 두 엔진 모두 4단계 수렴, E = −76.2727809465 Ha, ΔE_opt = −0.048490 eV, r(OH) = 0.974723 Å, ∠HOH = 102.0410°, 최대 힘 5.6e-4 eV/Å. 단계당 SCF 자체 14/9/10/8회, PySCF 7/6/6/5회. 실행 당시 version 필드 0.8.3.
+- 회귀: WSL 65개 통과(75.7초; 첫 실행 1 실패 = test_gradient가 'optimize'를 잘못된 값 예시로 쓴 시험 쪽 문제, 'hessian'으로 교체). Windows 실계산 GUI 포함 56개 중 41 통과·15 skip(PySCF/dftd4/geomeTRIC 필요 14개는 WSL 통과, 기존 주기계 GUI 1개).
+
+한계: 국소 최소점 후보이며 진동수(허수 진동) 확인 없음. 제약·스캔·전이상태 없음. 최적화 체크포인트 재시작 없음. 열린 껍질에서는 단계마다 같은 SCF 해에 머무는지 보장하지 않는다(이전 구조 밀도로 시작해 연속성을 높일 뿐).
+
 ## 0.8.3: 해석적 원자 힘
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 4 (담당 Claude). 환경 변경 없음.

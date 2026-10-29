@@ -46,6 +46,7 @@ sudo apt install python3-venv
 6. **`start_windows.bat`**로 화면을 열고 계산합니다.
 7. (선택) D4 분산 보정을 쓰려면 PowerShell에서 한 번 실행합니다. 없으면 `분산 보정 none` 계산은 그대로 동작합니다.
    `wsl --exec .venv-dft/bin/python -m pip install -r requirements-dispersion.txt`
+8. (선택) 구조 최적화를 쓰려면 `wsl --exec .venv-dft/bin/python -m pip install -r requirements-optimize.txt`.
 
 최초 설치에는 인터넷이 필요하며, 계산 자체는 로컬에서 수행합니다.
 한글이나 공백이 포함된 프로젝트 경로도 Windows에서 WSL 경로로 변환해 실행합니다.

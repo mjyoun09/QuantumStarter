@@ -33,7 +33,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 
 - 작업 폴더: `C:\Users\mjyou\OneDrive\졸업논문준비\QuantumStarter`, PowerShell.
 - Windows `.venv`: Python 3.13, Tk, NumPy/SciPy/Matplotlib/ASE. `start_windows.bat` 실행.
-- WSL Ubuntu 24.04 `.venv-dft`: Python 3.12, PySCF 2.14.0. 설치 기준 `requirements-dft.txt`. 선택: dftd4 4.3.1 + tomli 2.5.0 (`requirements-dispersion.txt`, 2026-10-29 이 PC에 설치됨).
+- WSL Ubuntu 24.04 `.venv-dft`: Python 3.12, PySCF 2.14.0. 설치 기준 `requirements-dft.txt`. 선택: dftd4 4.3.1 + tomli 2.5.0 (`requirements-dispersion.txt`), geomeTRIC 1.1.1 + networkx 3.7 (`requirements-optimize.txt`); 둘 다 2026-10-29 이 PC에 설치됨.
 - `.venv-mlip`: PyTorch 2.7.1+cu128, MACE 0.3.16, cuEquivariance 0.13.0, RTX 5080 Laptop GPU. 모델은 `.model_cache/`.
 - `.venv`, `.venv-dft`, `.venv-mlip`을 섞지 않는다. Windows Python에서 PySCF 실계산 테스트는 건너뛰므로 WSL 검증이 필요하다.
 - Git: 2026-10-29부터 로컬 저장소(브랜치 main, 원격 없음). 그 이전 이력은 없다. `.gitignore`가 `.venv*`, `.model_cache/`, `outputs/`, `__pycache__/`를 제외하므로 **실제 계산 산출물은 Git으로 보존되지 않는다**. 폴더가 OneDrive 동기화 경로 안에 있으므로 두 PC에서 동시에 Git을 조작하지 않는다.
@@ -50,6 +50,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **단계 2 완료 / 0.8.1 (Claude):** 분자 원소별 기저 `basis_overrides`(GUI/CLI `--basis-element`/JSON). 원소별 기저 데이터·def2-ECP·auto X2C/핵/격자 판정, 결과 `basis_by_element`, 반응 분석의 원소별 기저/ECP 대조. 자체·외부 엔진 혼합 기저 일치 검증. 분산 보정 이후 항목은 미완료.
 - **단계 3 완료 / 0.8.2 (Claude):** 분자 DFT-D4 분산 에너지(`dispersion=d4`), 공식 dftd4 라이브러리(선택 의존성, requirements-dispersion.txt). PBE/PBE0/B3LYP, 110원소, 고립 분자는 절단 없이 합산. 결과에 SCF/분산 분리·매개변수·EEQ 전하 기록, 반응 분석은 분산 조건 일치 검사. 분산 힘·주기계 D4 미구현. 사용자 선택 기준: "더 정확한 것" → 모델이 더 정확한 D4, 참조 구현 사용.
 - **단계 4 완료 / 0.8.3 (Claude):** 분자 원자 힘 `calculation=gradient`. 자체 엔진은 engines/native_gradient.py의 해석적 RKS/UKS 기울기(LDA/GGA/global hybrid, 성분별 저장), PySCF 엔진은 nuc_grad_method(ECP/X2C/Newton), D4 기울기 합산. 고정 격자 유한차분 ~1e-9, PySCF와 ~1e-12 Ha/bohr 일치. 격자 응답 항 미포함(수준 3에서 ~1e-5 Ha/bohr).
+- **단계 5 완료 / 0.8.4 (Claude):** 자체 DIIS 정체 수정(de7d245)과 `calculation=optimize`(geomeTRIC TRIC + 자체/PySCF 해석적 힘, 단계별 기록, 이전 구조 밀도 초기 추정). PySCF 자체 geomeTRIC 드라이버와 최적 구조 소수 6자리 일치. 사용자 선택: 최적화기 geomeTRIC.
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계
@@ -65,8 +66,8 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - 자체·외부 비교는 같은 적분/XC 라이브러리를 공유하는 구현 검증이다. OH 독립 SCF는2.4055e-6 Ha 차이가 있었으나 같은 밀도 에너지/Fock 및 그 밀도에서 재시작한 외부 해는 수치 정밀도 내 일치했다. 이를 자동 바닥상태 증거로 쓰지 않는다.
 - 분자 체크포인트 schema2는 물리/기저/격자 일치와 전자 수/점유수를 검사한다. 밀도만 재시작하며 DIIS는 초기화한다. 동일 물리 조건에서 엔진 간 전달은 허용하고 source_engine을 기록한다. 반응에너지 합산은 서로 다른 엔진의 에너지를 섞지 않는다.
 - X2C는 일전자 scalar 보정. SOC, 이전자 picture-change, 물리적 사성분 밀도 picture-change는 미구현. Gaussian 핵은 PySCF 기본 동위원소 질량·경험식; zeta를 기록한다.
-- 분자 DFT 원자 힘은 0.8.3에서 구현(격자 응답 항 없음). 주기계 힘/응력, 구조 최적화, 자동 바닥상태/스핀 탐색, 들뜬 상태, 임의 ECP는 미구현. MLIP 표면 탐색은 금속 기판을 고정하고 H만 완화한다.
-- 알려진 문제(2026-10-29 발견): 자체 DIIS가 근축퇴 열린 껍질(OH, 거친 격자·엄격 수렴)에서 점유 교대로 진동해 미수렴할 수 있다. 미수렴이면 힘을 내지 않으므로 잘못된 힘이 나가지는 않지만, 구조 최적화 전에 고칠 필요가 있다.
+- 분자 DFT 원자 힘(0.8.3, 격자 응답 항 없음)과 geomeTRIC 구조 최적화(0.8.4)는 구현. 진동수/Hessian, 제약·스캔, 전이상태, 주기계 힘/응력, 자동 바닥상태/스핀 탐색, SCF 안정성 분석, 들뜬 상태, 임의 ECP는 미구현. MLIP 표면 탐색은 금속 기판을 고정하고 H만 완화한다.
+- 2026-10-29 발견·수정: 자체 DIIS 계수 상한 30이 수렴 정체를 일으킴 → 의사역행렬로 수정(0.8.4). 남은 사실: 근축퇴 열린 껍질(OH)은 다중 UKS 해가 있고 수렴한 해가 불안정(안장점)일 수 있음, Fe 원자(STO-3G)는 자체 엔진 미수렴.
 - SCF 수렴은 기저·격자·k점 수렴이나 정확도 보증이 아니다. 37원자 HEA의 정밀 DFT 기준값과 네 MLIP의 정확도·속도 비교는 아직 없음.
 
 ## 연구 데이터와 향후 방향

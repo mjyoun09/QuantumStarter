@@ -1,0 +1,4 @@
+# Optional: geometry optimization (calculation=optimize). Install into WSL .venv-dft:
+#   wsl --exec .venv-dft/bin/python -m pip install -r requirements-optimize.txt
+# Verified with geomeTRIC 1.1.1 (pulls networkx).
+geometric>=1.1,<2
