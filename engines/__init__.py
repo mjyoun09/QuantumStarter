@@ -6,6 +6,9 @@ def calculate(config, directory, progress=print):
         if config.calculation in ('optimize', 'transition_state'):
             from .optimizer import optimize_molecule
             return optimize_molecule(config, directory, progress)
+        if config.calculation == 'neb':
+            from .neb import neb_molecule
+            return neb_molecule(config, directory, progress)
         if config.calculation == 'scan':
             from .optimizer import scan_molecule
             return scan_molecule(config, directory, progress)

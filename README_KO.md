@@ -53,7 +53,7 @@ XYZ는 단일 프레임 형식(원자 수, 주석 한 행, 좌표)이며 Å 단�
 | 교환·상관 | LDA/VWN, PBE, B3LYP, PBE0 |
 | 시각화 | 구조 3D 산점도, 총밀도·스핀밀도·HOMO/LUMO의 xy/xz/yz 단면 |
 | 결과 | 총에너지, 전자 수, SCF 이력, MO 에너지/점유수/계수, 밀도행렬, CUBE |
-| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, NEB·IRC, quasi-RRHO·용매 자유에너지, 들뜬 상태; 주기계는 별도 화면 사용 |
+| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, IRC, quasi-RRHO·용매 자유에너지, 들뜬 상태; 주기계는 별도 화면 사용 |
 
 UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여러 스핀 상태 탐색은 자동 제공하지 않습니다.
 란타넘족·악티늄족·초중원소를 포함한 118개 원소의 고립 분자·이온·착물을 입력할 수 있습니다.
@@ -100,11 +100,19 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 - 반응·흡착 분석(`energy_analysis.py --energy-field gibbs_free_energy_hartree` 등)은 ZPE/H/G를 선택할 수 있고, 이때 모든 항의 온도·압력이 같아야 합니다.
 - 격자 응답 항이 없는 힘을 쓰므로 병진·회전 잔여 진동수(물/def2-SVP/격자 3에서 ~17 cm⁻¹)가 생기며, 이 성분은 정확히 제거되고 진단값으로 기록됩니다.
 
+## NEB 최소 에너지 경로 (0.8.9)
+
+`calculation=neb`, `neb_product`(생성물 좌표, 반응물과 **같은 원자 순서**; 화면 `수치 설정`, CLI `--neb-product product.xyz`), `neb_images`(양 끝 포함, 기본 9), `neb_maxg_ev_per_angstrom`(기본 0.05, 평균 기준은 절반).
+
+- geomeTRIC CI-NEB(climbing image)가 사슬을 최적화하고, 이미지마다 에너지·힘은 선택한 엔진이 계산합니다. 양 끝은 고정되므로 **먼저 각각 최적화한 구조**를 넣으세요.
+- 초기 경로는 반응물→생성물 직교좌표 선형 보간이며 자동 정렬·원자 재배열을 하지 않습니다. 두 구조의 방향과 원자 순서를 맞춰 주세요.
+- 결과: `neb.csv`(이미지별 상대 에너지 kJ/mol), `neb_path.xyz`, `neb/calc_NNNN`(모든 기울기 계산), 상단 폴더에는 최고 에너지 이미지(전이상태 추정)의 전체 결과. `transition_state`로 정밀화하고 진동수로 허수 1개를 확인하는 순서를 권장합니다. IRC는 아직 없습니다.
+
 ## 제약·이완 스캔·전이상태 (0.8.8)
 
 - **제약 최적화**: `opt_constraints`(화면 `수치 설정 > 구조 제약`, CLI `--constraints`)에 geomeTRIC 제약 문법을 씁니다. `;`로 줄을 나눌 수 있습니다. 예: `$freeze;xyz 1`(원자 1 고정), `$set;angle 2 1 3 100`(각도 100°로 고정), `$set;distance 1 2 1.5`. 원자 번호는 1부터, 단위는 Å·도입니다. 고정은 geomeTRIC 수렴 허용오차(~1e-4 Å) 안에서 지켜집니다.
 - **이완 스캔**: `calculation=scan`, `scan_spec="distance 1 2 0.6 1.0 5"`(또는 `angle i j k …`, `dihedral i j k l …`; 시작·끝·점수). 점마다 해당 좌표를 고정한 최적화를 수행하고 다음 점은 이전 점의 최적 구조에서 시작합니다. `scan/point_NNN/`, `scan.csv`(상대 에너지 kJ/mol 포함), `scan.xyz`. 이완 스캔 최대값은 장벽의 근사이며 전이상태가 아닙니다.
-- **전이상태 탐색**: `calculation=transition_state`. geomeTRIC P-RFO가 1차 안장점을 찾으며 시작 Hessian은 우리 엔진 힘의 유한차분(6N회, 결과에 `kind=hessian`으로 기록)입니다. **반드시 진동수 계산으로 허수 진동이 정확히 1개인지 확인하세요.** IRC·NEB는 아직 없습니다.
+- **전이상태 탐색**: `calculation=transition_state`. geomeTRIC P-RFO가 1차 안장점을 찾으며 시작 Hessian은 우리 엔진 힘의 유한차분(6N회, 결과에 `kind=hessian`으로 기록)입니다. **반드시 진동수 계산으로 허수 진동이 정확히 1개인지 확인하세요.** IRC는 아직 없습니다(NEB는 0.8.9).
 
 ## 구조 최적화 (geomeTRIC, 0.8.4)
 

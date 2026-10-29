@@ -24,7 +24,7 @@ BASES = tuple(MOLECULAR_CAPABILITIES)
 RELATIVISTIC_BASES = frozenset({'dyall-v2z', 'dyall-v3z'})
 FUNCTIONALS = ('lda,vwn', 'pbe', 'b3lyp', 'pbe0')
 DISPERSIONS = ('none', 'd4')
-CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies', 'scan', 'transition_state')
+CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies', 'scan', 'transition_state', 'neb')
 # Thresholds handed to geomeTRIC: energy change [Ha], RMS/max gradient [Ha/bohr], RMS/max step [Angstrom].
 # 'default' equals geomeTRIC's own defaults (as documented by PySCF's geomeTRIC driver).
 OPT_CONVERGENCE = {
@@ -186,6 +186,9 @@ class DFTConfig:
     opt_convergence: str = 'default'  # Key of OPT_CONVERGENCE.
     opt_max_steps: int = 100
     opt_constraints: str = ''  # geomeTRIC constraint text ($freeze / $set ...); ';' may separate lines.
+    neb_product: str = ''  # calculation=neb: product coordinates, same atom order as atoms (Angstrom/unit).
+    neb_images: int = 9  # Images including both fixed endpoints.
+    neb_maxg_ev_per_angstrom: float = 0.05  # Max NEB force; the average criterion is half of it.
     scan_spec: str = ''  # calculation=scan: 'distance i j start stop points' (Angstrom / degrees, 1-based).
     freq_step_bohr: float = 0.005  # Central-difference displacement for the Hessian.
     thermo_temperature_k: float = 298.15
@@ -222,6 +225,16 @@ class DFTConfig:
             parse_scan(self.scan_spec, len(self.atoms))
         elif self.scan_spec.strip():
             raise ValueError('scan_spec은 calculation=scan에서만 사용합니다.')
+        integer(self.neb_images, 'NEB 이미지 수(양 끝 포함)', 3, 41)
+        real(self.neb_maxg_ev_per_angstrom, 'NEB 최대 힘 기준 [eV/Å]', 1e-4, 1)
+        if not isinstance(self.neb_product, str):
+            raise ValueError('neb_product는 좌표 문자열이어야 합니다.')
+        if self.calculation == 'neb':
+            product = parse_coordinates(self.neb_product) if self.neb_product.strip() else ()
+            if [a.element for a in product] != [a.element for a in self.atoms]:
+                raise ValueError('NEB 생성물(neb_product)은 반응물과 원자 수·원소 순서가 같아야 합니다.')
+        elif self.neb_product.strip():
+            raise ValueError('neb_product는 calculation=neb에서만 사용합니다.')
         if self.opt_constraints.strip() and self.calculation not in ('optimize', 'scan', 'transition_state'):
             raise ValueError('구조 제약은 optimize / scan / transition_state 계산에서만 사용합니다.')
         real(self.freq_step_bohr, '진동수 유한차분 변위 [bohr]', 1e-4, 0.05)

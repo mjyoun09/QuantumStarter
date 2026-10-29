@@ -3,6 +3,13 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 8 (NEB) 완료 2026-10-30 · 0.8.9 · Claude
+
+- `calculation=neb`: 신규 engines/neb.py — geomeTRIC CI-NEB(ElasticBand/OptimizeChain/NEBParams)에 자체/PySCF 엔진의 에너지·해석적 힘을 공급. 선형 보간 초기 경로(정렬 없음), 양 끝 고정, 이미지별 밀도 재사용, 모든 기울기 계산 기록(neb/calc_NNNN), 사이클별 에너지·힘 기록, neb.csv·neb_path.xyz, 최고 이미지 전체 재계산. 설정 `neb_product`·`neb_images`·`neb_maxg_ev_per_angstrom`, GUI·CLI(`--neb-product`, `--neb-images`).
+- 주요 파일: engines/neb.py, engines/__init__.py, molecular.py, scf_control.py, main.py, molecular_app.py, workflow.py, 신규 test_neb.py, test_basis_overrides.py, README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: NH₃ 반전 대칭 경로, 최고 이미지 평면, TS 탐색 장벽과 0.001 kJ/mol 차. WSL 84개, Windows 숨김 32개(+4 skip WSL 통과).
+- 한계: 선형 보간 초기 경로만, IRC 없음.
+
 ## QS-20261029-NATIVE-DFT · 단계 7-C (제약·스캔·전이상태) 완료 2026-10-29 · 0.8.8 · Claude
 
 - 제약 최적화 `opt_constraints`(geomeTRIC `$freeze`/`$set` 문법, 실행 전 구문 검사, constraints.txt 기록), 이완 스캔 `calculation=scan` + `scan_spec`(distance/angle/dihedral, 점별 제약 최적화, scan.csv·scan.xyz, 상단 폴더에 마지막 점 출력), 전이상태 탐색 `calculation=transition_state`(geomeTRIC P-RFO, 초기 Hessian은 우리 힘 유한차분, 단계 종류 기록). GUI·CLI(`--constraints`, `--scan`).

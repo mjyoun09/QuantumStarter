@@ -259,6 +259,9 @@ class MolecularApp(QuantumApp):
         self._entry(advanced, '구조 최적화 최대 단계', 'opt_max_steps', '1~1000. 기본 100.', self._settings_changed)
         self._entry(advanced, '구조 제약 (geomeTRIC)', 'opt_constraints',
                     '; 로 줄 구분. 예: $freeze;xyz 1  또는  $set;angle 2 1 3 100', self._settings_changed)
+        self._entry(advanced, 'NEB 생성물 좌표 (calculation=neb)', 'neb_product',
+                    '반응물과 같은 원자 순서. ; 로 원자 구분. 예: N 0 0 -0.38; H ...', self._settings_changed)
+        self._entry(advanced, 'NEB 이미지 수', 'neb_images', '양 끝 포함 3~41. 기본 9.', self._settings_changed)
         self._entry(advanced, '이완 스캔 (calculation=scan)', 'scan_spec',
                     '예: distance 1 2 0.7 1.2 6 (Å·도, 원자 번호 1부터).', self._settings_changed)
         self._entry(advanced, '진동수 변위 [bohr]', 'freq_step_bohr',
@@ -388,13 +391,13 @@ class MolecularApp(QuantumApp):
     def read_config(self):
         data = {key: var.get().strip() for key, var in self.vars.items()}
         for key in ('charge', 'spin', 'max_cycle', 'grid_level', 'cube_points', 'threads', 'memory_mb', 'native_diis_space',
-                    'opt_max_steps', 'symmetry_number'):
+                    'opt_max_steps', 'symmetry_number', 'neb_images'):
             try:
                 data[key] = int(data[key])
             except ValueError:
                 raise ValueError(f'{key}: 정수를 입력하세요.') from None
         for key in ('conv_tol', 'cube_margin_bohr', 'native_density_tol', 'native_residual_tol', 'native_damping', 'native_damping_residual',
-                    'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa'):
+                    'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'neb_maxg_ev_per_angstrom'):
             try:
                 data[key] = float(data[key])
             except ValueError:

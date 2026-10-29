@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2~7 완료(최신: 7-B 0.8.6, 7-A 0.8.7, 7-C 0.8.8 커밋). 남은 것: 단계 8(NEB 등, 아래 재개 지점). 실행 중인 계산·미저장 코드 없음. **사용자 요청: 화면에 창을 띄우는 검증 금지 → GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 상태: HANDOFF_READY — 단계 2~8 완료(최신 단계 8 NEB 0.8.9 커밋). 사용자 "전부 해"(B·A·C·NEB) 완료. 원 첨부 요구의 남은 항목은 아래 단계 9 재개 지점. 실행 중 계산·미저장 코드 없음. **사용자 요청: 화면에 창을 띄우는 검증 금지 → GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -85,7 +85,21 @@
 - (계획 당시 후보 A/B/C 목록은 아래 완료 기록으로 대체됨.)
 - C) 제약·스캔·전이상태 완료(0.8.8): engines/optimizer.py(`opt_constraints`→constraints.txt, transition=True·hessian='first', `scan_molecule`), molecular.py `parse_scan`. 개발 오류: 사용자 제약이 내부 gradient 단계 설정으로 넘어가 검증에 걸림 → 내부·최종 설정에서 제약 제거. 첫 python3 실행이 stdin 대기로 멈춤(내 명령 실수, 파일 무변경 확인 후 .venv python 재실행). test_constraints 4 통과, WSL 81, Windows 숨김 27(+3 skip). **7-C 완료(NEB 제외).**
 
-### 단계 8 재개 지점 (미착수)
+### 단계 8: NEB (Claude, 완료 — CHANGELOG 0.8.9)
+
+- 구현: engines/neb.py(geomeTRIC ElasticBand/OptimizeChain/NEBParams, 선형 보간, 이미지별 밀도 재사용, neb/calc_NNNN 기록, 사이클 기록 save_callback, neb.csv·neb_path.xyz, 최고 이미지 재계산), 설정 neb_product·neb_images·neb_maxg_ev_per_angstrom, GUI·CLI.
+- 확인한 사실: geomeTRIC NEB는 보간하지 않고 입력 프레임을 이미지로 쓴다; 양 끝 고정; maxg/avgg eV/Å; OptimizeChain은 maxcyc 도달 시에도 반환 → 반환 후 기준 직접 판정.
+- 검증: test_neb 3 통과. NH₃ 반전 7 이미지 5회 수렴, 대칭 프로필(54.986 kJ/mol), 최고 이미지 평면, TS 정밀화 장벽 54.985 kJ/mol. WSL 84, Windows 숨김 32(+4 skip).
+- 사고·조치: Windows Python write_text가 7개 소스를 CRLF로 바꿈 → 커밋 전 LF 복원(바이트 검사). 첫 CRLF 검사 명령은 오탐. PROJECT_STATE에 주의사항 기록.
+
+### 단계 9 재개 지점 (미착수, 원 첨부 요구의 남은 항목)
+
+1. IRC(TS→양쪽 최소점 연결 확인).
+2. 자체 SCF: Cr·Co 원자 정수 점유 미수렴(2차/Newton 해법), 삼중항(RKS→UKS)·복소 불안정 검사.
+3. 자유에너지: quasi-RRHO, 용매·표준상태(1 M) 보정.
+4. 주기계: 힘/응력/셀 최적화, 밴드·DOS, D4 주기계(현재 분자만).
+5. 연구용 HEA DFT 기준값과 MLIP 비교(PROJECT_STATE 향후 방향).
+- 아래 "단계 8 재개 지점" 이후의 옛 문단은 계획 기록이다.
 
 1. **NEB**(사용자 "전부 해"의 남은 항목): geomeTRIC 1.1.1 `geometric.neb` — `ElasticBand(molecule, engine, tmpdir, params, coords=None, plain=0)`, `OptimizeChain(chain, engine, params, save_callback=None)`, `NEBParams`. 우리 `optimize_molecule`의 내부 `Engine.calc_new`를 이미지 계산에 재사용 가능. 필요: 생성물 구조 입력(예: `neb_product_xyz` 또는 다중 프레임 XYZ), 이미지 수, 이미지별 기록(neb/image_NN/step_NNN), 최고 에너지 이미지→`transition_state` 정밀화 연결. 검증 후보: H 이동 반응 또는 NH₃ 반전(두 피라미드 구조 사이 → 최고점이 평면 TS 근처, 위 TS 에너지와 비교).
 2. IRC(선택), 다차원 스캔(선택).

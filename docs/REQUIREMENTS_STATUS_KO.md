@@ -24,7 +24,8 @@
 | 병진·회전 열역학, 자유에너지 G | **구현·검증 (분자, RRHO)** | ZPE/H/G 결과 필드, 대칭수 자동/입력, 반응 분석 선택. PySCF thermo와 H·G 1e-10 상대. quasi-RRHO·용매·표준상태 미구현 |
 | 반응/흡착에너지 및 호환성 검사 | 구현·검증 (제한 있음) | energy_analysis.py: 수렴/조건/수지/출처 검사. 주기계 동일 셀·k점만 허용, ZPE/열역학 없음 |
 | 전이상태 탐색 (분자) | **구현·검증** | geomeTRIC P-RFO(초기 Hessian은 우리 힘의 유한차분). NH₃ 반전 TS: 허수 진동 정확히 1개 확인 |
-| NEB·IRC | 미구현 | geomeTRIC `ElasticBand`/`OptimizeChain`/`NEBParams` 존재 확인(1.1.1). 생성물 구조 입력 필요 |
+| NEB (분자) | **구현·검증** | geomeTRIC CI-NEB + 자체/PySCF 힘, 선형 보간 초기 경로, 양 끝 고정. NH₃ 반전: 대칭 경로, 최고 이미지 = TS 탐색 장벽 ±0.001 kJ/mol |
+| IRC | 미구현 | TS에서 양 방향 최소점 연결 확인 기능 없음 |
 | 주기계 k점·smearing·2D/3D 정전기 | 외부 PySCF에서 구현 | GDF+Gaussian/GTH, 평면파 아님 |
 | 결정·표면·진공/합금 후보 비교 | 부분 구현 | HEA/Pt 등 fcc111 후보 생성 |
 | 주기계 힘·응력·셀 최적화·표면 전하 보정 | 미구현 | 중성 slab만 지원 |

@@ -37,6 +37,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - `.venv-mlip`: PyTorch 2.7.1+cu128, MACE 0.3.16, cuEquivariance 0.13.0, RTX 5080 Laptop GPU. 모델은 `.model_cache/`.
 - `.venv`, `.venv-dft`, `.venv-mlip`을 섞지 않는다. Windows Python에서 PySCF 실계산 테스트는 건너뛰므로 WSL 검증이 필요하다.
 - **사용자 요청(2026-10-29): 검증 중 사용자 화면에 창을 띄우지 않는다.** 분자 GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`(루트·Toplevel을 매핑 전에 숨김, 화면 배치 검사만 생략)로 실행한다. 숨김 모드가 없는 test_gui/test_periodic_gui(수소·주기계 화면)는 사용자 요청 없이 실행하지 않는다. 예: `$env:QUANTUMSTARTER_TK_HIDDEN='1'; $env:QUANTUMSTARTER_GUI_DFT_TEST='1'; .\.venv\Scripts\python.exe -m unittest test_molecular_gui`.
+- **줄바꿈 주의**: 저장소 파일은 LF다. Windows `.venv` Python의 `Path.write_text`는 CRLF로 바꿔 쓰므로 스크립트로 파일을 고칠 때는 bytes로 쓰거나 `newline='\n'`을 지정한다. Git Bash의 `grep -c $'\r$'`은 CRLF 검사로 믿을 수 없다(바이트 검사 사용). 예외: examples/native_water.json은 처음부터 CRLF로 커밋됨.
 - Git: 2026-10-29부터 로컬 저장소(브랜치 main, 원격 없음). 그 이전 이력은 없다. `.gitignore`가 `.venv*`, `.model_cache/`, `outputs/`, `__pycache__/`를 제외하므로 **실제 계산 산출물은 Git으로 보존되지 않는다**. 폴더가 OneDrive 동기화 경로 안에 있으므로 두 PC에서 동시에 Git을 조작하지 않는다.
 
 ## 구현 상태
@@ -56,6 +57,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **단계 7-B 완료 / 0.8.6 (Claude):** 자체 SCF 원자 밀도 중첩 초기 추정·잔차 기준 혼합(반복 30~50% 감소, Fe 수렴), 자체 SCF 안정성 분석(실수 내부, check/follow, PySCF 판정과 일치). 사용자 지시 "전부 해" → 이어서 7-A(자유에너지), 7-C(제약·스캔·NEB/TS).
 - **단계 7-A 완료 / 0.8.7 (Claude):** RRHO 이상기체 열역학(ZPE/H/G, 대칭수 자동·입력, 다중도), 반응 분석의 ZPE/H/G 선택과 온도·압력 일치 검사. PySCF thermo와 H·G 1e-10 상대 일치.
 - **단계 7-C 완료 / 0.8.8 (Claude):** geomeTRIC 제약 최적화, 1차원 이완 스캔, P-RFO 전이상태 탐색(진동수로 1개 허수 확인). NEB·IRC는 미착수(geomeTRIC 1.1.1 API 존재 확인).
+- **단계 8 완료 / 0.8.9 (Claude, 2026-10-30):** CI-NEB(geomeTRIC 사슬 최적화 + 자체/PySCF 힘, 선형 보간, 양 끝 고정). NH₃ 반전에서 TS 탐색 장벽과 0.001 kJ/mol 일치. 사용자 지시 "전부 해"(B·A·C·NEB) 완료. IRC는 미구현.
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계
@@ -71,7 +73,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - 자체·외부 비교는 같은 적분/XC 라이브러리를 공유하는 구현 검증이다. OH 독립 SCF는2.4055e-6 Ha 차이가 있었으나 같은 밀도 에너지/Fock 및 그 밀도에서 재시작한 외부 해는 수치 정밀도 내 일치했다. 이를 자동 바닥상태 증거로 쓰지 않는다.
 - 분자 체크포인트 schema2는 물리/기저/격자 일치와 전자 수/점유수를 검사한다. 밀도만 재시작하며 DIIS는 초기화한다. 동일 물리 조건에서 엔진 간 전달은 허용하고 source_engine을 기록한다. 반응에너지 합산은 서로 다른 엔진의 에너지를 섞지 않는다.
 - X2C는 일전자 scalar 보정. SOC, 이전자 picture-change, 물리적 사성분 밀도 picture-change는 미구현. Gaussian 핵은 PySCF 기본 동위원소 질량·경험식; zeta를 기록한다.
-- 분자 DFT 원자 힘(0.8.3, 격자 응답 항 없음), geomeTRIC 구조 최적화(0.8.4), 유한차분 Hessian 조화 진동수·ZPE·진동 열역학(0.8.5)은 구현. 해석적 Hessian, quasi-RRHO·용매 자유에너지, NEB·IRC, 주기계 힘/응력, 자동 바닥상태/스핀 탐색, SCF 안정성 분석, 들뜬 상태, 임의 ECP는 미구현. MLIP 표면 탐색은 금속 기판을 고정하고 H만 완화한다.
+- 분자 DFT 원자 힘(0.8.3, 격자 응답 항 없음), geomeTRIC 구조 최적화(0.8.4), 유한차분 Hessian 조화 진동수·ZPE·진동 열역학(0.8.5)은 구현. 해석적 Hessian, quasi-RRHO·용매 자유에너지, IRC, 주기계 힘/응력, 자동 바닥상태/스핀 탐색, SCF 안정성 분석, 들뜬 상태, 임의 ECP는 미구현. MLIP 표면 탐색은 금속 기판을 고정하고 H만 완화한다.
 - 2026-10-29 발견·수정: 자체 DIIS 계수 상한 30이 수렴 정체를 일으킴 → 의사역행렬로 수정(0.8.4). 근축퇴 열린 껍질(OH)은 다중 UKS 해가 있고 수렴한 해가 불안정(안장점)일 수 있음 → 0.8.6 자체 안정성 분석(check/follow)으로 검출·추적 가능. Fe 원자는 0.8.6에서 수렴, **Cr·Co 원자는 자체 엔진 정수 점유 미수렴(미해결)**.
 - SCF 수렴은 기저·격자·k점 수렴이나 정확도 보증이 아니다. 37원자 HEA의 정밀 DFT 기준값과 네 MLIP의 정확도·속도 비교는 아직 없음.
 
