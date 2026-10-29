@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2·3·4(원소별 기저 4fd9f1d, D4 e84a2f4, 원자 힘 0.8.3 커밋) 완료. 다음은 단계 5(자체 SCF 근축퇴 수렴 수정 → 구조 최적화). 실행 중인 계산·미저장 코드 없음.
+- 상태: IN_PROGRESS — 단계 5 진행 중 (Claude, 2026-10-29 사용자 "ㄱㄱ": 5-1 자체 SCF 근축퇴 수렴 수정 → 5-2 geomeTRIC 구조 최적화). 단계 2·3·4는 커밋 4fd9f1d·e84a2f4·c9719b1로 완료.
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -48,10 +48,12 @@
 - 문서 갱신: README(원자 힘 절), docs/NATIVE_DFT·VALIDATION(0.8.3)·REQUIREMENTS_STATUS, PROJECT_STATE(알려진 문제 포함), CHANGELOG. 커밋 c9719b1. **단계 4 완료.**
 - (인수 당시의 단계 4 사전 계획 문단은 구현과 달라진 내용 — "calculation은 single_point만 허용" — 이 있어 삭제했다. 실제 구현은 위 기록과 커밋을 따른다.)
 
-### 단계 5 재개 지점: 구조 최적화 (미착수)
+### 단계 5: SCF 수렴 수정 + 구조 최적화 (Claude, 진행 중 — 사용자 결정: 최적화기 geomeTRIC)
 
-1. **먼저 자체 SCF 근축퇴 수렴 문제 수정.** 재현 조건: OH `O 0 0 0; H 0.1 0 .97`, spin 1, PBE, STO-3G, engine native, grid_level 1, conv_tol 1e-12, native_density_tol 1e-10, native_residual_tol 1e-9, max_cycle 300 → 300회 미수렴, ΔD ~2e-5 정체. 후보: 레벨 시프트(가상 궤도 에너지 올림), 최대 중첩 점유(MOM), DIIS 이력 리셋 조건. 수정 후 test_native 전체와 Codex 기록의 OH 독립 SCF 차이(2.4e-6 Ha)도 재확인.
-2. 구조 최적화: **사용자 결정 필요** — 자체 BFGS(직교좌표, 신뢰영역) 구현 vs geomeTRIC/pyberny(내부좌표, 검증된 외부 최적화기). 수렴 기준(최대 힘·RMS 힘·변위·에너지 변화), 매 단계 구조/에너지/힘 저장, 중단·재시작, 단계별 SCF 미수렴 시 중단. 격자 응답 미포함이므로 grid_level ≥ 3 권장(수준 3에서 ~1e-5 Ha/bohr).
+1. **[완료] 자체 SCF 수렴 정체 수정.** 진단(재현 조건: OH `O 0 0 0; H 0.1 0 .97`, spin 1, PBE, STO-3G, native, grid 1, conv_tol 1e-12, 밀도 1e-10, 잔차 1e-9): 점유 교대가 아니었다(연속 β 점유공간 겹침 0.9999999999, β HOMO-LUMO 간격 0.027 Ha 일정). **원인은 PulayDIIS의 계수 상한 30**: 수렴 근처에서 오차 벡터가 거의 평행해 계수가 커지는 것이 정상인데, 300회 중 289회 이력을 버려 사실상 DIIS 없이 느린 Roothaan 반복이 됨. 밀도 혼합 0·레벨 시프트 0.1/0.2·DIIS 16은 효과 없음. 수정: B 행렬 고유분해 의사역행렬(상대 1e-14 이하 고유값만 제거), 상한 제거, 비유한일 때만 리셋. 결과 OH 25회 수렴, H2O/NH2/O2 반복 수·에너지 불변. 회귀 시험 test_native `test_near_degenerate_open_shell_converges`(수정 전 코드에서 실패 확인).
+   - **물리적 발견**: 수렴한 자체 OH 해는 PySCF 해보다 8.27e-6 Ha 높고, PySCF `stability()`로 **내부 불안정(안장점)** 판정. 불안정 방향을 따라가면 더 낮아짐. PySCF 자체 해도 불안정 판정 → 이 계는 다중 UKS 해. Codex 기록의 OH 2.4e-6 Ha 독립 차이도 같은 계열로 보인다. **수렴 ≠ 최소**; SCF 안정성 분석 기능은 미구현(향후).
+   - 남은 한계: Fe 원자(STO-3G, 2S=4, PBE)는 수정 전후 모두 300회 미수렴(PySCF는 수렴).
+2. 구조 최적화: **사용자 결정: geomeTRIC**(2026-10-29 "ㄱㄱ"). WSL .venv-dft에 geometric 1.1.1(+networkx 3.7) 설치. 수렴 기준(최대 힘·RMS 힘·변위·에너지 변화), 매 단계 구조/에너지/힘 저장, 중단·재시작, 단계별 SCF 미수렴 시 중단. 격자 응답 미포함이므로 grid_level ≥ 3 권장(수준 3에서 ~1e-5 Ha/bohr).
 3. 이후: Hessian(힘 유한차분)/진동/ZPE → NEB → 주기계 힘/응력/밴드/DOS.
 
 ### 단계 3 결정 전 기록 (참고용, 결정은 단계 3 절 참조)

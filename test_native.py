@@ -150,6 +150,26 @@ class NativePhysicsTests(unittest.TestCase):
         with self.assertRaises(CalculationError):
             run_calculation(replace(cfg, xc='pbe'), self.root, 'local', restart_from=directory)
 
+    def test_near_degenerate_open_shell_converges(self):
+        # Regression (2026-10-29): a coefficient cap of 30 reset the Pulay history on
+        # ~289 of 300 cycles for this OH case, so the SCF stalled at dD ~2e-5.
+        from engines import calculate
+        from engines.native_scf import PulayDIIS
+        diis = PulayDIIS(8)
+        base = np.eye(2)
+        for k in range(4):
+            out = diis.update(base * (1 + k), np.array([[1e-6, 1e-6 * (1 + 1e-9 * k)], [0, 0]]))
+        self.assertTrue(np.isfinite(out).all())
+        self.assertEqual(len(diis.focks), 4)
+        cfg = DFTConfig(atoms=parse_coordinates('O 0 0 0; H 0.1 0 .97'), spin=1, xc='pbe', basis='sto-3g',
+                        engine='native', grid_level=1, conv_tol=1e-12, native_density_tol=1e-10,
+                        native_residual_tol=1e-9, max_cycle=100, cube_points=12, threads=1)
+        result = calculate(cfg, self.root / 'oh', lambda _: None)
+        self.assertTrue(result['converged'])
+        self.assertLess(result['scf_cycles'], 60)
+        # Converged means stationary, not lowest: this OH state is internally unstable
+        # (PySCF stability analysis finds a lower UKS solution ~8e-6 Ha below).
+
     def test_external_checkpoint_and_restart(self):
         cfg = DFTConfig(basis='sto-3g', xc='lda,vwn', grid_level=1, cube_points=12, threads=1, max_cycle=1)
         for solver in ('diis', 'newton'):

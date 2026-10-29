@@ -22,21 +22,23 @@ class PulayDIIS:
         if n < 2:
             return fock
         gram = np.array([[np.dot(a, b) for b in self.errors] for a in self.errors])
-        scale = max(float(np.max(np.abs(gram))), 1e-30)
-        matrix = np.empty((n + 1, n + 1))
+        scale = max(float(np.max(np.abs(gram))), 1e-300)
+        matrix = np.zeros((n + 1, n + 1))
         matrix[:n, :n] = gram / scale
-        matrix[:n, n] = matrix[n, :n] = -1
-        matrix[n, n] = 0
+        matrix[:n, n] = matrix[n, :n] = 1
         rhs = np.zeros(n + 1)
-        rhs[-1] = -1
-        try:
-            weights = np.linalg.solve(matrix, rhs)[:n]
-            if not np.isfinite(weights).all() or np.max(np.abs(weights)) > 30:
-                raise np.linalg.LinAlgError('Ill-conditioned Pulay history')
-            return np.einsum('i,i...->...', weights, np.asarray(self.focks))
-        except np.linalg.LinAlgError:
+        rhs[-1] = 1
+        # Near convergence the error vectors become almost parallel and large
+        # coefficients are legitimate. Solve with an eigenvalue pseudo-inverse that
+        # drops only numerically null directions; a fixed coefficient cap (formerly
+        # 30) reset the history on almost every cycle for OH and stalled the SCF.
+        values, vectors = np.linalg.eigh(matrix)
+        keep = np.abs(values) > 1e-14 * np.abs(values).max()
+        weights = (vectors[:, keep] @ ((vectors[:, keep].T @ rhs) / values[keep]))[:n]
+        if not np.isfinite(weights).all():
             self.focks, self.errors = self.focks[-1:], self.errors[-1:]
             return fock
+        return np.einsum('i,i...->...', weights, np.asarray(self.focks))
 
 
 class NativeKS:
