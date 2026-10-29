@@ -232,7 +232,8 @@ class MolecularApp(QuantumApp):
                     'auto: Dyall은 Gaussian 유한 핵, 그 외 점핵.', self._settings_changed)
         self._combo(method, '교환·상관 함수', self.vars['xc'], FUNCTIONALS, 'LDA / PBE / B3LYP / PBE0', self._settings_changed)
         self._combo(method, '계산 종류', self.vars['calculation'], list(CALCULATIONS),
-                    'gradient: 에너지와 원자 힘. optimize: geomeTRIC 구조 최적화(격자 수준 3 이상 권장).',
+                    'gradient: 에너지와 원자 힘. optimize: geomeTRIC 구조 최적화(격자 수준 3 이상 권장). '
+                    'frequencies: 조화 진동수·ZPE(최적화된 구조에서).',
                     self._settings_changed)
         self._combo(method, '분산 보정', self.vars['dispersion'], list(DISPERSIONS),
                     'd4: Grimme DFT-D4 (dftd4 라이브러리). PBE/PBE0/B3LYP만, LDA 불가. '
@@ -256,6 +257,10 @@ class MolecularApp(QuantumApp):
         self._combo(advanced, '구조 최적화 수렴 기준', self.vars['opt_convergence'], list(OPT_CONVERGENCE),
                     'default: geomeTRIC 기본(최대 기울기 4.5e-4 Ha/bohr). tight: 10배 엄격.', self._settings_changed)
         self._entry(advanced, '구조 최적화 최대 단계', 'opt_max_steps', '1~1000. 기본 100.', self._settings_changed)
+        self._entry(advanced, '진동수 변위 [bohr]', 'freq_step_bohr',
+                    '해석적 힘의 중심 유한차분 변위. 기본 0.005. 원자 수 N이면 6N회 계산.', self._settings_changed)
+        self._entry(advanced, '열역학 온도 [K]', 'thermo_temperature_k', '진동 열역학 온도. 기본 298.15.',
+                    self._settings_changed)
         self._combo(advanced, '초기 전자 추정', self.vars['initial_guess'], ['auto', 'core', 'perturbed'],
                     'auto: 자체 core / PySCF minao. perturbed는 자체 엔진의 재현 가능한 궤도 혼합.', self._settings_changed)
         for key, label, hint in (
@@ -376,7 +381,8 @@ class MolecularApp(QuantumApp):
                 data[key] = int(data[key])
             except ValueError:
                 raise ValueError(f'{key}: 정수를 입력하세요.') from None
-        for key in ('conv_tol', 'cube_margin_bohr', 'native_density_tol', 'native_residual_tol', 'native_damping'):
+        for key in ('conv_tol', 'cube_margin_bohr', 'native_density_tol', 'native_residual_tol', 'native_damping',
+                    'freq_step_bohr', 'thermo_temperature_k'):
             try:
                 data[key] = float(data[key])
             except ValueError:
@@ -676,7 +682,10 @@ class MolecularApp(QuantumApp):
         self.metrics[1].set(f'{"수렴" if summary["converged"] else "미수렴"} / {iteration} {summary["scf_cycles"]}회'
                             + (f' · 최대 힘 {gradient["max_atomic_force_ev_per_angstrom"]:.4f} eV/Å' if gradient else '')
                             + (f' · 최적화 {"수렴" if summary["optimization"]["converged"] else "미수렴"} '
-                               f'{summary["optimization"]["steps"]}단계' if summary.get('optimization') else ''))
+                               f'{summary["optimization"]["steps"]}단계' if summary.get('optimization') else '')
+                            + (f' · 최저 진동 {summary["frequencies"]["frequencies_cm1"][0]:.1f} cm⁻¹ · 허수 '
+                               f'{len(summary["frequencies"]["imaginary_frequencies_cm1"])}개'
+                               if summary.get('frequencies') and summary['frequencies']['frequencies_cm1'] else ''))
         engine_label = '자체' if summary['engine'] == 'quantumstarter-native' else 'PySCF'
         self.metrics[2].set(f'{engine_label} · {summary["method"]} / {summary["xc"].upper()}'
                             + ('-D4' if dispersion else ''))

@@ -18,7 +18,8 @@
 | DFT 원자 힘 (분자) | **구현·검증** | 자체 해석적 RKS/UKS 기울기(LDA/GGA/global hybrid), PySCF 경로, D4 기울기. 격자 응답 항 없음 |
 | 구조 최적화 (분자) | **구현·검증** | geomeTRIC(선택 의존성) + 자체/PySCF 해석적 힘. PySCF 자체 geomeTRIC 드라이버와 구조 일치 |
 | 고정/거리 제약·스캔 | 미구현 | geomeTRIC 제약 입력으로 확장 가능. MLIP의 H만 완화 기능과 구분 |
-| Hessian·진동·ZPE·열역학 | 미구현 | 조건/단위/허수 진동 처리 검증 필요 |
+| Hessian·진동·ZPE (분자) | **구현·검증** | 해석적 힘 유한차분 Hessian, 정확한 병진·회전 제거, 허수 진동 판정, ZPE·진동 열역학. PySCF 해석적 Hessian과 ≤0.5 cm⁻¹ |
+| 병진·회전 열역학, 자유에너지 G | 미구현 | 대칭수·전자 축퇴도 입력 필요. 반응 자유에너지는 아직 계산 불가 |
 | 반응/흡착에너지 및 호환성 검사 | 구현·검증 (제한 있음) | energy_analysis.py: 수렴/조건/수지/출처 검사. 주기계 동일 셀·k점만 허용, ZPE/열역학 없음 |
 | TS/NEB | 미구현 | 힘 검증 기반 필요 |
 | 주기계 k점·smearing·2D/3D 정전기 | 외부 PySCF에서 구현 | GDF+Gaussian/GTH, 평면파 아님 |

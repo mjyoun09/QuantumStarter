@@ -20,7 +20,7 @@ class GradientInputTests(unittest.TestCase):
         cfg = DFTConfig(calculation='gradient')
         self.assertEqual(DFTConfig.from_dict(cfg.to_dict()), cfg)
         self.assertEqual(signature(cfg), signature(DFTConfig()))
-        for value in ('hessian', 'Gradient', ''):
+        for value in ('scan', 'Gradient', ''):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 DFTConfig(calculation=value)
 

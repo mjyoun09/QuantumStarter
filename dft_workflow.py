@@ -85,7 +85,8 @@ def run_calculation(config, output_root=None, backend='auto', progress=lambda me
         raise ValueError('DFTConfig 또는 PeriodicConfig가 필요합니다.')
     output_root = Path(output_root or ROOT / 'outputs' / ('periodic' if config.system == 'periodic' else 'molecular')).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
-    directory = Path(mkdtemp(prefix=datetime.now().strftime('%Y%m%d_%H%M%S_'), dir=output_root))
+    # Microseconds keep name order = run order (history lists sort by name).
+    directory = Path(mkdtemp(prefix=datetime.now().strftime('%Y%m%d_%H%M%S_%f_'), dir=output_root))
     save_dft_config(config, directory / 'settings.json')
     lines = []
     try:

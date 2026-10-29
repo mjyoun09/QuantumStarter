@@ -1,5 +1,23 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.5: 조화 진동수·ZPE
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 6 (담당 Claude). 환경 변경 없음.
+
+- 질량: PySCF `atom_mass_list(isotope_avg=False)`는 질량수 정수(16, 1, 1)를 반환함을 확인했다(H 진동수 ~0.4% 오차 원인). 사용하지 않고 `pyscf.data.elements.COMMON_ISOTOPE_MASSES`(1.007825, 15.994915 …)를 쓴다.
+- `wsl ... -m unittest test_frequencies -v`: **6개 통과(25.8초)**.
+  - 투영·질량가중·단위 독립 확인: 같은 Hessian에 대해 우리 `harmonic_analysis`와 PySCF `thermo.harmonic_analysis`가 물·CO(선형)·NH₃에서 1e-4 cm⁻¹ 이내 일치.
+  - 물 PBE/STO-3G/grid3(tight 최적화 구조): PySCF 해석적 Hessian 진동수와 2 cm⁻¹ 이내, 허수 없음, minimum, 변위 폴더 19개, ZPE = ½Σν.
+  - H₂: 1개 모드(선형), 에너지 곡률 d²E/dr²에서 얻은 진동수와 1 cm⁻¹ 이내.
+  - 평면 NH₃: |ν| > 20 cm⁻¹ 허수 진동 ≥1, 그 모드는 분자면 수직(z) 변위, 경고 포함. 변위 계산 SCF 실패 시 중단.
+  - 열역학 공식: T = 1 K에서 유한값(경고를 오류로 둔 실행), 고온에서 모드당 Cv → k_B.
+- 개발 비교(PBE/def2-SVP/grid3, tight 최적화 구조): 자체 1608.59/3691.20/3790.51 vs PySCF 해석적 Hessian 1608.64/3690.72/3790.50 cm⁻¹; 우리 Hessian을 PySCF harmonic_analysis에 넣은 값은 소수 3자리 동일. H₂ 4277.63 vs d²E/dr² 4277.72 cm⁻¹.
+- 실제 CLI(Windows→WSL) 물 PBE-D4/def2-SVP/grid3, 0.8.4 CLI 최적화 구조 입력, `outputs/frequency_validation/cli/`: 자체 1608.48/3690.73/3790.01, PySCF 1608.43/3690.50/3789.62 cm⁻¹, 둘 다 minimum, ZPE 54.366/54.362 kJ/mol, 병진·회전 잔여 최대 16.6/17.1 cm⁻¹, Hessian 비대칭 4.3e-5/6.2e-5 Ha/bohr². 실행 당시 version 0.8.4.
+- 오류·조치: (1) T = 1 K에서 expm1 오버플로로 Cv가 NaN이 될 수 있어(JSON 저장 실패 위험) e^(−x) 기반 안정식으로 수정. (2) Windows 전체 실행에서 **기존 수소 GUI 시험이 간헐 실패**(3회 중 2회): 실행 폴더 이름이 초 단위 시각 + 무작위 문자열이라 같은 1초 안의 두 실행 순서가 무작위로 정렬됨(기록 목록의 실제 버그). 수소·분자 실행 폴더 이름에 마이크로초를 넣어 수정, 실패 조합 5회 반복 통과. 처음에 진동수 GUI 시험과 상관이 있어 보였던 것은 1회씩 시도한 우연으로 판단.
+- 회귀: WSL 71개 통과(82.9초). Windows 63개 중 44 통과·19 skip(18개는 PySCF/dftd4/geomeTRIC 필요로 WSL 통과, 기존 주기계 GUI 1개).
+
+한계: 조화 근사만(비조화·보정 인자 없음), 병진·회전·전자 열역학과 G 없음, 유한차분 Hessian은 6N회 계산이 필요해 큰 분자에서 느리다(해석적 Hessian 없음).
+
 ## 0.8.4: 자체 DIIS 정체 수정과 구조 최적화
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 5 (담당 Claude). WSL `.venv-dft`에 geomeTRIC 1.1.1(+networkx 3.7) 추가 설치.

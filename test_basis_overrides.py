@@ -76,7 +76,7 @@ class BasisOverrideInputTests(unittest.TestCase):
             data = config.to_dict()
             for key in ('engine', 'calculation', 'max_cycle', 'conv_tol', 'threads', 'memory_mb', 'cube_points',
                         'cube_margin_bohr', 'initial_guess', 'scf_solver', 'native_density_tol',
-                        'native_residual_tol', 'native_damping', 'native_diis_space', 'opt_convergence', 'opt_max_steps',
+                        'native_residual_tol', 'native_damping', 'native_diis_space', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k',
                         'basis_overrides', 'dispersion'):
                 data.pop(key, None)
             return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(',', ':')).encode()).hexdigest()

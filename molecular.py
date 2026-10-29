@@ -24,7 +24,7 @@ BASES = tuple(MOLECULAR_CAPABILITIES)
 RELATIVISTIC_BASES = frozenset({'dyall-v2z', 'dyall-v3z'})
 FUNCTIONALS = ('lda,vwn', 'pbe', 'b3lyp', 'pbe0')
 DISPERSIONS = ('none', 'd4')
-CALCULATIONS = ('single_point', 'gradient', 'optimize')
+CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies')
 # Thresholds handed to geomeTRIC: energy change [Ha], RMS/max gradient [Ha/bohr], RMS/max step [Angstrom].
 # 'default' equals geomeTRIC's own defaults (as documented by PySCF's geomeTRIC driver).
 OPT_CONVERGENCE = {
@@ -163,6 +163,8 @@ class DFTConfig:
     calculation: str = 'single_point'  # 'gradient': also dE/dR; 'optimize': geomeTRIC minimization.
     opt_convergence: str = 'default'  # Key of OPT_CONVERGENCE.
     opt_max_steps: int = 100
+    freq_step_bohr: float = 0.005  # Central-difference displacement for the Hessian.
+    thermo_temperature_k: float = 298.15
     initial_guess: str = 'auto'
     native_density_tol: float = 1e-7
     native_residual_tol: float = 1e-6
@@ -182,10 +184,12 @@ class DFTConfig:
             raise ValueError('주기적 고체·표면은 PeriodicConfig와 주기계 화면을 사용하세요. 분자 엔진은 고립계만 처리합니다.')
         if self.calculation not in CALCULATIONS:
             raise ValueError('분자 계산 종류: single_point(에너지), gradient(에너지+원자 힘), '
-                             'optimize(geomeTRIC 구조 최적화).')
+                             'optimize(geomeTRIC 구조 최적화), frequencies(조화 진동수).')
         if self.opt_convergence not in OPT_CONVERGENCE:
             raise ValueError('구조 최적화 수렴 기준: ' + ', '.join(OPT_CONVERGENCE))
         integer(self.opt_max_steps, '구조 최적화 최대 단계', 1, 1000)
+        real(self.freq_step_bohr, '진동수 유한차분 변위 [bohr]', 1e-4, 0.05)
+        real(self.thermo_temperature_k, '열역학 온도 [K]', 1, 5000)
         if not isinstance(self.atoms, (tuple, list)) or not 1 <= len(self.atoms) <= 100:
             raise ValueError('한 구조에 원자 1~100개를 입력하세요.')
         if not all(isinstance(atom, Atom) for atom in self.atoms):

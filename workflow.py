@@ -11,7 +11,7 @@ import scipy
 
 from solver import BOHR_TO_ANGSTROM, HARTREE_TO_EV, Config, Result, quality_warnings
 
-VERSION = "0.8.4"
+VERSION = "0.8.5"
 ORBITALS = ("s", "p", "d", "f", "g", "h")
 PRESETS = {"빠른 확인": 2000, "권장": 6000, "정밀": 12000}
 FIELD_NAMES = {
@@ -127,7 +127,8 @@ def new_run_dir(output_root: Path) -> Path:
     from tempfile import mkdtemp
     output_root = Path(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
-    prefix = datetime.now().strftime("%Y%m%d_%H%M%S_")
+    # Microseconds keep name order = run order; several fast runs can start within one second.
+    prefix = datetime.now().strftime("%Y%m%d_%H%M%S_%f_")
     return Path(mkdtemp(prefix=prefix, dir=output_root))
 
 

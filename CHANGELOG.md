@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 6 (조화 진동수·ZPE) 완료 2026-10-29 · 0.8.5 · Claude
+
+- `calculation=frequencies`(GUI `계산 종류`·변위·온도 입력, CLI `--calculation frequencies --freq-step --temperature`): 해석적 힘의 중심 유한차분 Hessian(6N+1회 계산, displacements/에 기록, 비대칭 크기 기록), 최빈 동위원소 정확 질량, 병진·회전(선형 5) 정확 제거 후 3N−6(5) 진동수, 정규모드, 허수 진동 판정(|ν|>20 cm⁻¹), ZPE·조화 진동 열역학(U/S/Cv). 정지점이 아니면 경고.
+- 주요 파일: 신규 engines/frequencies.py, test_frequencies.py; molecular.py, scf_control.py, engines/__init__.py, main.py, molecular_app.py, test_molecular_gui.py, test_basis_overrides.py, test_gradient.py, workflow.py·dft_workflow.py(실행 폴더 이름 마이크로초), README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: 투영·질량가중이 PySCF harmonic_analysis와 1e-4 cm⁻¹, PySCF 해석적 Hessian 진동수와 ≤0.5 cm⁻¹(def2-SVP)·2 cm⁻¹ 허용 시험, H₂ 에너지 곡률과 0.09 cm⁻¹, 평면 NH₃ 허수 우산 모드, 두 엔진 CLI 물 PBE-D4 0.4 cm⁻¹ 이내. WSL 71개, Windows 44개(+19 skip 사유 기록) 통과.
+- 수정한 문제: 저온 열역학 오버플로(NaN 가능), 같은 1초 안의 실행이 기록 목록에서 무작위 순서로 정렬되던 기존 버그(수소 GUI 시험 간헐 실패의 원인).
+- 한계: 조화 근사, 병진·회전·전자 열역학과 G 없음, 해석적 Hessian 없음(6N회 계산). ACTIVE_TASK.md 유지.
+
 ## QS-20261029-NATIVE-DFT · 단계 5 (DIIS 수정 + 구조 최적화) 완료 2026-10-29 · 0.8.4 · Claude
 
 - 자체 DIIS: Pulay 계수 상한 30을 없애고 B 행렬 고유분해 의사역행렬로 풀도록 수정(커밋 de7d245). OH에서 300회 중 289회 이력을 버려 정체하던 문제 해결(→ 약 25회 수렴), 다른 계 불변. 수렴한 OH 해가 PySCF 안정성 분석상 불안정임을 기록(다중 UKS 해).

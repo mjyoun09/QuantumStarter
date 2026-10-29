@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2~5 완료(원소별 기저 4fd9f1d, D4 e84a2f4, 원자 힘 c9719b1, DIIS 수정 de7d245, 구조 최적화 0.8.4 커밋). 다음은 단계 6(Hessian·진동수). 실행 중인 계산·미저장 코드 없음.
+- 상태: HANDOFF_READY — 단계 2~6 완료(4fd9f1d, e84a2f4, c9719b1, de7d245, 6294162, 진동수 0.8.5 커밋). 단계 7은 후보 A/B/C 중 사용자 우선순위 확인 필요. 실행 중인 계산·미저장 코드 없음.
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -61,11 +61,25 @@
    - 문서: README(구조 최적화 절), START_HERE(선택 설치 8), docs/NATIVE_DFT·VALIDATION(0.8.4)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG. **단계 5 완료.**
    - 미구현으로 남긴 것: 최적화 체크포인트 재시작, 제약/스캔/TS, 진동수 확인.
 
-### 단계 6 재개 지점: Hessian·진동수·ZPE (미착수)
+### 단계 6: Hessian·진동수·ZPE (Claude, 완료 — CHANGELOG 0.8.5)
 
-- 권장: 해석적 힘의 중심 유한차분 Hessian(각 좌표 ±h, 2·3N 회 기울기, 격자 고정 여부와 h 선택을 검증), 질량가중·병진/회전 투영 후 진동수(cm⁻¹), 허수 진동 판정으로 최적화 결과가 최소점인지 확인, ZPE·열역학(조화 근사, 온도/압력 명시). 검증: PySCF `hessian`(지원 범위) 및 geomeTRIC 내장 진동 분석과 비교, 물 진동수 대칭·병진/회전 0 확인. 최적화 결과에 자동 진동수 확인 옵션 연결 검토.
-- 별도 검토 항목: 자체 SCF 안정성 분석(내부 불안정 → 낮은 해 추종), Fe 원자 자체 SCF 미수렴, 자체 SCF 단계당 반복 수 개선.
-- 이후: NEB/TS → 주기계 힘/응력/밴드/DOS → 연구용 HEA DFT 기준값.
+- 계획: `calculation=frequencies`. 해석적 힘의 중심 유한차분 Hessian(3N 좌표 × ±h, 기본 h=0.005 bohr, 각 변위 계산을 displacements/에 기록, 기준 밀도로 초기 추정, 미수렴 시 중단), 대칭화·비대칭 크기 기록, 최빈 동위원소 질량 가중, 병진·회전(선형 5개) 공간을 정확히 제거한 내부공간에서 대각화 → 3N−6(5) 진동수(cm⁻¹, 허수는 음수), 정규모드, ZPE, 진동 열역학(조화 근사, T 명시). 검증: PySCF 해석적 Hessian과 진동수 비교, 우리 Hessian을 PySCF `thermo.harmonic_analysis`에 넣어 투영·질량가중 독립 확인, H2 에너지 2차 미분으로 독립 확인, 평면 NH3 허수 모드, 선형 분자 모드 수.
+- 발견: PySCF `atom_mass_list(isotope_avg=False)`는 질량수 정수(16, 1, 1)를 돌려준다 → 사용하지 않고 `pyscf.data.elements.COMMON_ISOTOPE_MASSES`(1.007825, 15.994915 등 정확한 동위원소 질량) 사용.
+- 구현: engines/frequencies.py(`frequency_molecule`, `harmonic_analysis`, `vibrational_thermo`), molecular.py(`frequencies`, `freq_step_bohr`, `thermo_temperature_k`), signature 제외, dispatch, GUI 입력·지표, CLI `--calculation frequencies --freq-step --temperature`.
+- 개발 비교(PBE/def2-SVP grid3, tight 최적화 구조): 자체 1608.59/3691.20/3790.51 vs PySCF 해석적 Hessian 1608.64/3690.72/3790.50 cm⁻¹(≤0.5); 우리 Hessian → PySCF harmonic_analysis 동일(소수 3자리); H2 4277.63 vs d²E/dr² 4277.72 cm⁻¹; 병진·회전 잔여 최대 ~18 cm⁻¹(격자 응답 미포함 탓, 정확히 제거됨); 물 계산 ~9초.
+- 오류·조치: T=1 K에서 expm1 오버플로 → Cv가 inf/inf=NaN 가능(JSON 저장 실패 위험). q=e^(−x) 기반 안정식으로 수정, 경고를 오류로 둔 시험 통과.
+- test_frequencies.py 6개 WSL 통과(25.8초).
+- GUI 실계산 진동수 시험 추가·통과. 회귀 중 **기존 수소 GUI 시험 간헐 실패**(Windows 전체 실행 3회 중 2회, 110행: 기록 2번째 항목이 Z=2 실행) → 원인: 실행 폴더 이름 `YYYYmmdd_HHMMSS_무작위`를 이름 역순 정렬해 같은 1초 안의 두 실행 순서가 무작위(앱 기록 목록의 실제 버그). workflow.py·dft_workflow.py 폴더 접두사에 `%f`(마이크로초) 추가. 실패 조합 5회 반복 통과. 사용자 config.json은 변경되지 않았음을 확인.
+- 최종 회귀: WSL 71 통과(82.9초), Windows 63 중 44 통과·19 skip(18개 WSL 통과 + 기존 주기계 GUI 1).
+- CLI 실계산: outputs/frequency_validation/cli/(0.8.4 최적화 물 구조, PBE-D4/def2-SVP; 자체 1608.48/3690.73/3790.01, PySCF 1608.43/3690.50/3789.62 cm⁻¹, minimum, ZPE 54.366/54.362 kJ/mol). 실행 당시 version 0.8.4.
+- 문서: README(진동수 절·예제), docs/VALIDATION(0.8.5)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG. **단계 6 완료.**
+
+### 단계 7 재개 지점 (미착수, 사용자와 우선순위 확인 권장)
+
+- 후보 A — 자유에너지: 병진·회전·전자 열역학(이상기체·강체회전자, 대칭수(점군 판정 또는 사용자 입력), 전자 축퇴도 2S+1, 압력 명시) → H/S/G, 반응 분석에 ZPE·G 옵션. 검증: PySCF `hessian.thermo.thermo`와 비교.
+- 후보 B — 자체 SCF 품질: SCF 안정성 분석(내부 불안정 → 낮은 해 추종), Fe 원자 미수렴, 단계당 반복 수(PySCF 대비 ~2배) 개선.
+- 후보 C — 제약·스캔(geomeTRIC 제약 입력), NEB/TS.
+- 이후: 주기계 힘/응력/밴드/DOS → 연구용 HEA DFT 기준값.
 
 ### 단계 3 결정 전 기록 (참고용, 결정은 단계 3 절 참조)
 - 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.

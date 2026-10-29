@@ -53,7 +53,7 @@ XYZ는 단일 프레임 형식(원자 수, 주석 한 행, 좌표)이며 Å 단�
 | 교환·상관 | LDA/VWN, PBE, B3LYP, PBE0 |
 | 시각화 | 구조 3D 산점도, 총밀도·스핀밀도·HOMO/LUMO의 xy/xz/yz 단면 |
 | 결과 | 총에너지, 전자 수, SCF 이력, MO 에너지/점유수/계수, 밀도행렬, CUBE |
-| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, 구조 제약·스캔·진동수(최적화는 0.8.4부터), 들뜬 상태; 주기계는 별도 화면 사용 |
+| 이 분자 화면의 미지원 | 임의 ECP, 스핀-궤도 결합, 구조 제약·스캔·전이상태, 병진·회전 열역학(자유에너지), 들뜬 상태; 주기계는 별도 화면 사용 |
 
 UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여러 스핀 상태 탐색은 자동 제공하지 않습니다.
 란타넘족·악티늄족·초중원소를 포함한 118개 원소의 고립 분자·이온·착물을 입력할 수 있습니다.
@@ -81,6 +81,17 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 결과에는 `basis_by_element`가 저장되고, 반응·흡착 분석은 **같은 원소의 기저·ECP가 모든 항에서 같을 때만** 계산합니다.
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
+
+## 조화 진동수·ZPE (0.8.5)
+
+`calculation=frequencies`(화면 `계산 종류`, CLI `--calculation frequencies`)는 입력 구조에서 조화 진동수를 계산합니다.
+**최적화된 구조에서 실행하세요**(입력 구조의 최대 기울기가 4.5e-4 Ha/bohr를 넘으면 경고).
+
+- Hessian: 해석적 힘의 중심 유한차분(변위 `freq_step_bohr`, 기본 0.005 bohr). 원자 N개이면 기울기 계산 6N+1회이며 각 변위 계산은 `displacements/`에 기록됩니다. 대칭화 전 비대칭 크기를 기록합니다.
+- 질량: 최빈 동위원소의 정확한 질량(¹H 1.007825, ¹⁶O 15.994915 …). 병진·회전(선형 분자는 5개) 공간을 정확히 제거해 3N−6(5)개 진동수를 얻습니다. 허수 진동은 음수로 표시합니다.
+- 판정: |ν| > 20 cm⁻¹인 허수 진동이 없으면 `minimum`, 1개면 `transition_state_candidate`. 작은 허수 진동은 수치 잡음일 수 있다고 경고합니다.
+- ZPE와 진동 열역학(조화 근사: U_vib, S_vib, Cv_vib, 온도 `thermo_temperature_k`, 기본 298.15 K). **병진·회전·전자 항과 자유에너지 G는 아직 없습니다.** 비조화성·보정 인자 없음.
+- 격자 응답 항이 없는 힘을 쓰므로 병진·회전 잔여 진동수(물/def2-SVP/격자 3에서 ~17 cm⁻¹)가 생기며, 이 성분은 정확히 제거되고 진단값으로 기록됩니다.
 
 ## 구조 최적화 (geomeTRIC, 0.8.4)
 
@@ -202,6 +213,7 @@ NPZ는 `numpy.load(path, allow_pickle=False)`로 읽을 수 있습니다.
 .\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis sto-3g --basis-element O=def2-svp --xc lda,vwn --engine native --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis def2-svp --xc pbe --dispersion d4 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\water_distorted.xyz --basis def2-svp --xc pbe --dispersion d4 --calculation optimize --no-show
+.\.venv\Scripts\python.exe main.py --xyz <최적화 결과 폴더>\optimized.xyz --basis def2-svp --xc pbe --dispersion d4 --calculation frequencies --no-show
 .\.venv\Scripts\python.exe main.py --config molecule.json --output outputs\study --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\kcl.xyz --charge 0 --spin 0 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\fe3plus.xyz --charge 3 --spin 5 --no-show
