@@ -77,6 +77,13 @@ def calculate_molecule(config, directory, progress=print):
         raise ValueError('기저함수 800개를 넘는 계산은 현재 데스크톱 엔진에서 지원하지 않습니다.')
     if max(mol.nelec) > mol.nao_nr():
         raise ValueError('선택한 기저함수에 전자를 모두 배치할 수 없습니다. 전하와 기저함수를 확인하세요.')
+    dispersion = None
+    if config.dispersion == 'd4':
+        # Before SCF so a missing library fails fast. Atomic numbers, not ECP effective charges.
+        from .dispersion import d4_energy
+        dispersion = d4_energy(atomic_numbers, mol.atom_coords(), config.charge, config.xc)
+        progress(f'D4 분산 보정 ({dispersion["library"]} {dispersion["library_version"]}, {config.xc} 매개변수): '
+                 f'{dispersion["energy_hartree"]:.10f} Ha · SCF 후 총에너지에 더합니다.')
     if config.engine == 'native':
         from .native_scf import NativeKS
         mf = NativeKS(mol, config, directory)
@@ -184,6 +191,13 @@ def calculate_molecule(config, directory, progress=print):
         if config.resolved_relativity == 'x2c' and bases_used - {'dyall-v2z', 'dyall-v3z'}:
             warnings.append('X2C 계산에 비상대론용으로 수축된 기저가 섞여 있습니다. '
                             '해당 원소의 상대론 기저 수렴을 별도로 확인하세요.')
+    if dispersion is not None:
+        warnings.append(f'D4 분산 보정 {dispersion["energy_hartree"]:+.10f} Ha가 총에너지에 포함되었습니다. '
+                        '밀도와 무관한 기하 보정이라 SCF 이력·밀도·오비탈에는 들어 있지 않습니다. '
+                        '분산 보정이 다른 계산과 에너지를 섞지 마세요.')
+        if config.xc == 'b3lyp':
+            warnings.append('B3LYP는 PySCF/Libxc 정의(Libxc ID 402)입니다. D4 매개변수 피팅에 쓰인 '
+                            'B3LYP 구현과 VWN 변형이 다를 수 있습니다.')
     if config.unused_basis_overrides:
         warnings.append('구조에 없는 원소의 기저 지정은 사용되지 않았습니다: '
                         + ', '.join(config.unused_basis_overrides))
@@ -255,6 +269,10 @@ def calculate_molecule(config, directory, progress=print):
         'one_electron': float(np.einsum('ij,ji->', total_dm, mf.get_hcore())),
         'coulomb': float(mf.scf_summary['coul']), 'exchange_correlation': float(mf.scf_summary['exc']),
         'nuclear_repulsion': float(mol.energy_nuc())})
+    scf_energy = energy
+    if dispersion is not None:
+        components = dict(components, dispersion=dispersion['energy_hartree'])
+        energy = scf_energy + dispersion['energy_hartree']
     if abs(sum(components.values()) - energy) > 1e-7:
         raise RuntimeError('에너지 성분 합과 총에너지가 일치하지 않습니다.')
     xc_hybrid, xc_terms = dft.libxc.parse_xc(config.xc)
@@ -265,7 +283,7 @@ def calculate_molecule(config, directory, progress=print):
     else:
         actual_guess = 'core' if config.engine == 'native' else 'minao'
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.1',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.2',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
@@ -299,6 +317,9 @@ def calculate_molecule(config, directory, progress=print):
         'nuclear_gaussian_zeta_per_bohr2': [float(mol._env[mol._atm[i, gto.PTR_ZETA]]) for i in range(mol.natm)],
         'scf_iteration_kind': 'macroiteration' if config.scf_solver == 'newton' else 'iteration',
         'total_energy_hartree': energy, 'total_energy_ev': energy * HARTREE_TO_EV,
+        'scf_energy_hartree': scf_energy, 'dispersion': dispersion,
+        'energy_definition': ('SCF + D4 dispersion; scf_history holds SCF energies only'
+                              if dispersion is not None else 'SCF'),
         'nuclear_repulsion_hartree': float(mol.energy_nuc()),
         'electrons': config.electrons, 'electron_count_from_density': electron_trace,
         'explicit_electrons': config.explicit_electrons, 'ecp_core_electrons': config.ecp_core_electrons,
@@ -325,7 +346,9 @@ def calculate_molecule(config, directory, progress=print):
         'assumptions': ['isolated finite molecule', 'fixed nuclei, single point energy',
                         'scalar def2-ECP KS-DFT; no spin-orbit coupling' if config.resolved_ecp
                         else 'scalar X2C all-electron KS-DFT; no SOC' if config.resolved_relativity == 'x2c'
-                        else 'nonrelativistic all-electron KS-DFT', 'no periodic boundary conditions'],
+                        else 'nonrelativistic all-electron KS-DFT', 'no periodic boundary conditions']
+                       + (['DFT-D4 dispersion (EEQ charges, BJ damping, ATM three-body) added after SCF']
+                          if dispersion is not None else []),
         'warnings': warnings, 'elapsed_seconds': time.perf_counter() - started,
         'environment': {'python': platform.python_version(), 'pyscf': pyscf.__version__,
                         'numpy': np.__version__, 'libxc': dft.libxc.__version__},

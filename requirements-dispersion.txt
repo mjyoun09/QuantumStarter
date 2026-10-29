@@ -1,0 +1,5 @@
+# Optional: DFT-D4 dispersion (dispersion=d4). Install into WSL .venv-dft:
+#   wsl --exec .venv-dft/bin/python -m pip install -r requirements-dispersion.txt
+# Verified with dftd4 4.3.1 / tomli 2.5.0 (tomli is needed to read the published damping parameters).
+dftd4>=4.3,<5
+tomli>=2

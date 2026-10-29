@@ -71,11 +71,13 @@ class BasisOverrideInputTests(unittest.TestCase):
         cfg = DFTConfig(basis='sto-3g')
 
         def legacy_signature(config):
-            # The formula used before basis_overrides existed (scf_control at commit dd2871e).
+            # The formula used before basis_overrides existed (scf_control at commit dd2871e),
+            # applied to the settings that existed then: fields added later are removed first.
             data = config.to_dict()
             for key in ('engine', 'calculation', 'max_cycle', 'conv_tol', 'threads', 'memory_mb', 'cube_points',
                         'cube_margin_bohr', 'initial_guess', 'scf_solver', 'native_density_tol',
-                        'native_residual_tol', 'native_damping', 'native_diis_space', 'basis_overrides'):
+                        'native_residual_tol', 'native_damping', 'native_diis_space',
+                        'basis_overrides', 'dispersion'):
                 data.pop(key, None)
             return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 

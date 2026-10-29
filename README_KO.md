@@ -82,6 +82,19 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
 
+## 분산 보정 (DFT-D4, 0.8.2)
+
+`dispersion=d4`(화면 `분산 보정`, CLI `--dispersion d4`)는 Grimme 그룹의 공식 구현 **dftd4**로
+DFT-D4 에너지를 계산해 SCF 총에너지에 더합니다. D4는 EEQ 부분전하에 따라 C6가 변하는 모델로,
+BJ 감쇠 2체 항과 Axilrod–Teller–Muto 3체 항을 포함합니다(Caldeweyher et al., J. Chem. Phys. 150, 154122, 2019).
+
+- 선택 설치: `wsl --exec .venv-dft/bin/python -m pip install -r requirements-dispersion.txt` (검증: dftd4 4.3.1).
+- 공개 감쇠 매개변수가 있는 **PBE / PBE0 / B3LYP**만 허용합니다. LDA에는 D4 매개변수가 없어 차단합니다.
+- 지원 원소는 dftd4 참조 데이터가 있는 **H~Lr, Cn~Og (110개)**입니다. Rf~Rg는 차단합니다.
+- 고립 분자에서는 라이브러리 기본 실공간 cutoff(2체 60 bohr, 3체 40 bohr)를 **분자 최대 원자간 거리 이상으로 넓혀 모든 쌍을 포함**합니다. 적용 값은 결과에 기록됩니다.
+- 분산은 밀도와 무관한 기하 보정입니다. 결과의 `scf_energy_hartree`, `energy_components_hartree.dispersion`, `dispersion`(매개변수·EEQ 전하·버전)에 분리 저장하며, `scf_history`에는 SCF 에너지만 있습니다.
+- 반응·흡착 분석은 분산 모델·매개변수·라이브러리 버전이 모든 항에서 같아야 합니다. 주기계 엔진에는 아직 없습니다.
+
 ## ECP와 전자 수
 
 `ecp=auto`가 기본값입니다. 무거운 원소에 def2-SVP/TZVP를 쓰면 대응하는 def2-ECP를 적용합니다.
@@ -164,6 +177,7 @@ NPZ는 `numpy.load(path, allow_pickle=False)`로 읽을 수 있습니다.
 .\.venv\Scripts\python.exe main.py --xyz examples\oh.xyz --charge 0 --spin 1 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\h2.xyz --basis sto-3g --xc pbe --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis sto-3g --basis-element O=def2-svp --xc lda,vwn --engine native --no-show
+.\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis def2-svp --xc pbe --dispersion d4 --no-show
 .\.venv\Scripts\python.exe main.py --config molecule.json --output outputs\study --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\kcl.xyz --charge 0 --spin 0 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\fe3plus.xyz --charge 3 --spin 5 --no-show

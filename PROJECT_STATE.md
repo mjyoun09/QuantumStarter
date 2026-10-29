@@ -33,7 +33,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 
 - 작업 폴더: `C:\Users\mjyou\OneDrive\졸업논문준비\QuantumStarter`, PowerShell.
 - Windows `.venv`: Python 3.13, Tk, NumPy/SciPy/Matplotlib/ASE. `start_windows.bat` 실행.
-- WSL Ubuntu 24.04 `.venv-dft`: Python 3.12, PySCF 2.14.0. 설치 기준 `requirements-dft.txt`.
+- WSL Ubuntu 24.04 `.venv-dft`: Python 3.12, PySCF 2.14.0. 설치 기준 `requirements-dft.txt`. 선택: dftd4 4.3.1 + tomli 2.5.0 (`requirements-dispersion.txt`, 2026-10-29 이 PC에 설치됨).
 - `.venv-mlip`: PyTorch 2.7.1+cu128, MACE 0.3.16, cuEquivariance 0.13.0, RTX 5080 Laptop GPU. 모델은 `.model_cache/`.
 - `.venv`, `.venv-dft`, `.venv-mlip`을 섞지 않는다. Windows Python에서 PySCF 실계산 테스트는 건너뛰므로 WSL 검증이 필요하다.
 - Git: 2026-10-29부터 로컬 저장소(브랜치 main, 원격 없음). 그 이전 이력은 없다. `.gitignore`가 `.venv*`, `.model_cache/`, `outputs/`, `__pycache__/`를 제외하므로 **실제 계산 산출물은 Git으로 보존되지 않는다**. 폴더가 OneDrive 동기화 경로 안에 있으므로 두 PC에서 동시에 Git을 조작하지 않는다.
@@ -48,6 +48,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **완료 QS-20261028-PROTOCOL:** 사용자 공통 규칙 AGENTS.md, Claude 진입점 CLAUDE.md, 장기 상태·진행 인계·완료 이력 체계 등록.
 - **첫 단계 완료·후속 인계 QS-20261029-NATIVE-DFT / 0.8:** 첨부 프롬프트의 우선 대상인 자체 RKS/UKS·LDA/GGA/global hybrid, 에너지 성분, 출처, 중단/체크포인트/재시작, SCF 그래프, 구조 측정·프리셋·반응/흡착 분석을 추가했다. 최종 WSL39개·실계산 GUI10개·수소 workflow5개 통과. 후속 원소별 기저/분산·힘/최적화/진동/NEB/밴드 등은 미완료이며 전체 요청의 완료로 처리하지 않는다. ACTIVE_TASK.md와 docs/REQUIREMENTS_STATUS_KO.md에서 재개 범위를 확인한다.
 - **단계 2 완료 / 0.8.1 (Claude):** 분자 원소별 기저 `basis_overrides`(GUI/CLI `--basis-element`/JSON). 원소별 기저 데이터·def2-ECP·auto X2C/핵/격자 판정, 결과 `basis_by_element`, 반응 분석의 원소별 기저/ECP 대조. 자체·외부 엔진 혼합 기저 일치 검증. 분산 보정 이후 항목은 미완료.
+- **단계 3 완료 / 0.8.2 (Claude):** 분자 DFT-D4 분산 에너지(`dispersion=d4`), 공식 dftd4 라이브러리(선택 의존성, requirements-dispersion.txt). PBE/PBE0/B3LYP, 110원소, 고립 분자는 절단 없이 합산. 결과에 SCF/분산 분리·매개변수·EEQ 전하 기록, 반응 분석은 분산 조건 일치 검사. 분산 힘·주기계 D4 미구현. 사용자 선택 기준: "더 정확한 것" → 모델이 더 정확한 D4, 참조 구현 사용.
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계

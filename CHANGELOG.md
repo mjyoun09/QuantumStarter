@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 3 (DFT-D4 분산 보정) 완료 2026-10-29 · 0.8.2 · Claude
+
+- 분자 계산에 `dispersion=d4`(GUI `분산 보정`, CLI `--dispersion d4`)를 추가했다. Grimme 그룹 공식 구현 dftd4로 D4 에너지(EEQ 전하 의존 C6, BJ 2체 + ATM 3체)를 계산해 SCF 후 총에너지에 별도 성분으로 더한다. 사용자 기준 "더 정확한 것"에 따라 D3 자체 구현 대신 D4 참조 구현을 택했다.
+- 주요 파일: 신규 engines/dispersion.py, requirements-dispersion.txt, test_dispersion.py; molecular.py, engines/pyscf_engine.py, scf_control.py, energy_analysis.py, main.py, molecular_app.py, workflow.py(버전), test_basis_overrides.py(과거 서명 재현에 새 필드 제외), README_KO.md, START_HERE_KO.md, docs/NATIVE_DFT_KO.md·VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- PBE/PBE0/B3LYP만 허용(LDA 매개변수 없음), dftd4 지원 110원소(Rf~Rg 제외) 검증. 고립 분자는 라이브러리 기본 cutoff(2체 60 bohr)를 넓혀 모든 쌍 포함. 결과에 `scf_energy_hartree`, 성분 `dispersion`, 매개변수·EEQ 전하·cutoff·버전 기록. 체크포인트 서명에서 제외(밀도 무관). 반응 분석은 분산 모델·매개변수·버전 일치 요구. dftd4가 없어도 none 경로는 동작.
+- 검증: test_dispersion 7개(2체 식 수동 재현 1e-10, dftd4 PySCF 어댑터와 1e-12, 불변성·전하·단위), WSL 전체 54개, Windows 37개 통과(7 skip 사유 기록). 물 PBE-D4 CLI 두 엔진 차 2e-12 Ha. 상세는 docs/VALIDATION_KO.md 0.8.2.
+- 한계: D4 정확도 벤치마크를 재검증하지 않음, B3LYP VWN 변형 차이 가능성, 분산 힘·주기계 D4 미구현. ACTIVE_TASK.md 유지(힘/최적화 이후 단계 남음).
+
 ## QS-20261029-NATIVE-DFT · 단계 2 (원소별 기저) 완료 2026-10-29 · 0.8.1 · Claude
 
 - 분자 계산에서 원소마다 다른 기저를 지정하는 `DFTConfig.basis_overrides`를 추가했다. GUI `원소별 기저` 입력란, CLI `--basis-element EL=BASIS`, 설정 JSON에서 사용한다. 기존 설정·결과·체크포인트와 호환된다.

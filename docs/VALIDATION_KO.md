@@ -1,5 +1,28 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.2: DFT-D4 분산 보정
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 3 (담당 Claude). WSL `.venv-dft`에 dftd4 4.3.1, tomli 2.5.0 추가 설치.
+모델: DFT-D4(EEQ 전하 의존 C6, BJ 2체 + ATM 3체), 매개변수는 dftd4가 배포하는 PBE/PBE0/B3LYP 값을 그대로 사용하고 결과에 기록.
+
+- `wsl --exec .venv-dft/bin/python -m unittest test_dispersion -v`: **7개 통과, 9.2초**.
+  - 라이브러리 계약: 118원소를 실제로 넣어 지원 집합이 코드의 D4_ELEMENTS(Z 1~103, 112~118)와 같음, LDA 매개변수 없음, 명시 매개변수 = 라이브러리 이름 조회(1e-14).
+  - 독립 수식 재현: Ar₂·ArKr에서 2체 D4-BJ 식 E = −C6[s6/(R⁶+f⁶) + s8·rr/(R⁸+f⁸)]을 직접 계산해 R = 3, 10, 50, 200 bohr에서 상대 1e-10 이내 일치. 200 bohr는 라이브러리 기본 cutoff(60 bohr, 61 bohr부터 0으로 실측)를 넘으며 이번 구현이 절단 없이 합산함을 확인. C6 자체(EEQ·CN 의존)는 라이브러리 값을 사용하므로 이 시험의 독립 검증 범위 밖이다.
+  - 회전·병진 불변(1e-13), 총전하 전달(EEQ 전하 합 = +1, 에너지 변화), Å/bohr 입력 동일(1e-12).
+  - SCF 통합: PySCF/자체 엔진 모두 총에너지 = SCF + 분산(1e-12), 성분 합 일치, 분산을 켜도 SCF 에너지 불변(1e-9), dftd4 패키지 자체 PySCF 어댑터와 1e-12 일치, 두 엔진 총에너지 2e-7 이내.
+  - 라이브러리 부재 시 명확한 오류, `dispersion=none`은 정상 수렴.
+- 전체 WSL 회귀 `test_native test_molecular test_periodic test_basis_overrides test_energy_analysis test_dispersion`: **54개 통과, 52.4초**.
+  첫 실행에서 test_basis_overrides의 "이전 서명 공식" 시험 1개가 실패했다. 시험이 과거 설정을 재현할 때 새 필드 `dispersion`을 빼지 않은 시험 쪽 누락이었고(실제 서명 함수는 dispersion 제외), 시험을 고쳐 재실행 통과.
+- Windows `QUANTUMSTARTER_GUI_DFT_TEST=1` `test_molecular_gui test_workflow test_gui test_solver test_periodic_gui test_basis_overrides test_energy_analysis test_dispersion`: **44개 중 37 통과, 7 skip, 61.6초**.
+  skip은 PySCF/dftd4가 필요한 6개(WSL에서 통과)와 별도 환경변수가 필요한 기존 주기계 실계산 GUI 1개.
+- 실제 CLI(Windows→WSL) 물 PBE/def2-SVP/grid3, `outputs/dispersion_validation/`:
+  PySCF+D4 −76.272209814055 Ha(SCF −76.272014472667, D4 −1.953413873068e-4), 자체+D4 −76.272209814057 Ha(차 2e-12),
+  D4 없는 PySCF −76.272014472667 Ha(= D4 계산의 SCF 에너지). EEQ 전하 O −0.598, H +0.299.
+  이 세 실행의 `version` 필드는 0.8.1이다. 버전 문자열을 0.8.2로 바꾸기 직전에 실행했으며 그 외 코드는 같다.
+
+한계: D4 에너지 정확도(벤치마크 대비)를 이 프로젝트에서 재검증하지 않았다. 매개변수는 해당 범함수 구현으로 피팅된 값이며 PySCF B3LYP(Libxc 402)와 피팅에 쓰인 B3LYP의 VWN 변형이 다를 수 있다.
+분산 힘, 주기계 D4, D3 비교는 미구현이다.
+
 ## 0.8.1: 원소별 기저 선택
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 2 (담당 Claude). 환경은 0.8과 같다(WSL PySCF 2.14.0, Windows Python 3.13/Tk).

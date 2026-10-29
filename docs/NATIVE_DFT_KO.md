@@ -36,7 +36,8 @@ E = Tr(DT) + Tr(DVnuc) + Tr(DJ)/2 + Exc,semilocal + Ex,exact + Enuc.
 
 LDA는 `lda,vwn`: Slater 교환과 VWN 상관이다. 결과의 `provenance.xc_functional_ids_and_weights`,
 `exact_exchange_fraction`, `environment.libxc`에 실제 Libxc 함수 ID/계수/버전을 기록한다.
-PBE에는 실제 밀도 기울기를, PBE0/B3LYP에는 실제 K 행렬을 사용한다. 분산 보정은 아직 없다.
+PBE에는 실제 밀도 기울기를, PBE0/B3LYP에는 실제 K 행렬을 사용한다. 선택 D4 분산 보정(0.8.2)은 dftd4 라이브러리가 계산하는
+밀도 무관 기하 보정이며 SCF가 끝난 뒤 별도 성분 `dispersion`으로 더한다. 자체 SCF 알고리즘에는 관여하지 않는다.
 
 SCF는 에너지 변화, 밀도행렬 Frobenius 변화, 직교 기저에서 FDS−SDF의 Frobenius 잔차를 **모두** 만족해야 한다.
 최종 정수 점유·canonical 궤도도 같은 기준으로 다시 확인하며 느슨한 추가 수렴 기준을 쓰지 않는다.
@@ -48,7 +49,7 @@ SCF는 에너지 변화, 밀도행렬 Frobenius 변화, 직교 기저에서 FDS�
   원소별 기저(`basis_overrides`, 0.8.1)도 같은 AO 기저 구성으로 사용한다. 혼합 기저 물에서 외부 엔진과 3.1e-11 Ha 일치(VALIDATION 0.8.1).
 - 직접 dense ERI를 보유하므로 최대160 AO이며 메모리 추정치가 `memory_mb`를 넘으면 실행을 거부한다. 모든 H~Kr 화합물의 수렴/정확도를 검증한 것은 아니다.
 - 기존 pyscf: H~Og의 Dyall 기저, ECP, X2C 등 기존 지원 유지. native에서 미지원인 옵션은 오류로 명시한다.
-- 자체 Newton, ECP/X2C, 분산력, DFT 힘/최적화/진동/NEB, 주기계 자체 SCF는 미구현이다.
+- 자체 Newton, ECP/X2C, DFT 힘/최적화/진동/NEB, 주기계 자체 SCF는 미구현이다. 분산 에너지는 D4(외부 dftd4)로 지원하며 분산 힘은 아직 사용하지 않는다.
 - 자체 프로그램이라는 것은 모든 수치 라이브러리를 새로 썼다는 뜻이 아니다. 적분/XC 라이브러리는 두 비교 엔진이 공유하므로 비교는 주로 자체 SCF/행렬/에너지 구현을 검증한다.
 
 ## 중단, 체크포인트, 재시작

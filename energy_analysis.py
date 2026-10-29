@@ -42,7 +42,12 @@ def compatibility(result):
                       libxc_version=result.get('environment', {}).get('libxc'),
                       xc_definition=result.get('provenance', {}).get('xc_functional_ids_and_weights'),
                       basis_by_element={e: b + ('+def2-ecp' if e in ecp else '')
-                                        for e, b in cfg.basis_by_element.items()})
+                                        for e, b in cfg.basis_by_element.items()},
+                      dispersion=cfg.dispersion)
+        if cfg.dispersion != 'none':
+            details = result.get('dispersion') or {}
+            common.update(dispersion_parameters=details.get('parameters'),
+                          dispersion_library=f"{details.get('library')} {details.get('library_version')}")
     else:
         common.update(basis=cfg.basis, pseudo=cfg.pseudo, lattice=cfg.lattice, boundary=cfg.boundary,
                       kmesh=cfg.kmesh, smearing_ev=cfg.smearing_ev, precision=cfg.precision)

@@ -23,6 +23,11 @@ DEF2_CORE_ELECTRONS = molecular_core_counts('def2-svp')
 BASES = tuple(MOLECULAR_CAPABILITIES)
 RELATIVISTIC_BASES = frozenset({'dyall-v2z', 'dyall-v3z'})
 FUNCTIONALS = ('lda,vwn', 'pbe', 'b3lyp', 'pbe0')
+DISPERSIONS = ('none', 'd4')
+# Checked against dftd4 4.3.1 (test_dispersion): published D4 damping parameters exist for
+# these functionals (none for LDA), and the reference data cover Z=1-103 and 112-118.
+D4_FUNCTIONALS = frozenset({'pbe', 'pbe0', 'b3lyp'})
+D4_ELEMENTS = frozenset(ELEMENTS[:103] + ELEMENTS[111:118])
 # Verified against bundled PySCF basis data. Never silently substitute a basis.
 BASIS_UNAVAILABLE = {basis: frozenset(ELEMENTS) - set(info['elements'])
                      for basis, info in MOLECULAR_CAPABILITIES.items()}
@@ -140,6 +145,7 @@ class DFTConfig:
     basis: str = 'def2-svp'  # Default for every element not listed in basis_overrides.
     basis_overrides: dict = field(default_factory=dict)  # {element: basis}
     xc: str = 'pbe'
+    dispersion: str = 'none'  # 'd4': geometry-only correction added after SCF.
     method: str = 'auto'
     scf_solver: str = 'diis'
     ecp: str = 'auto'
@@ -178,7 +184,8 @@ class DFTConfig:
                              ('scf_solver', ('diis', 'newton')), ('ecp', ('auto', 'none', 'def2')),
                              ('relativity', ('auto', 'none', 'x2c')), ('nuclear_model', ('auto', 'point', 'gaussian')),
                              ('grid_scheme', ('auto', 'treutler', 'universal')),
-                             ('engine', ('pyscf', 'native')), ('initial_guess', ('auto', 'core', 'perturbed'))):
+                             ('engine', ('pyscf', 'native')), ('initial_guess', ('auto', 'core', 'perturbed')),
+                             ('dispersion', DISPERSIONS)):
             value = getattr(self, key)
             if not isinstance(value, str) or value.lower().strip() not in choices:
                 raise ValueError(f'지원하지 않는 {key}: {value}. 선택 가능: {", ".join(choices)}')
@@ -199,6 +206,14 @@ class DFTConfig:
             if basis != self.basis:
                 overrides[element] = basis
         object.__setattr__(self, 'basis_overrides', dict(sorted(overrides.items())))
+        if self.dispersion == 'd4':
+            if self.xc not in D4_FUNCTIONALS:
+                raise ValueError(f'D4 분산 보정의 공개 감쇠 매개변수가 {self.xc}에는 없습니다. '
+                                 f'{", ".join(sorted(D4_FUNCTIONALS))} 중에서 선택하세요.')
+            unsupported = sorted({a.element for a in self.atoms} - D4_ELEMENTS, key=ATOMIC_NUMBERS.get)
+            if unsupported:
+                raise ValueError(f'D4 참조 데이터가 없는 원소: {", ".join(unsupported)} '
+                                 '(dftd4 지원: H~Lr, Cn~Og). 분산 보정을 none으로 선택하세요.')
         for element, basis in self.basis_by_element.items():
             if element in BASIS_UNAVAILABLE.get(basis, ()):
                 raise ValueError(f'{basis}: {element}에 지원되는 기저 데이터가 없습니다. '

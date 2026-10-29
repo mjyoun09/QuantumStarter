@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2(원소별 기저) 완료·커밋. 단계 3(분산 보정)은 방식 선택(자체 구현 D3 vs 외부 라이브러리)에 대한 사용자 결정 대기. 실행 중인 계산·미저장 코드 없음.
+- 상태: HANDOFF_READY — 단계 2(원소별 기저, 4fd9f1d)·단계 3(D4 분산, 0.8.2 커밋) 완료. 단계 4(DFT 힘)는 미착수. 실행 중인 계산·미저장 코드 없음.
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -21,8 +21,26 @@
 - CLI 실계산 보존: outputs/basis_override_validation/20261029_202537_953szltv(pyscf), 20261029_202543_ocuvwdck(native), 차이 3.1e-11 Ha.
 - 문서 갱신 완료: README_KO, docs/ELEMENTS·NATIVE_DFT·VALIDATION(0.8.1 절)·REQUIREMENTS_STATUS, PROJECT_STATE(사용자 목표 = DFT 프로그램 자체 제작, Git 상태), CHANGELOG. CLAUDE.md에 `@AGENTS.md` import 추가(Codex 문장은 유지).
 
-### 단계 3 재개 지점: 분산 보정 (미착수)
+### 단계 3: 분산 보정 (Claude, 진행 중)
 
+- 사용자 결정(2026-10-29): "더 정확한 것". 해석: 같은 모델이면 직접 구현과 라이브러리는 결과가 같고 정확도는 모델이 정한다 → **DFT-D4(EEQ 전하 의존 C6, BJ 감쇠 + ATM 3체)**를 Grimme 그룹 공식 구현 `dftd4` Python 패키지로 계산. D3 자체 구현은 하지 않음.
+- 계획: (1) WSL .venv-dft에 dftd4 설치·API/원소 범위/매개변수 조회 확인 → (2) `DFTConfig.dispersion` none|d4, XC별 감쇠 매개변수(pbe/pbe0/b3lyp; LDA 거부), 원소 범위 검증 → (3) engines/dispersion.py: PySCF mol의 bohr 좌표·원자번호·총전하로 에너지, 결과에 성분 `dispersion`·모델·매개변수·버전 기록, 총에너지 = SCF + 분산 → (4) 체크포인트 서명에서 dispersion 제외(밀도 무관), 반응 분석은 분산 모델 일치 검사 → (5) GUI/CLI → (6) 검증: 이원자 장거리 −E·R⁶ → s6·C6 점근, 단위(Å/bohr) 불변, 병진·회전 불변, 전하 전달, 패키지 없을 때 명확한 오류·기본 기능 유지, 기존 회귀 → (7) 문서/CHANGELOG/커밋.
+- 선택 의존성: 패키지 없이도 dispersion=none 경로는 그대로 동작해야 함. 설치 목록은 별도 requirements 파일로.
+- 환경 변경: WSL `.venv-dft`에 `pip install dftd4`(4.3.1, cffi/pycparser 동반) 및 `tomli`(2.5.0; dftd4.parameters가 TOML 파서 요구) 설치. requirements-dispersion.txt 신설.
+- 실측 사실: dftd4 지원 원소 Z=1~103, 112~118(110개, Rf~Rg 거부). 감쇠 매개변수 pbe/pbe0/b3lyp 존재, lda/svwn KeyError. `data.sqrt_z_r4_over_r2`는 원자번호 인덱스 배열(0번 더미). 기본 실공간 cutoff: 2체 60 bohr에서 쌍을 버림(59 포함/61 제외 확인) → 고립 분자에는 최대 원자간 거리+1 bohr로 확장(절단 없음), 결과에 cutoff 기록. 2체 D4-BJ 식 수동 재현이 라이브러리와 기계 정밀도 일치.
+- 구현(20:55경): engines/dispersion.py(d4_energy), molecular.py(`dispersion` none|d4, D4_FUNCTIONALS/D4_ELEMENTS 검증), pyscf_engine(SCF 전 계산·SCF 후 합산, 성분 `dispersion`, `scf_energy_hartree`, `dispersion` 상세, 경고, assumptions), scf_control.signature(dispersion 제외), energy_analysis(분산 모델·매개변수·라이브러리 버전 일치), GUI 콤보·결과 표시, CLI `--dispersion`.
+- test_dispersion.py 7개 WSL 통과(9.2초): 라이브러리 지원 범위/매개변수 계약, 2체 식 재현(R=3~200 bohr, 1e-10), 회전·병진 불변, 전하 전달(EEQ 합=총전하), 두 엔진 SCF 통합 + dftd4 자체 PySCF 어댑터와 1e-12 일치, Å/bohr 입력 일치, 라이브러리 부재 시 명시적 오류·none 경로 정상.
+- 회귀: WSL 전체 54개 통과(첫 실행 1 실패 = test_basis_overrides 과거 서명 재현이 새 필드 dispersion을 빼지 않은 시험 누락, 시험 수정 후 통과). Windows 실계산 GUI 포함 44개 중 37 통과·7 skip(PySCF/dftd4 필요 6개는 WSL 통과, 기존 주기계 실계산 GUI 1개는 별도 환경변수 필요). 버전 0.8.2 변경 후 빠른 시험 재통과.
+- CLI 실계산: outputs/dispersion_validation/ (PySCF+D4, 자체+D4, D4 없음). 두 엔진 차 2e-12 Ha, D4 −1.953413873068e-4 Ha. 실행 당시 version 필드는 0.8.1(문자열 변경 직전).
+- 문서: README(분산 절·예제), START_HERE(선택 설치), docs/NATIVE_DFT·VALIDATION(0.8.2)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG 갱신. **단계 3 완료.**
+
+### 단계 4 재개 지점: DFT 원자 힘 (미착수)
+
+- 현재 `DFTConfig.calculation`은 `single_point`만 허용(molecular.py `__post_init__`).
+- 권장 순서: (1) 자체 엔진 해석적 RKS/UKS 기울기 — 필요한 적분은 PySCF 제공(int1e_ipovlp, int1e_ipkin, int1e_ipnuc + 핵 연산자 미분 int1e_iprinv, int2e_ip1), 에너지가중 밀도행렬, XC 기울기(AO 2차 도함수; 격자 가중치 미분 포함 여부를 명시), 핵반발 미분, D4 기울기(dftd4 `get_dispersion(..., grad=True)`). (2) 검증: 총에너지 중심 유한차분(각 좌표 ±h, h~1e-4 bohr, 격자 고정 여부 주의)과 비교, PySCF `mf.nuc_grad_method()`와 비교, 병진 불변(힘 합 0)·회전 불변. (3) 결과에 힘(Ha/bohr, eV/Å) 저장, `calculation='gradient'` 추가. (4) 그 다음 구조 최적화: 자체 BFGS vs geomeTRIC/pyberny 선택은 사용자 결정 필요.
+- 주의: 격자 가중치 미분을 빼면 유한차분과 ~1e-5 Ha/bohr 수준 차이가 날 수 있음(격자 수준 의존). ECP/X2C 힘은 자체 엔진 범위 밖(PySCF 엔진 경로에서만 가능 여부 확인).
+
+(아래는 결정 전 기록, 참고용)
 - 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.
 - 영향 파일 예상: molecular.py(DFTConfig.dispersion 필드·검증), engines/pyscf_engine.py(성분 합산·출처), engines/native_scf.py(성분 표시만; SCF에는 영향 없음 — D3는 밀도 비의존), scf_control.signature(분산은 밀도에 영향 없으므로 서명에서 제외 검토), energy_analysis.compatibility(분산 모델 일치 검사), GUI/CLI, 테스트.
 - 이후 순서(인계 원문 유지): 힘(유한차분 검증) → 구조 최적화/제약/스캔 → Hessian/진동/ZPE → NEB → 주기계 응력/밴드/DOS.
