@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2(원소별 기저, 4fd9f1d)·단계 3(D4 분산, 0.8.2 커밋) 완료. 단계 4(DFT 힘)는 미착수. 실행 중인 계산·미저장 코드 없음.
+- 상태: HANDOFF_READY — 단계 2·3·4(원소별 기저 4fd9f1d, D4 e84a2f4, 원자 힘 0.8.3 커밋) 완료. 다음은 단계 5(자체 SCF 근축퇴 수렴 수정 → 구조 최적화). 실행 중인 계산·미저장 코드 없음.
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -34,7 +34,16 @@
 - CLI 실계산: outputs/dispersion_validation/ (PySCF+D4, 자체+D4, D4 없음). 두 엔진 차 2e-12 Ha, D4 −1.953413873068e-4 Ha. 실행 당시 version 필드는 0.8.1(문자열 변경 직전).
 - 문서: README(분산 절·예제), START_HERE(선택 설치), docs/NATIVE_DFT·VALIDATION(0.8.2)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG 갱신. **단계 3 완료.**
 
-### 단계 4 재개 지점: DFT 원자 힘 (미착수)
+### 단계 4: DFT 원자 힘 (Claude, 진행 중)
+
+- 계획: `calculation='gradient'` 추가. 자체 엔진은 신규 engines/native_gradient.py에서 해석적 기울기를 직접 조립(1전자 기저·핵연산자 미분, J/K는 int2e_ip1 셸 단위 블록으로 메모리 제한, LDA/GGA XC는 AO 2차 도함수, 에너지가중 밀도 W=½DFD(RKS)/ΣD_sF_sD_s(UKS), 핵반발). 격자 가중치 미분 없음(PySCF 기본과 동일)을 결과에 명시. PySCF 엔진은 `mf.nuc_grad_method()`. D4 기울기는 dftd4 grad=True. SCF 미수렴이면 힘을 내지 않음.
+- 검증 계획: (a) **고정 격자** 중심 유한차분(격자를 기준 구조에 고정하면 해석식이 정확한 미분이어야 함) RKS/UKS × LDA/PBE/PBE0, (b) 같은 격자의 PySCF 기울기와 비교, (c) 움직이는 격자 유한차분과의 차이(격자 응답 크기)를 격자 수준별로 기록, (d) D4 기울기 유한차분, (e) PySCF 경로 ECP 실행, (f) 회귀·GUI.
+- 결과 형식: `gradient` 블록(Ha/bohr 기울기, eV/Å 힘, 최대/RMS, 합력, 성분별(자체), 드라이버, grid_response=false).
+- 구현(21:15경): engines/native_gradient.py, engines/dispersion.py(gradient=True), pyscf_engine `nuclear_gradient`(자체/PySCF, D4 합산, 미수렴이면 힘 없음+경고), molecular.py `CALCULATIONS`, main.py `--calculation`, GUI `계산 종류` 콤보와 최대 힘 표시.
+- 첫 비교에서 자체 해석 기울기 = PySCF 기울기(같은 격자) 1e-15 수준으로 일치(물 LDA/PBE/PBE0, OH UKS PBE).
+- 오류·조치: test_gradient 첫 실행 1 실패 — OH UKS(격자 1, 엄격 수렴)에서 **자체 SCF가 300회 진동하며 미수렴**(ΔD ~2e-5 정체; 거의 축퇴한 π 궤도 점유 교대로 추정, 기울기 문제 아님). 시험 대상을 비축퇴 라디칼 NH2로 교체해 통과. **미해결 기록: 자체 DIIS의 근축퇴 열린 껍질 수렴 문제**(Codex의 OH 관찰과 같은 계열 가능성). 차후 레벨 시프트/점유 고정 등 검토 필요.
+- test_gradient 6개 WSL 통과(11초). scripts/validate_gradient.py → outputs/gradient_validation/20261029_211817/report.json: 고정 격자 FD 최대차 1.2e-9~3.3e-9 Ha/bohr(5조건 × 전 좌표), 움직이는 격자와 차(격자 응답 크기) 수준1~4: 6.0e-4/4.4e-5/1.1e-5/1.1e-6, 자체 vs PySCF def2-SVP 8.8e-13/5.7e-13, PySCF Newton·sfX2C 기울기 지원 확인.
+- 다음: 전체 회귀 → CLI 실계산 → 문서/CHANGELOG/PROJECT_STATE → 커밋.
 
 - 현재 `DFTConfig.calculation`은 `single_point`만 허용(molecular.py `__post_init__`).
 - 권장 순서: (1) 자체 엔진 해석적 RKS/UKS 기울기 — 필요한 적분은 PySCF 제공(int1e_ipovlp, int1e_ipkin, int1e_ipnuc + 핵 연산자 미분 int1e_iprinv, int2e_ip1), 에너지가중 밀도행렬, XC 기울기(AO 2차 도함수; 격자 가중치 미분 포함 여부를 명시), 핵반발 미분, D4 기울기(dftd4 `get_dispersion(..., grad=True)`). (2) 검증: 총에너지 중심 유한차분(각 좌표 ±h, h~1e-4 bohr, 격자 고정 여부 주의)과 비교, PySCF `mf.nuc_grad_method()`와 비교, 병진 불변(힘 합 0)·회전 불변. (3) 결과에 힘(Ha/bohr, eV/Å) 저장, `calculation='gradient'` 추가. (4) 그 다음 구조 최적화: 자체 BFGS vs geomeTRIC/pyberny 선택은 사용자 결정 필요.

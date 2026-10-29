@@ -3,6 +3,15 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 4 (원자 힘) 완료 2026-10-29 · 0.8.3 · Claude
+
+- 분자 계산에 `calculation=gradient`(GUI `계산 종류`, CLI `--calculation gradient`)를 추가했다. 입력 구조에서 총에너지의 핵 좌표 기울기와 힘을 계산하며 구조는 바꾸지 않는다.
+- 자체 엔진: 신규 engines/native_gradient.py에서 해석적 RKS/UKS 기울기를 직접 조립(1전자 기저·핵 이동, J/K 2전자 미분 셸 단위, LDA/GGA XC, 에너지가중 밀도 Pulay 항, 핵반발). PySCF 엔진은 nuc_grad_method. D4를 켜면 dftd4 기울기를 합산. SCF 미수렴이면 힘을 내지 않는다. 격자 응답 항은 포함하지 않으며 결과·경고에 명시한다.
+- 주요 파일: engines/native_gradient.py, engines/pyscf_engine.py(nuclear_gradient), engines/dispersion.py, molecular.py, main.py, molecular_app.py, workflow.py, 신규 test_gradient.py, scripts/validate_gradient.py, test_molecular_gui.py, README_KO.md, docs/NATIVE_DFT_KO.md·VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: 고정 격자 유한차분 1.2e-9~3.3e-9 Ha/bohr(5조건 전 좌표), PySCF 기울기와 ≤8.8e-13, 격자 응답 크기 수준1~4 6.0e-4→1.1e-6, D4 기울기 FD 1e-9. test_gradient 6개, WSL 60개, Windows 38개+새 GUI 1개 통과. 상세 docs/VALIDATION_KO.md 0.8.3, outputs/gradient_validation/.
+- 발견(미해결): 자체 DIIS가 근축퇴 열린 껍질 OH(거친 격자·엄격 수렴)에서 진동·미수렴. 기울기와 무관, 시험은 NH₂로 대체. 구조 최적화 전에 수정 필요.
+- 한계: 주기계 힘/응력, 구조 최적화·제약·스캔, Hessian/진동은 미구현. ACTIVE_TASK.md 유지.
+
 ## QS-20261029-NATIVE-DFT · 단계 3 (DFT-D4 분산 보정) 완료 2026-10-29 · 0.8.2 · Claude
 
 - 분자 계산에 `dispersion=d4`(GUI `분산 보정`, CLI `--dispersion d4`)를 추가했다. Grimme 그룹 공식 구현 dftd4로 D4 에너지(EEQ 전하 의존 C6, BJ 2체 + ATM 3체)를 계산해 SCF 후 총에너지에 별도 성분으로 더한다. 사용자 기준 "더 정확한 것"에 따라 D3 자체 구현 대신 D4 참조 구현을 택했다.

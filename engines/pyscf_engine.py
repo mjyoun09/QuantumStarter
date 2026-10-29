@@ -13,6 +13,40 @@ from molecular import ATOMIC_NUMBERS, DEF2_CORE_ELECTRONS, TRANSITION_METALS, sa
 from scf_control import CalculationCancelled, check_cancelled, save_checkpoint, load_checkpoint
 
 HARTREE_TO_EV = physical_constants['Hartree energy in eV'][0]
+BOHR_ANGSTROM = physical_constants['Bohr radius'][0] * 1e10
+
+
+def nuclear_gradient(mf, config, dispersion_gradient, directory, progress):
+    """dE_total/dR for a converged SCF: native analytic or PySCF, plus D4 if requested."""
+    check_cancelled(directory)
+    progress('원자 힘(총에너지의 핵 좌표 기울기)을 계산합니다.')
+    if config.engine == 'native':
+        from .native_gradient import native_gradient
+        parts, driver = native_gradient(mf), 'QuantumStarter'
+    else:
+        try:
+            solver = mf.nuc_grad_method()
+            solver.verbose = 0
+            parts, driver = {'scf': np.asarray(solver.kernel())}, 'PySCF'
+        except (NotImplementedError, AttributeError) as exc:
+            raise ValueError(f'이 설정의 PySCF 해석적 기울기를 사용할 수 없습니다: {exc}') from exc
+    if dispersion_gradient is not None:
+        parts['dispersion'] = np.asarray(dispersion_gradient)
+    total = sum(parts.values())
+    if not np.isfinite(total).all():
+        raise RuntimeError('유한한 원자 기울기를 얻지 못했습니다.')
+    forces = -total * HARTREE_TO_EV / BOHR_ANGSTROM
+    norms = np.linalg.norm(forces, axis=1)
+    progress(f'최대 원자 힘 {norms.max():.6f} eV/Å (원자 {int(norms.argmax()) + 1}) · '
+             f'합력 {np.abs(total.sum(axis=0)).max():.1e} Ha/bohr')
+    return {'driver': driver, 'definition': 'gradient = dE_total/dR; force = -gradient',
+            'gradient_hartree_per_bohr': total.tolist(), 'forces_ev_per_angstrom': forces.tolist(),
+            'max_atomic_force_ev_per_angstrom': float(norms.max()),
+            'rms_force_component_ev_per_angstrom': float(np.sqrt(np.mean(forces**2))),
+            'net_force_hartree_per_bohr': total.sum(axis=0).tolist(),
+            'components_hartree_per_bohr': {key: value.tolist() for key, value in parts.items()},
+            'grid_response': False, 'includes_dispersion': dispersion_gradient is not None,
+            'bohr_angstrom': BOHR_ANGSTROM}
 
 
 def configure_grids(grids, config):
@@ -77,11 +111,13 @@ def calculate_molecule(config, directory, progress=print):
         raise ValueError('기저함수 800개를 넘는 계산은 현재 데스크톱 엔진에서 지원하지 않습니다.')
     if max(mol.nelec) > mol.nao_nr():
         raise ValueError('선택한 기저함수에 전자를 모두 배치할 수 없습니다. 전하와 기저함수를 확인하세요.')
-    dispersion = None
+    dispersion = dispersion_gradient = None
     if config.dispersion == 'd4':
         # Before SCF so a missing library fails fast. Atomic numbers, not ECP effective charges.
         from .dispersion import d4_energy
-        dispersion = d4_energy(atomic_numbers, mol.atom_coords(), config.charge, config.xc)
+        dispersion = d4_energy(atomic_numbers, mol.atom_coords(), config.charge, config.xc,
+                               gradient=config.calculation == 'gradient')
+        dispersion_gradient = dispersion.pop('gradient_hartree_per_bohr', None)
         progress(f'D4 분산 보정 ({dispersion["library"]} {dispersion["library_version"]}, {config.xc} 매개변수): '
                  f'{dispersion["energy_hartree"]:.10f} Ha · SCF 후 총에너지에 더합니다.')
     if config.engine == 'native':
@@ -275,6 +311,15 @@ def calculate_molecule(config, directory, progress=print):
         energy = scf_energy + dispersion['energy_hartree']
     if abs(sum(components.values()) - energy) > 1e-7:
         raise RuntimeError('에너지 성분 합과 총에너지가 일치하지 않습니다.')
+    gradient = None
+    if config.calculation == 'gradient':
+        if mf.converged:
+            gradient = nuclear_gradient(mf, config, dispersion_gradient, directory, progress)
+            warnings.append('원자 힘은 격자 가중치 미분(grid response)을 포함하지 않습니다. 고정 격자 에너지의 정확한 미분이며, '
+                            '격자가 원자와 함께 움직이는 실제 에너지 미분과는 격자 수준에 따라 작은 차이가 있습니다. '
+                            f'합력 {np.abs(gradient["net_force_hartree_per_bohr"]).max():.1e} Ha/bohr가 그 크기의 지표입니다.')
+        else:
+            warnings.append('SCF 미수렴: 원자 힘을 계산하지 않았습니다. 수렴한 계산의 힘만 의미가 있습니다.')
     xc_hybrid, xc_terms = dft.libxc.parse_xc(config.xc)
     if dm0 is not None:
         actual_guess = 'checkpoint'
@@ -283,7 +328,7 @@ def calculate_molecule(config, directory, progress=print):
     else:
         actual_guess = 'core' if config.engine == 'native' else 'minao'
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.2',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.3',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
@@ -318,6 +363,7 @@ def calculate_molecule(config, directory, progress=print):
         'scf_iteration_kind': 'macroiteration' if config.scf_solver == 'newton' else 'iteration',
         'total_energy_hartree': energy, 'total_energy_ev': energy * HARTREE_TO_EV,
         'scf_energy_hartree': scf_energy, 'dispersion': dispersion,
+        'calculation': config.calculation, 'gradient': gradient,
         'energy_definition': ('SCF + D4 dispersion; scf_history holds SCF energies only'
                               if dispersion is not None else 'SCF'),
         'nuclear_repulsion_hartree': float(mol.energy_nuc()),
@@ -343,7 +389,9 @@ def calculate_molecule(config, directory, progress=print):
         'orbital_data_file': 'electronic_structure.npz', 'cube_files': cube_files,
         'units': {'energy': 'hartree', 'coordinates_in_cubes': 'bohr',
                   'density': 'electron/bohr^3', 'orbital_amplitude': 'bohr^(-3/2)'},
-        'assumptions': ['isolated finite molecule', 'fixed nuclei, single point energy',
+        'assumptions': ['isolated finite molecule',
+                        'fixed nuclei; energy and nuclear gradient at the input geometry (no geometry change)'
+                        if config.calculation == 'gradient' else 'fixed nuclei, single point energy',
                         'scalar def2-ECP KS-DFT; no spin-orbit coupling' if config.resolved_ecp
                         else 'scalar X2C all-electron KS-DFT; no SOC' if config.resolved_relativity == 'x2c'
                         else 'nonrelativistic all-electron KS-DFT', 'no periodic boundary conditions']

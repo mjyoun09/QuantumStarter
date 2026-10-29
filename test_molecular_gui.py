@@ -215,6 +215,23 @@ class MolecularGuiTests(unittest.TestCase):
         self.assertEqual(load_dft_config(app.current_dir / 'settings.json'), cfg)
 
     @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
+    def test_real_native_gradient_run(self):
+        app = self.app
+        cfg = DFTConfig(basis='sto-3g', xc='pbe', engine='native', calculation='gradient',
+                        cube_points=12, grid_level=2, threads=1)
+        app.apply_config(cfg)
+        self.assertEqual(app.vars['calculation'].get(), 'gradient')
+        with patch('molecular_app.messagebox.showerror') as error:
+            app.start_calculation()
+            self.wait_finished()
+            error.assert_not_called()
+        gradient = app.summary['gradient']
+        self.assertEqual(gradient['driver'], 'QuantumStarter')
+        self.assertEqual(len(gradient['forces_ev_per_angstrom']), 3)
+        self.assertIn('최대 힘', app.metrics[1].get())
+        self.assertEqual(load_dft_config(app.current_dir / 'settings.json'), cfg)
+
+    @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
     def test_real_ecp_run_and_serialized_metadata(self):
         app = self.app
         app.example.set('지르코늄 이온 · Zr4+ (ECP 예제)')

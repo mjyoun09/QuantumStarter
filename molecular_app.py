@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 from app import AppCanvas, QuantumApp, ROOT, WHITE, INK, MUTED
 from dft_workflow import CalculationError, RunControl, list_dft_runs, run_calculation
 from element_catalog import PERIODIC_CAPABILITIES
-from molecular import (BASES, DISPERSIONS, ELEMENTS, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
+from molecular import (BASES, CALCULATIONS, DISPERSIONS, ELEMENTS, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
                        describe_bases, format_basis_overrides, parse_basis_overrides, parse_coordinates, read_xyz,
                        save_dft_config)
 from molecular_plotting import create_molecular_figure
@@ -231,6 +231,8 @@ class MolecularApp(QuantumApp):
         self._combo(method, '핵 모형', self.vars['nuclear_model'], ['auto', 'point', 'gaussian'],
                     'auto: Dyall은 Gaussian 유한 핵, 그 외 점핵.', self._settings_changed)
         self._combo(method, '교환·상관 함수', self.vars['xc'], FUNCTIONALS, 'LDA / PBE / B3LYP / PBE0', self._settings_changed)
+        self._combo(method, '계산 종류', self.vars['calculation'], list(CALCULATIONS),
+                    'gradient: 에너지와 원자 힘(해석적 기울기). 구조는 바꾸지 않습니다.', self._settings_changed)
         self._combo(method, '분산 보정', self.vars['dispersion'], list(DISPERSIONS),
                     'd4: Grimme DFT-D4 (dftd4 라이브러리). PBE/PBE0/B3LYP만, LDA 불가. '
                     'SCF 후 총에너지에 더하는 기하 보정입니다.', self._settings_changed)
@@ -663,7 +665,9 @@ class MolecularApp(QuantumApp):
         self.metrics[0].set(f'{summary["total_energy_hartree"]:.9f} Ha'
                             + (f' (D4 {dispersion["energy_hartree"]:+.6f} 포함)' if dispersion else ''))
         iteration = '외부 반복' if summary.get('scf_solver') == 'newton' else '반복'
-        self.metrics[1].set(f'{"수렴" if summary["converged"] else "미수렴"} / {iteration} {summary["scf_cycles"]}회')
+        gradient = summary.get('gradient')
+        self.metrics[1].set(f'{"수렴" if summary["converged"] else "미수렴"} / {iteration} {summary["scf_cycles"]}회'
+                            + (f' · 최대 힘 {gradient["max_atomic_force_ev_per_angstrom"]:.4f} eV/Å' if gradient else ''))
         engine_label = '자체' if summary['engine'] == 'quantumstarter-native' else 'PySCF'
         self.metrics[2].set(f'{engine_label} · {summary["method"]} / {summary["xc"].upper()}'
                             + ('-D4' if dispersion else ''))

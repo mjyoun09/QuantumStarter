@@ -24,6 +24,7 @@ BASES = tuple(MOLECULAR_CAPABILITIES)
 RELATIVISTIC_BASES = frozenset({'dyall-v2z', 'dyall-v3z'})
 FUNCTIONALS = ('lda,vwn', 'pbe', 'b3lyp', 'pbe0')
 DISPERSIONS = ('none', 'd4')
+CALCULATIONS = ('single_point', 'gradient')
 # Checked against dftd4 4.3.1 (test_dispersion): published D4 damping parameters exist for
 # these functionals (none for LDA), and the reference data cover Z=1-103 and 112-118.
 D4_FUNCTIONALS = frozenset({'pbe', 'pbe0', 'b3lyp'})
@@ -153,7 +154,7 @@ class DFTConfig:
     nuclear_model: str = 'auto'  # Dyall -> Gaussian finite nucleus; otherwise point.
     grid_scheme: str = 'auto'  # Dyall or Z>103 -> radius-independent quadrature.
     engine: str = 'pyscf'  # Existing files keep their external-engine provenance.
-    calculation: str = 'single_point'
+    calculation: str = 'single_point'  # 'gradient': also analytic dE/dR at the input geometry.
     initial_guess: str = 'auto'
     native_density_tol: float = 1e-7
     native_residual_tol: float = 1e-6
@@ -171,8 +172,9 @@ class DFTConfig:
     def __post_init__(self):
         if self.system != 'molecule':
             raise ValueError('주기적 고체·표면은 PeriodicConfig와 주기계 화면을 사용하세요. 분자 엔진은 고립계만 처리합니다.')
-        if self.calculation != 'single_point':
-            raise ValueError('현재 분자 계산 종류는 single_point입니다. 힘·구조 최적화 등은 아직 구현되지 않았습니다.')
+        if self.calculation not in CALCULATIONS:
+            raise ValueError('분자 계산 종류: single_point(에너지) 또는 gradient(에너지+원자 힘). '
+                             '구조 최적화 등은 아직 구현되지 않았습니다.')
         if not isinstance(self.atoms, (tuple, list)) or not 1 <= len(self.atoms) <= 100:
             raise ValueError('한 구조에 원자 1~100개를 입력하세요.')
         if not all(isinstance(atom, Atom) for atom in self.atoms):

@@ -1,5 +1,25 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.3: 해석적 원자 힘
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 4 (담당 Claude). 환경 변경 없음.
+
+- `wsl --exec .venv-dft/bin/python -m unittest test_gradient -v`: **6개 통과, 11초**.
+- `wsl --exec .venv-dft/bin/python scripts/validate_gradient.py` → `outputs/gradient_validation/20261029_211817/report.json`:
+  - **고정 격자 중심 유한차분**(h = 1e-4 bohr, 격자를 기준 구조에 고정, 모든 원자·축, STO-3G, 격자 1, 엄격 수렴): H₂O LDA 1.17e-9, PBE 3.26e-9, PBE0 2.46e-9, NH₂(UKS) PBE 1.90e-9, B3LYP 1.39e-9 Ha/bohr(최대 |기울기| ~0.1). 고정 격자에서는 해석식이 근사 없는 미분이어야 하므로 이것이 구현 정확성의 주 검증이다.
+  - **격자 응답 크기**(격자가 원자와 함께 움직이는 유한차분, h = 1e-3, H₂O PBE): 격자 수준 1/2/3/4에서 최대 차 6.04e-4 / 4.40e-5 / 1.08e-5 / 1.13e-6 Ha/bohr, 합력 8.2e-4 / 3.6e-5 / 1.4e-5 / 3.3e-7. 격자 응답 항을 넣지 않은 근사의 크기이며 격자 수준을 올리면 단조 감소했다.
+  - **PySCF 기울기와 비교**(같은 격자, def2-SVP, 격자 3): PBE 8.8e-13, B3LYP 5.7e-13 Ha/bohr.
+  - PySCF 경로의 Newton SCF·스칼라 X2C(AgH, Dyall-v2z) 기울기 지원 확인.
+- D4 기울기: 유한차분과 1e-9 이내(test_gradient), 두 엔진 결과의 분산 성분이 dftd4 직접 계산과 1e-12 일치.
+- AuH(Au def2-ECP): PySCF 경로 기울기 수렴·대칭 확인. SCF 미수렴 시 기울기 없음+경고 확인.
+- 실제 CLI(Windows→WSL) 물 PBE-D4/def2-SVP/grid3 `--calculation gradient`, `outputs/gradient_validation/cli/`: 최대 힘 PySCF 1.168150, 자체 1.168146 eV/Å,
+  기울기 성분 차 최대 ~1.1e-7 Ha/bohr — 기본 수렴 기준(자체 밀도 1e-7/잔차 1e-6)의 차이이며 엄격 기준에서는 위 1e-12 수준. 합력 8.0e-6 Ha/bohr.
+  이 두 실행의 `version` 필드는 0.8.2이다(버전 문자열 변경 직전 실행, 코드는 같음).
+- 회귀: WSL 60개 통과(56.7초). Windows 실계산 GUI 포함 50개 중 38 통과·12 skip(PySCF/dftd4 필요 11개는 WSL 통과, 기존 주기계 실계산 GUI 1개). 새 실계산 GUI 기울기 시험 1개 통과(7.8초).
+
+발견한 문제(미해결): OH(UKS, PBE, STO-3G, 격자 1, 밀도 1e-10/잔차 1e-9)에서 자체 SCF가 300회 동안 ΔD ≈ 2e-5에서 진동하며 수렴하지 않았다.
+거의 축퇴한 π 궤도의 점유 교대로 추정하며 기울기 구현과 무관하다. 시험은 비축퇴 라디칼 NH₂로 대체했고, 원인 확정과 수정(레벨 시프트·점유 고정 등)은 남은 작업이다.
+
 ## 0.8.2: DFT-D4 분산 보정
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 3 (담당 Claude). WSL `.venv-dft`에 dftd4 4.3.1, tomli 2.5.0 추가 설치.

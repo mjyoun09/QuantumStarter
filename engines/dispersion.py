@@ -9,7 +9,8 @@ so it is added to the converged SCF energy as a separate component.
 import numpy as np
 
 
-def d4_energy(atomic_numbers, coords_bohr, charge, xc):
+def d4_energy(atomic_numbers, coords_bohr, charge, xc, gradient=False):
+    """D4 energy details; with gradient=True also 'gradient_hartree_per_bohr' (natm, 3)."""
     try:
         import dftd4
         from dftd4.interface import DampingParam, DispersionModel
@@ -27,9 +28,11 @@ def d4_energy(atomic_numbers, coords_bohr, charge, xc):
     span = float(np.max(np.linalg.norm(coords[:, None] - coords[None], axis=-1)))
     cutoff = max(60.0, span + 1.0)
     model.set_realspace_cutoff(disp2=cutoff, disp3=cutoff, cn=30.0)
-    energy = float(model.get_dispersion(DampingParam(**parameters), grad=False)['energy'])
+    result = model.get_dispersion(DampingParam(**parameters), grad=gradient)
+    energy = float(result['energy'])
     properties = model.get_properties()
-    return {'model': 'D4', 'energy_hartree': energy, 'functional_parameters_for': xc,
+    extra = {'gradient_hartree_per_bohr': np.asarray(result['gradient'], dtype=float)} if gradient else {}
+    return extra | {'model': 'D4', 'energy_hartree': energy, 'functional_parameters_for': xc,
             'damping': 'rational (Becke-Johnson) two-body + Axilrod-Teller-Muto three-body',
             'parameters': parameters, 'charge_model': 'EEQ', 'total_charge': int(charge),
             'eeq_partial_charges': [float(q) for q in properties['partial charges']],
