@@ -225,6 +225,7 @@ class NativeKS:
                             'coul': components['coulomb'],
                             'exc': components['xc_semilocal'] + components['exact_exchange'],
                             'nuc': components['nuclear_repulsion']}
+        self.e_tot = energy
         return energy
 
     def get_hcore(self):

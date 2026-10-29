@@ -82,6 +82,11 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
 
+## 자체 SCF 안정성 분석과 수렴 개선 (0.8.6)
+
+- `native_stability`(화면 `수치 설정 > 자체 SCF 안정성 분석`, CLI `--stability check|follow`, 자체 엔진 전용): 수렴한 해가 궤도 회전에 대해 최소인지 검사합니다. 불안정하면 경고하고, `follow`이면 더 낮은 해를 찾아 다시 수렴시킵니다(최대 3회). 실수 내부 회전만 검사합니다(RKS→UKS 삼중항 불안정은 미검사). 결과 `scf_stability`에 회차별 최저 고유값·에너지를 기록합니다.
+- 자체 엔진 `auto` 초기 추정은 원자 밀도 중첩(PySCF minao 보조)이며 밀도 혼합은 잔차가 클 때만 적용합니다(`native_damping_residual`, 기본 1e-3). 반복 수가 약 30~50% 줄었고 Fe 원자가 수렴합니다. Cr·Co 원자는 여전히 수렴하지 않을 수 있습니다.
+
 ## 조화 진동수·ZPE (0.8.5)
 
 `calculation=frequencies`(화면 `계산 종류`, CLI `--calculation frequencies`)는 입력 구조에서 조화 진동수를 계산합니다.

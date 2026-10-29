@@ -170,6 +170,7 @@ class DFTConfig:
     native_residual_tol: float = 1e-6
     native_damping: float = 0.15
     native_damping_residual: float = 1e-3  # Damp only while the commutator norm exceeds this; 0 = always.
+    native_stability: str = 'none'  # 'check' or 'follow' real internal orbital-Hessian stability (native only).
     native_diis_space: int = 8
     system: str = 'molecule'
     max_cycle: int = 100
@@ -203,7 +204,7 @@ class DFTConfig:
                              ('relativity', ('auto', 'none', 'x2c')), ('nuclear_model', ('auto', 'point', 'gaussian')),
                              ('grid_scheme', ('auto', 'treutler', 'universal')),
                              ('engine', ('pyscf', 'native')), ('initial_guess', ('auto', 'core', 'minao', 'perturbed')),
-                             ('dispersion', DISPERSIONS)):
+                             ('dispersion', DISPERSIONS), ('native_stability', ('none', 'check', 'follow'))):
             value = getattr(self, key)
             if not isinstance(value, str) or value.lower().strip() not in choices:
                 raise ValueError(f'지원하지 않는 {key}: {value}. 선택 가능: {", ".join(choices)}')
@@ -259,6 +260,8 @@ class DFTConfig:
                 raise ValueError('자체 엔진은 직접 구현한 DIIS를 사용합니다. Newton은 PySCF 엔진에 있습니다.')
         elif self.initial_guess == 'perturbed':
             raise ValueError('perturbed 초기 추정은 자체 엔진에서만 지원합니다.')
+        elif self.native_stability != 'none':
+            raise ValueError('native_stability(SCF 안정성 분석)는 자체 엔진에서만 지원합니다.')
         integer(self.native_diis_space, '자체 DIIS 이력 길이', 2, 16)
         real(self.native_density_tol, '자체 밀도 수렴', 1e-12, 1e-3)
         real(self.native_residual_tol, '자체 잔차 수렴', 1e-12, 1e-3)

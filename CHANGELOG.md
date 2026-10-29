@@ -3,6 +3,15 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 7-B (자체 SCF 품질) 완료 2026-10-29 · 0.8.6 · Claude
+
+- 자체 SCF `auto` 초기 추정을 원자 밀도 중첩(PySCF minao 보조, 첫 Fock 생성에만 사용)으로, 밀도 혼합을 잔차 기준(`native_damping_residual`, 기본 1e-3)으로 변경(커밋 d5f9399). 반복 수 물 14→9, CH4 14→7, NH2 14→10, O2 10→8, Fe 원자 수렴.
+- 신규 engines/native_stability.py: 실수 내부 궤도 Hessian 안정성 분석(기울기 직접 구성, Hessian-벡터 곱 중심차분, Lanczos), `native_stability=check|follow`(GUI·CLI `--stability`), 결과 `scf_stability`, 불안정 경고. follow는 불안정 모드 선 탐색 후 SCF 재수행.
+- 테스트 인프라: 사용자 요청으로 GUI 시험 숨김 모드 `QUANTUMSTARTER_TK_HIDDEN=1`(커밋 0d7dc2f). 이후 화면에 창을 띄우는 시험은 실행하지 않음.
+- 주요 파일: engines/native_scf.py, engines/native_stability.py, engines/pyscf_engine.py, molecular.py, scf_control.py, main.py, molecular_app.py, workflow.py, test_native.py, test_stability.py, test_molecular_gui.py, test_basis_overrides.py, README_KO.md, PROJECT_STATE.md, docs/NATIVE_DFT_KO.md·VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: 안정성 기울기·Hessian이 에너지 차분과 일치, 물 안정·OH 불안정 판정이 PySCF와 일치, follow로 OH가 9.3e-7 Ha 낮은 안정해로 이동. WSL 75개, Windows 숨김 GUI 포함 27개 통과(2 skip WSL 통과).
+- 미해결: Cr·Co 원자 정수 점유 미수렴(진단 기록), 삼중항·복소 불안정 미검사.
+
 ## QS-20261029-NATIVE-DFT · 단계 6 (조화 진동수·ZPE) 완료 2026-10-29 · 0.8.5 · Claude
 
 - `calculation=frequencies`(GUI `계산 종류`·변위·온도 입력, CLI `--calculation frequencies --freq-step --temperature`): 해석적 힘의 중심 유한차분 Hessian(6N+1회 계산, displacements/에 기록, 비대칭 크기 기록), 최빈 동위원소 정확 질량, 병진·회전(선형 5) 정확 제거 후 3N−6(5) 진동수, 정규모드, 허수 진동 판정(|ν|>20 cm⁻¹), ZPE·조화 진동 열역학(U/S/Cv). 정지점이 아니면 경고.

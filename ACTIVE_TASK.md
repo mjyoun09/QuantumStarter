@@ -78,6 +78,7 @@
 
 - B-2/3) 자체 SCF 반복 수·전이금속 (커밋 예정 0.8.6 일부): 진단 — 기본 밀도 혼합 0.15가 쉬운 계에 3~4회, core 초기 추정이 2~3회 추가. 변경: (a) native `auto` 초기 추정 = PySCF `init_guess_by_minao`(원자 밀도 중첩, 외부 보조로 명시; 투영 밀도는 전자 수가 정확하지 않아 첫 Fock 생성에만 쓰고 그 점유 궤도에서 시작 — 처음엔 밀도를 직접 썼다가 취소 체크포인트의 전자 수 검사 실패를 test_native가 잡아 수정), (b) `native_damping_residual`(기본 1e-3): 교환자 노름이 이보다 클 때만 혼합. 결과 물 14→9, CH4 14→7, NH2 14→10, O2 10→8회; Fe 원자(STO-3G, 2S=4) 미수렴→수렴. 
   - 미해결(진단 기록): Cr(2S=6)·Co 원자는 어떤 혼합·추정에서도 정수 점유 미수렴. 페르미 스미어링(σ=0.01~0.03 Ha) 상태는 13~25회 수렴하지만 정수 점유로 되돌리면 다시 진동. 진동 에너지가 PySCF 수렴해보다 ~1e-5 Ha 낮음(PySCF 해도 최저가 아닐 수 있음). 축퇴 d 껍질의 aufbau 고정점 부재로 추정 → 2차(Newton) 해법 또는 분수 점유 모델 필요(미구현).
+- B-1) SCF 안정성 분석 완료: engines/native_stability.py(실수 내부, check/follow), test_stability 3개 통과, PySCF 판정 일치, OH follow로 9.3e-7 Ha 낮은 안정해. WSL 75 통과, Windows 숨김 27 통과(2 skip). 문서·CHANGELOG 0.8.6. **7-B 완료.** 다음: 7-A 자유에너지(병진·회전·전자 열역학, PySCF hessian.thermo.thermo와 비교, 반응 분석 ZPE/G 옵션) → 7-C.
 - 0) 숨김 GUI 시험 모드 추가: test_molecular_gui `QUANTUMSTARTER_TK_HIDDEN=1`(루트 withdraw + Toplevel 생성 즉시 withdraw, 화면 배치 단언 2곳만 생략). 실계산 포함 14개 통과(79초). 수소·주기계 GUI 시험은 숨김 모드가 없어 실행하지 않음.
 
 - 후보 A — 자유에너지: 병진·회전·전자 열역학(이상기체·강체회전자, 대칭수(점군 판정 또는 사용자 입력), 전자 축퇴도 2S+1, 압력 명시) → H/S/G, 반응 분석에 ZPE·G 옵션. 검증: PySCF `hessian.thermo.thermo`와 비교.

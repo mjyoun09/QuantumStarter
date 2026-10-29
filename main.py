@@ -60,6 +60,8 @@ def main():
     parser.add_argument('--grid-scheme', choices=['auto', 'treutler', 'universal'])
     parser.add_argument('--engine', choices=['pyscf', 'native'], help='SCF 구현: 외부 PySCF 또는 자체 엔진')
     parser.add_argument('--initial-guess', choices=['auto', 'core', 'minao', 'perturbed'])
+    parser.add_argument('--stability', dest='native_stability', choices=['none', 'check', 'follow'],
+                        help='자체 엔진 SCF 안정성 분석(실수 내부 회전). follow: 불안정하면 더 낮은 해 추적')
     parser.add_argument('--restart', type=Path, help='기존 실행 폴더 또는 checkpoint.npz')
     parser.add_argument("--backend", choices=['auto', 'local', 'wsl'], default='auto')
     parser.add_argument("--hydrogen-check", action='store_true', help="기존 수소형 한 전자 검증 계산")
@@ -68,7 +70,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.hydrogen_check:
-            if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or args.basis_element or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
+            if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or args.basis_element or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'native_stability', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
                 parser.error('--hydrogen-check에는 분자 DFT 옵션을 함께 사용할 수 없습니다.')
             run(load_config(args.config or ROOT / 'config.json'), args.output or ROOT / 'outputs' / 'hydrogen', show=not args.no_show)
         else:
@@ -81,9 +83,9 @@ def main():
                 parser.error('--structure는 --config / --xyz와 함께 사용할 수 없습니다.')
             config = (read_periodic_structure(args.structure, **({'boundary': args.boundary} if args.boundary else {}))
                       if args.structure else load_calculation_config(args.config or ROOT / 'molecule.json'))
-            overrides = {key: getattr(args, key) for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme', 'engine', 'initial_guess') if getattr(args, key) is not None}
+            overrides = {key: getattr(args, key) for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme', 'engine', 'initial_guess', 'native_stability') if getattr(args, key) is not None}
             if config.system == 'periodic':
-                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None:
+                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None or args.native_stability:
                     parser.error('주기계는 --xyz / --ecp / --scf-solver / --relativity / --nuclear-model / --grid-scheme / --engine / --initial-guess / --restart / --basis-element / --dispersion / --calculation을 지원하지 않습니다.')
                 overrides.update({key: getattr(args, key) for key in ('boundary', 'kmesh', 'smearing_ev') if getattr(args, key) is not None})
             elif args.boundary or args.kmesh or args.smearing_ev is not None:

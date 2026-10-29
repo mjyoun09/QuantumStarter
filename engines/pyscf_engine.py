@@ -183,6 +183,10 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
         if guess.shape == expected and np.isfinite(guess).all():
             dm0, guess_from_geometry = guess, True
     energy = float(mf.kernel(dm0=dm0))
+    stability = None
+    if config.native_stability != 'none' and mf.converged:
+        from .native_stability import stability_loop
+        energy, stability = stability_loop(mf, config, progress)
     if not np.isfinite(energy):
         raise RuntimeError('유한한 SCF 에너지를 얻지 못했습니다.')
     dm = np.asarray(mf.make_rdm1())
@@ -235,6 +239,11 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
         if config.resolved_relativity == 'x2c' and bases_used - {'dyall-v2z', 'dyall-v3z'}:
             warnings.append('X2C 계산에 비상대론용으로 수축된 기저가 섞여 있습니다. '
                             '해당 원소의 상대론 기저 수렴을 별도로 확인하세요.')
+    if stability is not None and not stability['stable']:
+        warnings.append('SCF 안정성: 실수 내부 회전 방향으로 더 낮은 해가 있습니다(안장점). '
+                        + ('follow로 더 낮은 해를 찾지 못했습니다. ' if config.native_stability == 'follow' else
+                           'native_stability=follow로 더 낮은 해를 추적하세요. ')
+                        + '이 결과를 바닥상태로 해석하지 마세요.')
     if dispersion is not None:
         warnings.append(f'D4 분산 보정 {dispersion["energy_hartree"]:+.10f} Ha가 총에너지에 포함되었습니다. '
                         '밀도와 무관한 기하 보정이라 SCF 이력·밀도·오비탈에는 들어 있지 않습니다. '
@@ -338,7 +347,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     else:
         actual_guess = 'minao'  # Native auto also uses PySCF init_guess_by_minao since 0.8.6.
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.5',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.6',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
@@ -373,7 +382,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
         'scf_iteration_kind': 'macroiteration' if config.scf_solver == 'newton' else 'iteration',
         'total_energy_hartree': energy, 'total_energy_ev': energy * HARTREE_TO_EV,
         'scf_energy_hartree': scf_energy, 'dispersion': dispersion,
-        'calculation': config.calculation, 'gradient': gradient,
+        'calculation': config.calculation, 'gradient': gradient, 'scf_stability': stability,
         'energy_definition': ('SCF + D4 dispersion; scf_history holds SCF energies only'
                               if dispersion is not None else 'SCF'),
         'nuclear_repulsion_hartree': float(mol.energy_nuc()),

@@ -263,6 +263,9 @@ class MolecularApp(QuantumApp):
                     self._settings_changed)
         self._combo(advanced, '초기 전자 추정', self.vars['initial_guess'], ['auto', 'core', 'minao', 'perturbed'],
                     'auto/minao: 원자 밀도 중첩(PySCF minao). core: 핵 해밀토니안. perturbed: 자체 엔진의 재현 가능한 궤도 혼합.', self._settings_changed)
+        self._combo(advanced, '자체 SCF 안정성 분석', self.vars['native_stability'], ['none', 'check', 'follow'],
+                    'check: 수렴 해가 최소인지(실수 내부 회전) 검사. follow: 불안정하면 더 낮은 해를 추적. 자체 엔진 전용.',
+                    self._settings_changed)
         for key, label, hint in (
             ('native_density_tol', '자체 SCF 밀도 수렴', 'ΔD Frobenius norm. 기본 1e-7.'),
             ('native_residual_tol', '자체 SCF 잔차 수렴', '직교 기저의 FDS−SDF norm. 기본 1e-6.'),
