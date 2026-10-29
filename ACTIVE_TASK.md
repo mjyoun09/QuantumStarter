@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2~6 완료(4fd9f1d, e84a2f4, c9719b1, de7d245, 6294162, 진동수 0.8.5 커밋). 단계 7은 후보 A/B/C 중 사용자 우선순위 확인 필요. 실행 중인 계산·미저장 코드 없음.
+- 상태: IN_PROGRESS — 단계 7 진행 중 (Claude, 2026-10-29 사용자 "전부 해": 후보 B(자체 SCF 품질) → A(자유에너지) → C(제약·스캔·NEB/TS) 순). 단계 2~6 완료. **사용자 요청: 화면에 창을 띄우는 검증 금지 → GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -74,7 +74,9 @@
 - CLI 실계산: outputs/frequency_validation/cli/(0.8.4 최적화 물 구조, PBE-D4/def2-SVP; 자체 1608.48/3690.73/3790.01, PySCF 1608.43/3690.50/3789.62 cm⁻¹, minimum, ZPE 54.366/54.362 kJ/mol). 실행 당시 version 0.8.4.
 - 문서: README(진동수 절·예제), docs/VALIDATION(0.8.5)·REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG. **단계 6 완료.**
 
-### 단계 7 재개 지점 (미착수, 사용자와 우선순위 확인 권장)
+### 단계 7: 전부 진행 (Claude, 진행 중 — 순서 B → A → C)
+
+- 0) 숨김 GUI 시험 모드 추가: test_molecular_gui `QUANTUMSTARTER_TK_HIDDEN=1`(루트 withdraw + Toplevel 생성 즉시 withdraw, 화면 배치 단언 2곳만 생략). 실계산 포함 14개 통과(79초). 수소·주기계 GUI 시험은 숨김 모드가 없어 실행하지 않음.
 
 - 후보 A — 자유에너지: 병진·회전·전자 열역학(이상기체·강체회전자, 대칭수(점군 판정 또는 사용자 입력), 전자 축퇴도 2S+1, 압력 명시) → H/S/G, 반응 분석에 ZPE·G 옵션. 검증: PySCF `hessian.thermo.thermo`와 비교.
 - 후보 B — 자체 SCF 품질: SCF 안정성 분석(내부 불안정 → 낮은 해 추종), Fe 원자 미수렴, 단계당 반복 수(PySCF 대비 ~2배) 개선.

@@ -36,6 +36,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - WSL Ubuntu 24.04 `.venv-dft`: Python 3.12, PySCF 2.14.0. 설치 기준 `requirements-dft.txt`. 선택: dftd4 4.3.1 + tomli 2.5.0 (`requirements-dispersion.txt`), geomeTRIC 1.1.1 + networkx 3.7 (`requirements-optimize.txt`); 둘 다 2026-10-29 이 PC에 설치됨.
 - `.venv-mlip`: PyTorch 2.7.1+cu128, MACE 0.3.16, cuEquivariance 0.13.0, RTX 5080 Laptop GPU. 모델은 `.model_cache/`.
 - `.venv`, `.venv-dft`, `.venv-mlip`을 섞지 않는다. Windows Python에서 PySCF 실계산 테스트는 건너뛰므로 WSL 검증이 필요하다.
+- **사용자 요청(2026-10-29): 검증 중 사용자 화면에 창을 띄우지 않는다.** 분자 GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`(루트·Toplevel을 매핑 전에 숨김, 화면 배치 검사만 생략)로 실행한다. 숨김 모드가 없는 test_gui/test_periodic_gui(수소·주기계 화면)는 사용자 요청 없이 실행하지 않는다. 예: `$env:QUANTUMSTARTER_TK_HIDDEN='1'; $env:QUANTUMSTARTER_GUI_DFT_TEST='1'; .\.venv\Scripts\python.exe -m unittest test_molecular_gui`.
 - Git: 2026-10-29부터 로컬 저장소(브랜치 main, 원격 없음). 그 이전 이력은 없다. `.gitignore`가 `.venv*`, `.model_cache/`, `outputs/`, `__pycache__/`를 제외하므로 **실제 계산 산출물은 Git으로 보존되지 않는다**. 폴더가 OneDrive 동기화 경로 안에 있으므로 두 PC에서 동시에 Git을 조작하지 않는다.
 
 ## 구현 상태

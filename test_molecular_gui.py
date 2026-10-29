@@ -13,12 +13,27 @@ from molecular import Atom, DFTConfig, load_dft_config
 from molecular_app import MolecularApp
 
 
+# QUANTUMSTARTER_TK_HIDDEN=1: run every window withdrawn so nothing appears on the
+# user's desktop (user request 2026-10-29). Checks that need on-screen geometry are skipped.
+HIDDEN = os.environ.get('QUANTUMSTARTER_TK_HIDDEN') == '1'
+
+
 class MolecularGuiTests(unittest.TestCase):
     def setUp(self):
         try:
             self.root = tk.Tk()
         except tk.TclError:
             self.skipTest('Tk display unavailable')
+        if HIDDEN:
+            self.root.withdraw()  # Before the first event loop pass, so it is never mapped.
+            create_toplevel = tk.Toplevel.__init__
+
+            def hidden_toplevel(window, *args, **kwargs):
+                create_toplevel(window, *args, **kwargs)
+                window.withdraw()
+            patcher = patch.object(tk.Toplevel, '__init__', hidden_toplevel)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.errors = []
@@ -44,7 +59,7 @@ class MolecularGuiTests(unittest.TestCase):
     def test_input_validation_xyz_and_settings(self):
         app = self.app
         # Essential structure controls must be visible without scrolling at the default size.
-        for key in ('charge', 'spin'):
+        for key in (() if HIDDEN else ('charge', 'spin')):
             control = next(w for w, _ in app.controls if isinstance(w, tk.ttk.Entry)
                            and str(w.cget('textvariable')) == str(app.vars[key]))
             self.assertLess(control.winfo_rooty() + control.winfo_height(), app.run_button.winfo_rooty())
@@ -164,8 +179,9 @@ class MolecularGuiTests(unittest.TestCase):
         analysis_window = app.analyze_adsorption()
         self.root.update()
         button = next(w for w in analysis_window.winfo_children() if isinstance(w, tk.ttk.Button))
-        self.assertTrue(button.winfo_ismapped())
-        self.assertLessEqual(button.winfo_y() + button.winfo_height(), analysis_window.winfo_height())
+        if not HIDDEN:  # On-screen layout cannot be measured for a withdrawn window.
+            self.assertTrue(button.winfo_ismapped())
+            self.assertLessEqual(button.winfo_y() + button.winfo_height(), analysis_window.winfo_height())
         analysis_window.destroy()
         self.assertFalse(self.errors, self.errors)
 
