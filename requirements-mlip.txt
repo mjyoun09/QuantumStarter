@@ -1,0 +1,8 @@
+# Project-local Linux/WSL environment, separate from PySCF.
+# Install torch==2.7.1 from https://download.pytorch.org/whl/cu128 first.
+torch==2.7.1
+mace-torch==0.3.16
+ase>=3.26,<4
+cuequivariance==0.13.0
+cuequivariance-torch==0.13.0
+cuequivariance-ops-torch-cu12==0.11.0

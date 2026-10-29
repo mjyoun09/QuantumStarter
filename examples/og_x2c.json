@@ -1,0 +1,31 @@
+{
+  "atoms": [
+    {
+      "element": "Og",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "charge": 0,
+  "spin": 0,
+  "unit": "angstrom",
+  "basis": "dyall-v2z",
+  "xc": "pbe",
+  "method": "auto",
+  "scf_solver": "newton",
+  "ecp": "auto",
+  "relativity": "auto",
+  "nuclear_model": "auto",
+  "grid_scheme": "auto",
+  "system": "molecule",
+  "max_cycle": 100,
+  "conv_tol": 1e-08,
+  "grid_level": 2,
+  "cube_points": 16,
+  "cube_margin_bohr": 4.0,
+  "threads": 4,
+  "memory_mb": 4000
+}

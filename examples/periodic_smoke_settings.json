@@ -1,0 +1,9 @@
+{
+  "kmesh": [1, 1, 1],
+  "grid_level": 1,
+  "precision": 1e-6,
+  "conv_tol": 1e-7,
+  "max_cycle": 100,
+  "threads": 4,
+  "memory_mb": 4000
+}

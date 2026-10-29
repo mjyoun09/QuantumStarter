@@ -1,0 +1,7 @@
+{
+  "nuclear_charge": 1,
+  "angular_momentum_l": 0,
+  "num_states": 3,
+  "r_max_bohr": 60.0,
+  "grid_points": 6000
+}

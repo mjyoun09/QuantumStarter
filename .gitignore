@@ -1,0 +1,7 @@
+.venv/
+.venv-dft/
+.venv-mlip/
+.model_cache/
+__pycache__/
+outputs/
+*.pyc

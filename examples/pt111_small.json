@@ -1,0 +1,56 @@
+{
+  "atoms": [
+    {
+      "element": "Pt",
+      "position": [
+        -1.42822528294981e-17,
+        1.6003332986183427,
+        7.999999999999999
+      ]
+    },
+    {
+      "element": "Pt",
+      "position": [
+        0.0,
+        0.0,
+        10.263213055223332
+      ]
+    }
+  ],
+  "lattice": [
+    [
+      2.7718585822512662,
+      0.0,
+      0.0
+    ],
+    [
+      1.3859292911256331,
+      2.400499947927514,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      18.263213055223332
+    ]
+  ],
+  "system": "periodic",
+  "boundary": "slab",
+  "kmesh": [
+    2,
+    2,
+    1
+  ],
+  "charge": 0,
+  "spin": 0,
+  "basis": "gth-dzvp-molopt-sr",
+  "pseudo": "gth-pbe",
+  "xc": "pbe",
+  "smearing_ev": 0.1,
+  "precision": 1e-06,
+  "conv_tol": 1e-07,
+  "max_cycle": 100,
+  "grid_level": 1,
+  "threads": 4,
+  "memory_mb": 4000
+}

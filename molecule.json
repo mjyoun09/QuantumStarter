@@ -1,0 +1,23 @@
+{
+  "atoms": [
+    {"element": "O", "position": [0.0, 0.0, 0.0]},
+    {"element": "H", "position": [0.0, -0.757, 0.587]},
+    {"element": "H", "position": [0.0, 0.757, 0.587]}
+  ],
+  "unit": "angstrom",
+  "charge": 0,
+  "spin": 0,
+  "system": "molecule",
+  "method": "auto",
+  "scf_solver": "diis",
+  "ecp": "auto",
+  "basis": "def2-svp",
+  "xc": "pbe",
+  "max_cycle": 100,
+  "conv_tol": 1e-9,
+  "grid_level": 3,
+  "cube_points": 40,
+  "cube_margin_bohr": 4.0,
+  "threads": 2,
+  "memory_mb": 2000
+}

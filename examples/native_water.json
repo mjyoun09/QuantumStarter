@@ -1,0 +1,54 @@
+{
+  "atoms": [
+    {
+      "element": "O",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "element": "H",
+      "position": [
+        0.0,
+        -0.757,
+        0.587
+      ]
+    },
+    {
+      "element": "H",
+      "position": [
+        0.0,
+        0.757,
+        0.587
+      ]
+    }
+  ],
+  "charge": 0,
+  "spin": 0,
+  "unit": "angstrom",
+  "basis": "sto-3g",
+  "xc": "lda,vwn",
+  "method": "auto",
+  "scf_solver": "diis",
+  "ecp": "auto",
+  "relativity": "auto",
+  "nuclear_model": "auto",
+  "grid_scheme": "auto",
+  "engine": "native",
+  "calculation": "single_point",
+  "initial_guess": "auto",
+  "native_density_tol": 1e-07,
+  "native_residual_tol": 1e-06,
+  "native_damping": 0.15,
+  "native_diis_space": 8,
+  "system": "molecule",
+  "max_cycle": 100,
+  "conv_tol": 1e-09,
+  "grid_level": 3,
+  "cube_points": 24,
+  "cube_margin_bohr": 4.0,
+  "threads": 2,
+  "memory_mb": 2000
+}

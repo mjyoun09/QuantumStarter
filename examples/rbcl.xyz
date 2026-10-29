@@ -1,0 +1,4 @@
+2
+Isolated RbCl; Angstrom; charge=0 spin=0; def2 basis uses ECP for Rb; fixed example geometry
+Rb 0.0 0.0 0.0
+Cl 0.0 0.0 2.8

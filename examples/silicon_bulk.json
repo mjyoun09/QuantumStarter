@@ -1,0 +1,56 @@
+{
+  "atoms": [
+    {
+      "element": "Si",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "element": "Si",
+      "position": [
+        1.3575,
+        1.3575,
+        1.3575
+      ]
+    }
+  ],
+  "lattice": [
+    [
+      0.0,
+      2.715,
+      2.715
+    ],
+    [
+      2.715,
+      0.0,
+      2.715
+    ],
+    [
+      2.715,
+      2.715,
+      0.0
+    ]
+  ],
+  "system": "periodic",
+  "boundary": "bulk",
+  "kmesh": [
+    2,
+    2,
+    2
+  ],
+  "charge": 0,
+  "spin": 0,
+  "basis": "gth-dzvp-molopt-sr",
+  "pseudo": "gth-pbe",
+  "xc": "pbe",
+  "smearing_ev": 0,
+  "precision": 1e-06,
+  "conv_tol": 1e-07,
+  "max_cycle": 100,
+  "grid_level": 1,
+  "threads": 4,
+  "memory_mb": 4000
+}
