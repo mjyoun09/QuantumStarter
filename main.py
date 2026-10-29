@@ -39,7 +39,10 @@ def main():
     parser.add_argument('--smearing-ev', type=float)
     parser.add_argument("--charge", type=int, help="전체 전하")
     parser.add_argument("--spin", type=int, help="2S = N_alpha - N_beta; 다중도 아님")
-    parser.add_argument("--basis", help="기저함수")
+    parser.add_argument("--basis", help="기저함수 (원소별 지정이 없는 원소의 기본값)")
+    parser.add_argument('--basis-element', action='append', metavar='EL=BASIS',
+                        help='원소별 기저, 반복 가능: --basis-element O=def2-tzvp --basis-element H=sto-3g. '
+                             '설정 파일의 원소별 지정을 대체합니다.')
     parser.add_argument("--xc", help="교환·상관 함수")
     parser.add_argument("--scf-solver", choices=['diis', 'newton'], help="SCF 반복 방식 (기본 diis)")
     parser.add_argument("--ecp", choices=['auto', 'none', 'def2'], help="ECP 선택; auto는 무거운 원소의 def2 기저에 대응 ECP 적용")
@@ -56,12 +59,12 @@ def main():
     args = parser.parse_args()
     try:
         if args.hydrogen_check:
-            if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
+            if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or args.basis_element or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
                 parser.error('--hydrogen-check에는 분자 DFT 옵션을 함께 사용할 수 없습니다.')
             run(load_config(args.config or ROOT / 'config.json'), args.output or ROOT / 'outputs' / 'hydrogen', show=not args.no_show)
         else:
             from dataclasses import replace
-            from molecular import load_dft_config, read_xyz
+            from molecular import load_dft_config, parse_basis_overrides, read_xyz
             from dft_workflow import run_calculation
             from molecular_plotting import create_molecular_figure
             from periodic import load_calculation_config, read_periodic_structure
@@ -71,13 +74,15 @@ def main():
                       if args.structure else load_calculation_config(args.config or ROOT / 'molecule.json'))
             overrides = {key: getattr(args, key) for key in ('charge', 'spin', 'basis', 'xc', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme', 'engine', 'initial_guess') if getattr(args, key) is not None}
             if config.system == 'periodic':
-                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart:
-                    parser.error('주기계는 --xyz / --ecp / --scf-solver / --relativity / --nuclear-model / --grid-scheme / --engine / --initial-guess / --restart를 지원하지 않습니다.')
+                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element:
+                    parser.error('주기계는 --xyz / --ecp / --scf-solver / --relativity / --nuclear-model / --grid-scheme / --engine / --initial-guess / --restart / --basis-element를 지원하지 않습니다.')
                 overrides.update({key: getattr(args, key) for key in ('boundary', 'kmesh', 'smearing_ev') if getattr(args, key) is not None})
             elif args.boundary or args.kmesh or args.smearing_ev is not None:
                 parser.error('주기계 옵션에는 --structure 또는 주기계 --config가 필요합니다.')
             if args.xyz:
                 overrides.update(atoms=read_xyz(args.xyz), unit='angstrom')
+            if args.basis_element:
+                overrides['basis_overrides'] = parse_basis_overrides(','.join(args.basis_element))
             config = replace(config, **overrides)
             summary, directory = run_calculation(config, args.output, args.backend, print, restart_from=args.restart)
             if summary['status'] == 'cancelled':

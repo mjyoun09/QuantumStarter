@@ -17,6 +17,11 @@
 표는 설치된 PySCF 2.14.0의 실제 데이터에서 생성했습니다. 이름만 인식하도록 확장한 것이 아닙니다.
 def2에서 Rb~Xe 코어28, Cs·Ba·La 코어46, Hf~Rn 코어60개를 대체합니다. Au⁺는 전체78전자 중 18개를 명시적으로 계산합니다. Dyall은 코어를 포함한 전체전자 기저입니다.
 
+원소별 기저(`basis_overrides`)를 쓰면 위 표를 **원소마다** 적용합니다. 예를 들어 AuH에서 Au=def2-SVP, H=STO-3G이면
+Au에만 def2-ECP(코어60)가 붙고 H는 전체전자로 계산합니다. Ce~Lu처럼 def2 데이터가 없는 원소만 Dyall로 지정할 수도 있지만,
+그러면 auto 설정이 X2C를 켜므로 다른 무거운 원소의 def2-ECP와 함께 쓸 수 없습니다(설정 단계에서 오류).
+X2C 계산에 비상대론용 수축 기저(def2/STO-3G 등)가 섞이면 결과에 경고를 남깁니다.
+
 `data/element_capabilities.json`은 Windows 화면에서도 읽을 수 있습니다. 재생성 명령:
 
 ```powershell

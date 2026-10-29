@@ -33,6 +33,33 @@ def available_bases(atoms):
     return tuple(basis for basis in BASES if not elements.intersection(BASIS_UNAVAILABLE.get(basis, ())))
 
 
+def parse_basis_overrides(text):
+    """'O=def2-tzvp, H=sto-3g' -> {'O': 'def2-tzvp', 'H': 'sto-3g'}; validated later by DFTConfig."""
+    overrides = {}
+    for item in text.replace(';', ',').replace('\n', ',').split(','):
+        item = item.strip()
+        if not item:
+            continue
+        if item.count('=') != 1:
+            raise ValueError(f'원소별 기저 "{item}": 원소=기저 형식으로 입력하세요. 예: O=def2-tzvp')
+        element, basis = (part.strip() for part in item.split('='))
+        element = element.capitalize()
+        if element in overrides:
+            raise ValueError(f'원소별 기저에 {element}가 두 번 지정되었습니다.')
+        overrides[element] = basis.lower()
+    return overrides
+
+
+def format_basis_overrides(overrides):
+    return ', '.join(f'{element}={basis}' for element, basis in overrides.items())
+
+
+def describe_bases(default, basis_by_element):
+    """'def2-svp (O=def2-tzvp)': the default plus the elements that differ from it."""
+    different = {e: b for e, b in basis_by_element.items() if b != default}
+    return default + (f' ({format_basis_overrides(different)})' if different else '')
+
+
 def integer(value, label, low, high):
     if isinstance(value, bool) or not isinstance(value, Integral) or not low <= value <= high:
         raise ValueError(f'{label}: {low}~{high} 범위의 정수를 입력하세요.')
@@ -110,7 +137,8 @@ class DFTConfig:
     charge: int = 0
     spin: int = 0  # N_alpha - N_beta = 2 S; NOT multiplicity
     unit: str = 'angstrom'
-    basis: str = 'def2-svp'
+    basis: str = 'def2-svp'  # Default for every element not listed in basis_overrides.
+    basis_overrides: dict = field(default_factory=dict)  # {element: basis}
     xc: str = 'pbe'
     method: str = 'auto'
     scf_solver: str = 'diis'
@@ -155,18 +183,36 @@ class DFTConfig:
             if not isinstance(value, str) or value.lower().strip() not in choices:
                 raise ValueError(f'지원하지 않는 {key}: {value}. 선택 가능: {", ".join(choices)}')
             object.__setattr__(self, key, value.lower().strip())
-        missing = sorted({atom.element for atom in self.atoms}
-                         .intersection(BASIS_UNAVAILABLE.get(self.basis, ())))
-        if missing:
-            raise ValueError(f'{self.basis}: {", ".join(missing)}에 지원되는 기저 데이터가 없습니다. '
-                             '사용 가능: ' + ', '.join(available_bases(self.atoms)))
-        needs_ecp = self.basis in DEF2_BASES and any(a.element in DEF2_ECP_ELEMENTS for a in self.atoms)
+        if not isinstance(self.basis_overrides, dict):
+            raise ValueError('basis_overrides는 {"원소": "기저"} 형식이어야 합니다.')
+        overrides = {}
+        for element, basis in self.basis_overrides.items():
+            if not isinstance(element, str) or element.strip().capitalize() not in ATOMIC_NUMBERS:
+                raise ValueError(f'원소별 기저: 알 수 없는 원소 {element}')
+            if not isinstance(basis, str) or basis.lower().strip() not in BASES:
+                raise ValueError(f'원소별 기저: 지원하지 않는 {element} 기저 {basis}. 선택 가능: {", ".join(BASES)}')
+            element, basis = element.strip().capitalize(), basis.lower().strip()
+            if element in overrides:
+                raise ValueError(f'원소별 기저에 {element}가 두 번 지정되었습니다.')
+            # An override equal to the default changes nothing physically; drop it so
+            # identical calculations keep identical settings and checkpoint signatures.
+            if basis != self.basis:
+                overrides[element] = basis
+        object.__setattr__(self, 'basis_overrides', dict(sorted(overrides.items())))
+        for element, basis in self.basis_by_element.items():
+            if element in BASIS_UNAVAILABLE.get(basis, ()):
+                raise ValueError(f'{basis}: {element}에 지원되는 기저 데이터가 없습니다. '
+                                 f'{element} 사용 가능: '
+                                 + ', '.join(available_bases((Atom(element, (0, 0, 0)),))))
+        needs_ecp = any(basis in DEF2_BASES and element in DEF2_ECP_ELEMENTS
+                        for element, basis in self.basis_by_element.items())
         if needs_ecp and self.ecp == 'none':
             raise ValueError('이 무거운 원소의 def2 기저는 대응하는 def2-ECP가 필요합니다. ECP를 auto 또는 def2로 선택하세요.')
         if self.ecp == 'def2' and not needs_ecp:
             raise ValueError('def2-ECP는 지원되는 무거운 원소와 def2-svp/def2-tzvp 기저를 함께 사용할 때만 선택하세요.')
         if self.resolved_ecp and self.resolved_relativity == 'x2c':
-            raise ValueError('ECP와 전체전자 X2C를 동시에 적용하지 않습니다. Dyall 기저 / ECP none을 사용하세요.')
+            raise ValueError(f'ECP({", ".join(self.resolved_ecp)})와 전체전자 X2C를 동시에 적용하지 않습니다. '
+                             'Dyall 기저 / ECP none을 사용하세요. 원소별 기저라면 무거운 원소를 모두 Dyall로 지정하세요.')
         if self.resolved_ecp and self.resolved_nuclear_model != 'point':
             raise ValueError('ECP 계산에서는 핵 모양을 별도로 바꾸지 않습니다. nuclear_model을 auto 또는 point로 선택하세요.')
         if self.resolved_grid_scheme == 'treutler' and any(ATOMIC_NUMBERS[a.element] > 103 for a in self.atoms):
@@ -211,10 +257,29 @@ class DFTConfig:
         return sum(ATOMIC_NUMBERS[a.element] for a in self.atoms) - self.charge
 
     @property
+    def basis_by_element(self):
+        """The basis actually used for each element present in the structure."""
+        return {element: self.basis_overrides.get(element, self.basis)
+                for element in sorted({a.element for a in self.atoms})}
+
+    @property
+    def basis_label(self):
+        return describe_bases(self.basis, self.basis_by_element)
+
+    @property
+    def unused_basis_overrides(self):
+        return sorted(set(self.basis_overrides) - {a.element for a in self.atoms})
+
+    @property
+    def uses_relativistic_basis(self):
+        return any(basis in RELATIVISTIC_BASES for basis in self.basis_by_element.values())
+
+    @property
     def resolved_ecp(self):
-        if self.ecp != 'none' and self.basis in DEF2_BASES:
-            return {symbol: self.basis for symbol in sorted({a.element for a in self.atoms} & DEF2_ECP_ELEMENTS)}
-        return {}
+        if self.ecp == 'none':
+            return {}
+        return {symbol: basis for symbol, basis in self.basis_by_element.items()
+                if basis in DEF2_BASES and symbol in DEF2_ECP_ELEMENTS}
 
     @property
     def ecp_core_electrons(self):
@@ -223,17 +288,17 @@ class DFTConfig:
 
     @property
     def resolved_relativity(self):
-        return ('x2c' if self.basis in RELATIVISTIC_BASES else 'none') if self.relativity == 'auto' else self.relativity
+        return ('x2c' if self.uses_relativistic_basis else 'none') if self.relativity == 'auto' else self.relativity
 
     @property
     def resolved_nuclear_model(self):
-        return ('gaussian' if self.basis in RELATIVISTIC_BASES else 'point') if self.nuclear_model == 'auto' else self.nuclear_model
+        return ('gaussian' if self.uses_relativistic_basis else 'point') if self.nuclear_model == 'auto' else self.nuclear_model
 
     @property
     def resolved_grid_scheme(self):
         if self.grid_scheme != 'auto':
             return self.grid_scheme
-        return ('universal' if self.basis in RELATIVISTIC_BASES
+        return ('universal' if self.uses_relativistic_basis
                 or any(ATOMIC_NUMBERS[a.element] > 103 for a in self.atoms) else 'treutler')
 
     @property

@@ -64,6 +64,23 @@ class MolecularGuiTests(unittest.TestCase):
             app.save_settings()
         self.assertEqual(load_dft_config(settings), app.read_config())
 
+    def test_per_element_basis_entry(self):
+        app = self.app
+        app.apply_config(DFTConfig(basis='sto-3g', basis_overrides={'O': 'def2-svp'}))
+        self.assertEqual(app.vars['basis_overrides'].get(), 'O=def2-svp')
+        app.vars['basis_overrides'].set('o=def2-tzvp; H=sto-3g')
+        cfg = app.read_config()
+        self.assertEqual(cfg.basis_overrides, {'O': 'def2-tzvp'})
+        self.assertEqual(cfg.basis_by_element, {'H': 'sto-3g', 'O': 'def2-tzvp'})
+        app.vars['basis_overrides'].set('')
+        self.assertEqual(app.read_config().basis_overrides, {})
+        app.vars['basis_overrides'].set('O=not-a-basis')
+        with patch('molecular_app.messagebox.showerror') as error:
+            app.start_calculation()
+            error.assert_called_once()
+        self.assertFalse(app.busy)
+        self.assertFalse(self.errors, self.errors)
+
     def test_period4_examples_and_incompatible_basis_blocked(self):
         app = self.app
         app.example.set('코발트 이온 · Co2+ (2S=3 예제)')

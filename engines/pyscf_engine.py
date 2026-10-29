@@ -52,14 +52,14 @@ def calculate_molecule(config, directory, progress=print):
     check_cancelled(directory)
     lib.num_threads(config.threads)
     progress(f'{config.formula} · 전자 {config.electrons}개 · {config.resolved_method.upper()} / '
-             f'{config.xc} / {config.basis} · SCF {config.scf_solver}')
+             f'{config.xc} / {config.basis_label} · SCF {config.scf_solver}')
     if config.resolved_ecp:
         progress(f'def2-ECP: {", ".join(config.resolved_ecp)} · 코어 {config.ecp_core_electrons}개 제외 / '
                  f'명시적 계산 전자 {config.explicit_electrons}개')
     try:
         mol = gto.M(atom=[(a.element, a.position) for a in config.atoms],
                     unit=config.unit, charge=config.charge, spin=config.spin,
-                    basis=config.basis, ecp=config.resolved_ecp,
+                    basis=config.basis_by_element, ecp=config.resolved_ecp,
                     nucmod='gaussian' if config.resolved_nuclear_model == 'gaussian' else 0,
                     verbose=0, max_memory=config.memory_mb)
     except Exception as exc:
@@ -173,10 +173,20 @@ def calculate_molecule(config, directory, progress=print):
         warnings.append('SCF 미수렴: 마지막 반복의 진단값입니다. 성공한 계산으로 해석하지 마세요.')
         if config.scf_solver == 'diis' and config.engine == 'pyscf':
             warnings.append('SCF 반복 방식을 newton으로 바꾸거나 입력 스핀·기저·반복 제한을 점검하세요.')
-    if config.basis == 'sto-3g':
+    bases_used = set(config.basis_by_element.values())
+    if 'sto-3g' in bases_used:
         warnings.append('STO-3G는 최소 기저입니다. 정량 비교 전 더 큰 기저로 수렴을 확인하세요.')
-    if config.charge < 0 and '+' not in config.basis:
+    if config.charge < 0 and not any('+' in basis for basis in bases_used):
         warnings.append('음이온은 확산함수가 중요합니다. 현재 선택한 기저에는 확산함수가 없습니다.')
+    if len(bases_used) > 1:
+        warnings.append(f'원소별 기저 혼합: {config.basis_label}. 다른 기저 조합의 총에너지와 직접 비교하지 말고, '
+                        '반응·흡착에너지는 모든 항에서 원소별 기저가 같을 때만 계산하세요.')
+        if config.resolved_relativity == 'x2c' and bases_used - {'dyall-v2z', 'dyall-v3z'}:
+            warnings.append('X2C 계산에 비상대론용으로 수축된 기저가 섞여 있습니다. '
+                            '해당 원소의 상대론 기저 수렴을 별도로 확인하세요.')
+    if config.unused_basis_overrides:
+        warnings.append('구조에 없는 원소의 기저 지정은 사용되지 않았습니다: '
+                        + ', '.join(config.unused_basis_overrides))
     warnings.append('SCF 수렴은 정확도 보증이 아닙니다. 기저·격자·스핀 상태를 바꿔 확인하세요.')
     if abs(electron_trace - config.explicit_electrons) > 1e-5:
         raise RuntimeError('밀도행렬의 전자 수가 명시적으로 계산하는 전자 수와 일치하지 않습니다.')
@@ -255,7 +265,7 @@ def calculate_molecule(config, directory, progress=print):
     else:
         actual_guess = 'core' if config.engine == 'native' else 'minao'
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.0',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.1',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
@@ -275,6 +285,7 @@ def calculate_molecule(config, directory, progress=print):
         'status': 'converged' if mf.converged else 'not_converged',
         'converged': bool(mf.converged), 'config': config.to_dict(), 'formula': config.formula,
         'method': config.resolved_method.upper(), 'xc': config.xc, 'basis': config.basis,
+        'basis_by_element': config.basis_by_element,
         'scf_solver': config.scf_solver,
         'relativity': config.resolved_relativity, 'nuclear_model': config.resolved_nuclear_model,
         'integration_grid': {'scheme': config.resolved_grid_scheme, 'level': config.grid_level,

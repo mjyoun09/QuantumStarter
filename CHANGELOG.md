@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 2 (원소별 기저) 완료 2026-10-29 · 0.8.1 · Claude
+
+- 분자 계산에서 원소마다 다른 기저를 지정하는 `DFTConfig.basis_overrides`를 추가했다. GUI `원소별 기저` 입력란, CLI `--basis-element EL=BASIS`, 설정 JSON에서 사용한다. 기존 설정·결과·체크포인트와 호환된다.
+- 주요 파일: molecular.py, engines/pyscf_engine.py, scf_control.py, energy_analysis.py, main.py, molecular_app.py, workflow.py(버전), 신규 test_basis_overrides.py, test_energy_analysis.py, test_molecular_gui.py, README_KO.md, docs/ELEMENTS_KO.md·NATIVE_DFT_KO.md·VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 원소별 실제 기저 데이터 검사, def2-ECP는 def2가 지정된 무거운 원소에만, 하나라도 Dyall이면 auto X2C/Gaussian/universal, ECP+X2C 혼합 차단. 결과에 `basis_by_element`, 혼합·미사용 지정 경고. 반응·흡착 분석은 같은 원소의 기저/ECP가 모든 항에서 같아야 한다(기존 `ecp_policy` 키 대체).
+- 검증: 신규 10개(WSL) 통과, 기존 WSL 37개 통과, Windows GUI 실계산 포함 24개 통과(2개는 PySCF 필요로 WSL에서 통과). 혼합 기저 물 CLI 실계산 PySCF/자체 차이 3.1e-11 Ha. 상세는 docs/VALIDATION_KO.md 0.8.1.
+- 한계: 혼합 기저 총에너지는 다른 조합과 직접 비교 불가, 정확도 검증 아님. 주기계 원소별 기저는 미지원. 분산 보정·힘/최적화 이후 항목은 미완료이며 ACTIVE_TASK.md를 유지한다.
+
 ## QS-20261029-NATIVE-DFT · 첫 구현 단계 완료 2026-10-29 · 0.8.0
 
 - 첨부 프롬프트의 우선 구현 대상인 자체 분자 RKS/UKS SCF를 추가했다. 밀도·기울기·J/K·LDA/GGA XC 행렬·global hybrid·Pulay DIIS·혼합·총에너지 성분·엄격한 에너지/밀도/잔차 수렴을 직접 구현했다. 적분/AO/격자는 PySCF, XC 함수값·미분은 Libxc를 사용한다.

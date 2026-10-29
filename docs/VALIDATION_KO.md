@@ -1,5 +1,22 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.8.1: 원소별 기저 선택
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 2 (담당 Claude). 환경은 0.8과 같다(WSL PySCF 2.14.0, Windows Python 3.13/Tk).
+
+- `wsl --exec .venv-dft/bin/python -m unittest test_basis_overrides test_energy_analysis -v`: **10개 통과, 3.5초**.
+  입력 정규화·거부, 원소별 ECP/상대론/격자 판정, 체크포인트 서명(지정이 없으면 이전 공식과 같은 해시), 혼합 기저 실계산, 반응 분석의 원소별 기저 대조.
+- 혼합 기저 물(O=def2-SVP, H=STO-3G, LDA/VWN, grid2, conv_tol 1e-10): PySCF 엔진 결과가 PySCF 직접 dict 기저 구성과 1e-8 Ha 이내,
+  자체 엔진과 2e-7 Ha 이내, AO 16개(균일 STO-3G 7개). 같은 XC·격자에서 혼합 기저 에너지가 균일 STO-3G보다 낮다(변분 자유도 증가와 일치).
+- AuH(Au=def2-SVP+ECP, H=STO-3G, LDA): Au 코어 60, H 0, 명시 전자 20, `Tr(DS)`=20으로 수렴.
+- `wsl ... -m unittest test_native test_molecular test_periodic`: **기존 37개 통과, 49.6초** (변경 후 회귀).
+- `QUANTUMSTARTER_GUI_DFT_TEST=1` Windows `test_molecular_gui test_workflow test_basis_overrides test_energy_analysis`: **26개 중 24 통과, 2 skip(Windows에 PySCF 없음 — 같은 2개는 위 WSL 실행에서 통과), 54.8초**. 실제 WSL 계산 GUI 5개와 새 원소별 기저 입력 GUI 1개 포함.
+- 실제 CLI(Windows→WSL) 혼합 기저 물, LDA/VWN, grid3: PySCF 엔진 -75.770264060981 Ha(6회), 자체 엔진 -75.770264061012 Ha(16회), 차이 3.1e-11 Ha,
+  `Tr(DS)`=10. 결과: `outputs/basis_override_validation/20261029_202537_953szltv`, `.../20261029_202543_ocuvwdck`.
+
+한계: 혼합 기저의 총에너지는 다른 기저 조합과 직접 비교할 수 없다. 기저 혼합이 특정 물성에 충분한지는 기저 수렴 비교로 별도 확인해야 하며,
+이 검증은 구현 일치(같은 입력에서 같은 해밀토니안)에 대한 것이지 정확도 검증이 아니다. 주기계 엔진은 원소별 기저를 지원하지 않는다.
+
 ## 0.8: 자체 분자 SCF와 연구용 결과 분석
 
 작업 ID: QS-20261029-NATIVE-DFT (첫 단계 검증 완료, 첨부 후속 확장은 인계 유지).

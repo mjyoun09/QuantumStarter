@@ -16,7 +16,8 @@ from app import AppCanvas, QuantumApp, ROOT, WHITE, INK, MUTED
 from dft_workflow import CalculationError, RunControl, list_dft_runs, run_calculation
 from element_catalog import PERIODIC_CAPABILITIES
 from molecular import (BASES, ELEMENTS, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
-                       parse_coordinates, read_xyz, save_dft_config)
+                       describe_bases, format_basis_overrides, parse_basis_overrides, parse_coordinates, read_xyz,
+                       save_dft_config)
 from molecular_plotting import create_molecular_figure
 from geometry_tools import PRESETS, apply_preset, measure, BOHR_ANGSTROM
 
@@ -219,6 +220,9 @@ class MolecularApp(QuantumApp):
                     'pyscf: 외부 SCF / 118원소. native: 자체 SCF / H~Kr·전체전자·점핵.', self._settings_changed)
         self._combo(method, '기저함수', self.vars['basis'], BASES, '크기가 다른 기저로 수렴을 확인하세요.', self._settings_changed)
         self.basis_box = self.controls[-1][0]
+        self._entry(method, '원소별 기저 (선택)', 'basis_overrides',
+                    '예: O=def2-tzvp, H=sto-3g. 비우면 모든 원소에 위 기저. '
+                    '반응·흡착에너지의 모든 항에서 원소별 기저를 같게 유지하세요.', self._settings_changed)
         self._combo(method, '유효 코어 퍼텐셜 (ECP)', self.vars['ecp'], ['auto', 'none', 'def2'],
                     'auto: 무거운 원소의 def2 기저에 대응 ECP 적용.', self._settings_changed)
         ttk.Label(method, textvariable=self.ecp_hint, style='Muted.TLabel', wraplength=280).pack(anchor='w', pady=5)
@@ -367,12 +371,14 @@ class MolecularApp(QuantumApp):
                 data[key] = float(data[key])
             except ValueError:
                 raise ValueError(f'{key}: 숫자를 입력하세요.') from None
+        data['basis_overrides'] = parse_basis_overrides(data['basis_overrides'])
         return DFTConfig(atoms=parse_coordinates(self.coordinates.get('1.0', 'end')), **data)
 
     def apply_config(self, cfg, initial=False):
         self.applying = True
         for key, var in self.vars.items():
-            var.set(str(getattr(cfg, key)))
+            value = getattr(cfg, key)
+            var.set(format_basis_overrides(value) if key == 'basis_overrides' else str(value))
         self.coordinates.delete('1.0', 'end')
         self.coordinates.insert('1.0', coordinates_text(cfg.atoms))
         self.coordinates.edit_modified(False)
@@ -407,7 +413,9 @@ class MolecularApp(QuantumApp):
                              '설정 변경됨 · 아래 결과는 이전 조건입니다. 계산 시작을 눌러 갱신하세요.')
             status = '수렴' if self.summary['converged'] else '미수렴 · 진단값'
             self.orbital_context.configure(text=f'{self.summary["formula"]} · {self.summary["method"]} / '
-                f'{self.summary["xc"]} / {self.summary["basis"]} · {status}\n' + self.changed.get())
+                f'{self.summary["xc"]} / '
+                f'{describe_bases(self.summary["basis"], self.summary.get("basis_by_element", {}))} · {status}\n'
+                + self.changed.get())
 
     def show_elements(self):
         window = tk.Toplevel(self.root)

@@ -4,8 +4,28 @@
 
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
-- 담당 AI: ChatGPT Codex (단독 담당)
-- 상태: HANDOFF_READY
+- 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
+- 상태: HANDOFF_READY — 단계 2(원소별 기저) 완료·커밋. 단계 3(분산 보정)은 방식 선택(자체 구현 D3 vs 외부 라이브러리)에 대한 사용자 결정 대기. 실행 중인 계산·미저장 코드 없음.
+
+### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
+
+- 목적: 한 계산 안에서 원소마다 다른 기저를 지정(예: O=def2-tzvp, H=def2-svp). 인계 "정확한 다음 구현 지점" 1번.
+- 설계: `DFTConfig.basis_overrides: {원소: 기저}` 추가. `basis`는 지정 없는 원소의 기본값으로 유지 → 기존 JSON/결과/체크포인트 호환. 같은 값 지정은 정규화로 제거. 구조에 없는 원소 지정은 허용하되 계산에 쓰이지 않음을 경고.
+- ECP/X2C: 원소별 실제 기저로 판정(def2 무거운 원소만 def2-ECP). auto 상대론·핵·격자는 하나라도 Dyall이면 X2C/Gaussian/universal. ECP+X2C 혼합은 기존처럼 거부.
+- 변경 예정: molecular.py(설정·검증), engines/pyscf_engine.py(dict 기저 전달, 결과 `basis_by_element`, 경고), scf_control.signature(지정 없으면 기존 해시 유지), energy_analysis(원소별 기저·ECP가 항마다 같은지 검사), main.py(`--basis-element EL=BASIS`), molecular_app.py(원소별 기저 입력), 테스트, docs.
+- 완료 기준: 입력 검증 단위 테스트, PySCF 직접 구성과 AO 수/에너지 일치, 자체 엔진과 PySCF 엔진의 혼합 기저 에너지 일치(기존 비교 허용오차), 반응 분석의 원소별 기저 불일치 거부, 기존 회귀 테스트 통과, 문서 갱신.
+- 기준점: Git 저장소를 새로 만들고 인수 직전 상태를 커밋 `dd2871e`로 보존(코드 변경 없음). outputs/는 .gitignore 대상이라 Git에 없음.
+- 진행(20:40경): 구현 완료 — molecular.py(`basis_overrides`, `basis_by_element`, `basis_label`, `unused_basis_overrides`, `uses_relativistic_basis`, `parse_basis_overrides`/`format_basis_overrides`/`describe_bases`; 원소별 기저 데이터·ECP·auto 상대론/핵/격자), pyscf_engine(dict 기저, 결과 `basis_by_element`, 혼합/미사용 경고), scf_control.signature(사용된 지정만 해시; 없으면 기존 해시 그대로), energy_analysis(원소별 기저+ECP를 항 사이에서 대조, 기존 `ecp_policy` 키는 이로 대체), main.py `--basis-element`, GUI 입력란.
+- 신규 test_basis_overrides.py 7개 + test_energy_analysis 1개 추가: WSL `python -m unittest test_basis_overrides test_energy_analysis -v` 10개 통과(3.5초). 혼합 기저 물: PySCF 엔진 = PySCF 직접 dict 기저 구성(<1e-8 Ha), 자체 엔진 차 <2e-7 Ha, AO 16개, AuH(Au def2-ECP+H STO-3G) 코어 60/명시 20전자 수렴.
+- 회귀: WSL `test_native test_molecular test_periodic` 37개 통과(49.6초). Windows `QUANTUMSTARTER_GUI_DFT_TEST=1` `test_molecular_gui test_workflow test_basis_overrides test_energy_analysis` 24 통과/2 skip(PySCF 필요, WSL에서 통과), 54.8초. 버전 0.8.1로 올린 뒤 `test_workflow test_gui test_solver` 14개 통과.
+- CLI 실계산 보존: outputs/basis_override_validation/20261029_202537_953szltv(pyscf), 20261029_202543_ocuvwdck(native), 차이 3.1e-11 Ha.
+- 문서 갱신 완료: README_KO, docs/ELEMENTS·NATIVE_DFT·VALIDATION(0.8.1 절)·REQUIREMENTS_STATUS, PROJECT_STATE(사용자 목표 = DFT 프로그램 자체 제작, Git 상태), CHANGELOG. CLAUDE.md에 `@AGENTS.md` import 추가(Codex 문장은 유지).
+
+### 단계 3 재개 지점: 분산 보정 (미착수)
+
+- 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.
+- 영향 파일 예상: molecular.py(DFTConfig.dispersion 필드·검증), engines/pyscf_engine.py(성분 합산·출처), engines/native_scf.py(성분 표시만; SCF에는 영향 없음 — D3는 밀도 비의존), scf_control.signature(분산은 밀도에 영향 없으므로 서명에서 제외 검토), energy_analysis.compatibility(분산 모델 일치 검사), GUI/CLI, 테스트.
+- 이후 순서(인계 원문 유지): 힘(유한차분 검증) → 구조 최적화/제약/스캔 → Hessian/진동/ZPE → NEB → 주기계 응력/밴드/DOS.
 
 ## 작업 목적
 

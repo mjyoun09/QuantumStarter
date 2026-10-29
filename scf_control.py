@@ -23,6 +23,11 @@ def signature(config):
                 'initial_guess', 'scf_solver', 'native_density_tol', 'native_residual_tol',
                 'native_damping', 'native_diis_space'):
         data.pop(key, None)
+    # Only overrides for elements in the structure change the AO basis. Without any,
+    # the hash equals the one written before per-element bases existed.
+    used = {e: b for e, b in data.pop('basis_overrides', {}).items() if e in config.basis_by_element}
+    if used:
+        data['basis_overrides'] = used
     return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 

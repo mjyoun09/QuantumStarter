@@ -73,6 +73,12 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 
 혼합 분자는 포함된 모든 원소를 지원하는 기저만 사용할 수 있습니다. 화면은 가능한 선택지를
 갱신하며, 이미 선택한 기저가 맞지 않으면 오류를 표시합니다. 기저를 자동으로 바꾸지 않습니다.
+
+**원소별 기저 (0.8.1):** 화면의 `원소별 기저` 입력란, CLI `--basis-element O=def2-tzvp`(반복 가능),
+설정 JSON `"basis_overrides": {"O": "def2-tzvp"}`로 원소마다 다른 기저를 지정합니다. 지정하지 않은 원소는
+위 `기저함수`를 사용합니다. 각 원소의 실제 기저 데이터를 검사하며, def2-ECP는 def2 기저가 지정된 무거운 원소에만
+붙습니다. 하나라도 Dyall이면 auto 상대론·핵·격자는 X2C/Gaussian/universal이며, ECP 원소와 X2C의 혼합은 차단합니다.
+결과에는 `basis_by_element`가 저장되고, 반응·흡착 분석은 **같은 원소의 기저·ECP가 모든 항에서 같을 때만** 계산합니다.
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
 
@@ -157,6 +163,7 @@ NPZ는 `numpy.load(path, allow_pickle=False)`로 읽을 수 있습니다.
 .\.venv\Scripts\python.exe main.py --config examples\native_water.json --engine native --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\oh.xyz --charge 0 --spin 1 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\h2.xyz --basis sto-3g --xc pbe --no-show
+.\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis sto-3g --basis-element O=def2-svp --xc lda,vwn --engine native --no-show
 .\.venv\Scripts\python.exe main.py --config molecule.json --output outputs\study --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\kcl.xyz --charge 0 --spin 0 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\fe3plus.xyz --charge 3 --spin 5 --no-show

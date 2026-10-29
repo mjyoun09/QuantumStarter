@@ -31,17 +31,21 @@ def compatibility(result):
     engine = result.get('engine')
     if engine not in ('quantumstarter-native', 'pyscf-molecular', 'pyscf-pbc'):
         raise ValueError('검증되지 않은 엔진/ML/수소 검증기 에너지는 이 DFT 반응 계산에 섞을 수 없습니다.')
-    common = dict(engine=engine, system=cfg.system, basis=cfg.basis, xc=cfg.xc,
+    common = dict(engine=engine, system=cfg.system, xc=cfg.xc,
                   grid_level=cfg.grid_level, conv_tol=cfg.conv_tol)
     if isinstance(cfg, DFTConfig):
+        # Molecules in one reaction contain different elements, so the basis is
+        # compared per element (with its ECP) in reaction_energy, not as one name.
+        ecp = cfg.resolved_ecp
         common.update(relativity=cfg.resolved_relativity, nuclear_model=cfg.resolved_nuclear_model,
                       grid_scheme=cfg.resolved_grid_scheme,
                       libxc_version=result.get('environment', {}).get('libxc'),
                       xc_definition=result.get('provenance', {}).get('xc_functional_ids_and_weights'),
-                      ecp_policy='matching-def2' if cfg.basis.startswith('def2-') else 'all-electron')
+                      basis_by_element={e: b + ('+def2-ecp' if e in ecp else '')
+                                        for e, b in cfg.basis_by_element.items()})
     else:
-        common.update(pseudo=cfg.pseudo, lattice=cfg.lattice, boundary=cfg.boundary, kmesh=cfg.kmesh,
-                      smearing_ev=cfg.smearing_ev, precision=cfg.precision)
+        common.update(basis=cfg.basis, pseudo=cfg.pseudo, lattice=cfg.lattice, boundary=cfg.boundary,
+                      kmesh=cfg.kmesh, smearing_ev=cfg.smearing_ev, precision=cfg.precision)
         if result.get('energy_normalization') != 'per_input_cell':
             raise ValueError('주기계 에너지는 입력 셀당 값이어야 합니다.')
     return common
@@ -56,7 +60,7 @@ def reaction_energy(terms, energy_field='total_energy_hartree'):
     if energy_field not in ENERGY_FIELDS or len(terms) < 2:
         raise ValueError('지원되는 에너지 종류와 두 개 이상의 반응 항이 필요합니다.')
     balance, charge, energy = Counter(), 0., 0.
-    rows, reference = [], None
+    rows, reference, element_bases = [], None, {}
     for coefficient, path in terms:
         if isinstance(coefficient, bool) or not math.isfinite(coefficient) or coefficient == 0:
             raise ValueError('반응 계수는 0이 아닌 유한한 수여야 합니다.')
@@ -64,6 +68,10 @@ def reaction_energy(terms, energy_field='total_energy_hartree'):
         if result.get('status') != 'converged' or result.get('converged') is not True:
             raise ValueError(f'수렴하지 않은 계산은 에너지 분석에 사용할 수 없습니다: {path}')
         key = compatibility(result)
+        for element, basis in key.pop('basis_by_element', {}).items():
+            if element_bases.setdefault(element, basis) != basis:
+                raise ValueError(f'계산 조건 불일치: 원소 {element}의 기저/ECP가 항마다 다릅니다 '
+                                 f'({element_bases[element]} ≠ {basis}). 같은 원소에는 같은 기저를 쓰세요.')
         if reference is not None:
             differences = sorted(k for k in reference.keys() | key.keys() if reference.get(k) != key.get(k))
             if differences:
@@ -82,6 +90,8 @@ def reaction_energy(terms, energy_field='total_energy_hartree'):
     imbalance = {e: v for e, v in balance.items() if abs(v) > 1e-8}
     if imbalance or abs(charge) > 1e-8:
         raise ValueError(f'원소/전하 수지가 맞지 않습니다: 원소 {imbalance}, 전하 {charge:+g}')
+    if element_bases:
+        reference = dict(reference, basis_by_element=dict(sorted(element_bases.items())))
     return {'schema_version': 1, 'analysis': 'reaction_energy', 'energy_field': energy_field,
             'definition': 'sum(stoichiometric_coefficient * energy); products positive, reactants negative',
             'energy_hartree': energy, 'energy_ev': energy * HARTREE_EV, 'conditions': reference, 'terms': rows,

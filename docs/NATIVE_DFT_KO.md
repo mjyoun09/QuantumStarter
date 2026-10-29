@@ -45,6 +45,7 @@ SCF는 에너지 변화, 밀도행렬 Frobenius 변화, 직교 기저에서 FDS�
 ## 현재 범위와 제한
 
 - native: H~Kr, 지원 기저의 비상대론 전체전자·점핵, RKS/UKS, LDA/VWN·PBE·PBE0·B3LYP.
+  원소별 기저(`basis_overrides`, 0.8.1)도 같은 AO 기저 구성으로 사용한다. 혼합 기저 물에서 외부 엔진과 3.1e-11 Ha 일치(VALIDATION 0.8.1).
 - 직접 dense ERI를 보유하므로 최대160 AO이며 메모리 추정치가 `memory_mb`를 넘으면 실행을 거부한다. 모든 H~Kr 화합물의 수렴/정확도를 검증한 것은 아니다.
 - 기존 pyscf: H~Og의 Dyall 기저, ECP, X2C 등 기존 지원 유지. native에서 미지원인 옵션은 오류로 명시한다.
 - 자체 Newton, ECP/X2C, 분산력, DFT 힘/최적화/진동/NEB, 주기계 자체 SCF는 미구현이다.
