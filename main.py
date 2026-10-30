@@ -37,6 +37,8 @@ def main():
     parser.add_argument('--boundary', choices=['bulk', 'slab'])
     parser.add_argument('--kmesh', nargs=3, type=int, metavar=('KX', 'KY', 'KZ'))
     parser.add_argument('--smearing-ev', type=float)
+    parser.add_argument('--band-path', help="주기계 밴드 경로: auto 또는 GXWKGL 같은 고대칭점 (없으면 계산 안 함)")
+    parser.add_argument('--band-points', type=int, help='밴드 경로 점 수 (기본 60)')
     parser.add_argument("--charge", type=int, help="전체 전하")
     parser.add_argument("--spin", type=int, help="2S = N_alpha - N_beta; 다중도 아님")
     parser.add_argument("--basis", help="기저함수 (원소별 지정이 없는 원소의 기본값)")
@@ -94,8 +96,8 @@ def main():
             if config.system == 'periodic':
                 if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None or args.thermo_pressure_pa is not None or args.symmetry_number is not None or args.native_stability or args.opt_constraints or args.scan_spec:
                     parser.error('주기계는 --xyz / --ecp / --scf-solver / --relativity / --nuclear-model / --grid-scheme / --engine / --initial-guess / --restart / --basis-element / --dispersion / --calculation을 지원하지 않습니다.')
-                overrides.update({key: getattr(args, key) for key in ('boundary', 'kmesh', 'smearing_ev') if getattr(args, key) is not None})
-            elif args.boundary or args.kmesh or args.smearing_ev is not None:
+                overrides.update({key: getattr(args, key) for key in ('boundary', 'kmesh', 'smearing_ev', 'band_path', 'band_points') if getattr(args, key) is not None})
+            elif args.boundary or args.kmesh or args.smearing_ev is not None or args.band_path or args.band_points:
                 parser.error('주기계 옵션에는 --structure 또는 주기계 --config가 필요합니다.')
             if args.xyz:
                 overrides.update(atoms=read_xyz(args.xyz), unit='angstrom')

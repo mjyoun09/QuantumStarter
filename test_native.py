@@ -31,7 +31,8 @@ class NativeInputTests(unittest.TestCase):
         self.assertEqual(DFTConfig().engine, 'pyscf')
         native = DFTConfig(engine='native')
         self.assertEqual(DFTConfig.from_dict(native.to_dict()), native)
-        for kwargs in ({'scf_solver': 'newton'}, {'relativity': 'x2c'}, {'nuclear_model': 'gaussian'},
+        self.assertEqual(replace(native, scf_solver='newton').scf_solver, 'newton')  # native Newton (0.9.0)
+        for kwargs in ({'relativity': 'x2c'}, {'nuclear_model': 'gaussian'},
                        {'native_damping': 1}, {'native_diis_space': 1}, {'native_density_tol': 0},
                        {'atoms': parse_coordinates('Og 0 0 0'), 'basis': 'dyall-v2z'}):
             with self.assertRaises(ValueError):

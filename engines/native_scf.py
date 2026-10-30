@@ -171,6 +171,9 @@ class NativeKS:
             _, guess_fock, _ = self.evaluate(np.stack((total / 2, total / 2)) if self.unrestricted else total)
             self.mo_energy, self.mo_coeff = self.diagonalize(guess_fock)
         dm = self.density(self.mo_coeff) if dm0 is None else dm0.copy()
+        if self.config.scf_solver == 'newton':
+            from .native_newton import newton_kernel
+            return newton_kernel(self, dm0)
         energy, fock, components = self.evaluate(dm)
         diis = PulayDIIS(self.config.native_diis_space)
         for cycle in range(self.max_cycle):

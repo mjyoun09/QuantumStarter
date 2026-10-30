@@ -103,8 +103,15 @@ def calculate_periodic(config, directory, progress=print):
     spin_trace = float(np.einsum('kij,kji->', dm[0] - dm[1], overlap).real / nk) if unrestricted else 0.
     if abs(ne_trace - cell.nelectron) > 1e-5 or abs(spin_trace - config.spin) > 1e-5:
         raise RuntimeError(f'전자 수/스핀 검증 실패: Tr(DS)={ne_trace}, spin={spin_trace}')
+    from .periodic_analysis import band_structure, density_of_states
+    dos = density_of_states(mf.mo_energy, mf.mo_occ, [1 / nk] * nk, unrestricted, config.dos_sigma_ev, HARTREE_TO_EV)
+    bands = None
+    if config.band_path:
+        progress('밴드 구조: 수렴한 밀도로 고대칭 경로의 고유값을 계산합니다(비자기일관).')
+        bands = band_structure(mf, cell, config, unrestricted, HARTREE_TO_EV)
     warnings = ['SCF 수렴은 기저·k점·수치 격자·진공·슬래브 두께 수렴의 보증이 아닙니다.',
-                '고정 구조의 단일점 에너지입니다. 현재 주기계 DFT는 힘·응력·구조 최적화를 출력하지 않습니다.',
+                '고정 구조의 단일점 에너지입니다. 주기계 힘·응력·구조 최적화는 미구현입니다'
+                '(PySCF 2.14의 GDF는 주기계 기울기를, 응력은 FFTDF만 지원).',
                 'GTH 의사퍼텐셜 계산이며 SOC·분산 보정은 포함하지 않습니다.']
     if config.smearing_ev:
         warnings.append('내부에너지 E, 자유에너지 F=E−TS, 외삽 에너지 (E+F)/2를 구분하세요. 비교에는 같은 smearing을 사용하세요.')
@@ -125,8 +132,19 @@ def calculate_periodic(config, directory, progress=print):
         'kpoints_scaled': cell.get_scaled_kpts(kpts).tolist(), 'kpoint_weights': [1 / nk] * nk,
         'nao': cell.nao_nr(), 'iterations': len(history), 'elapsed_seconds': time.perf_counter() - started,
         'integral_scheme': 'GDF', 'coulomb_dimension': cell.dimension, 'scf_history': history, 'warnings': warnings,
-        'restarted_same_settings': restarted,
+        'restarted_same_settings': restarted, 'dos': dos, 'band_structure': bands,
     }
+    with (directory / 'dos.csv').open('w', encoding='utf-8', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['energy_ev'] + [f'dos_spin{s}' for s in range(len(dos['dos_by_spin']))])
+        writer.writerows([e, *values] for e, *values in zip(dos['energy_grid_ev'], *dos['dos_by_spin']))
+    if bands:
+        with (directory / 'bands.csv').open('w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['k_index', 'axis_inverse_angstrom', 'spin', 'band', 'energy_ev'])
+            for s, channel in enumerate(bands['bands_ev_by_spin']):
+                for k, (x, row) in enumerate(zip(bands['axis_inverse_angstrom'], channel)):
+                    writer.writerows([k, x, s, n, e] for n, e in enumerate(row))
     np.savez_compressed(directory / 'electronic_structure.npz', density_matrix=dm, overlap=overlap,
                         mo_coeff=np.asarray(mf.mo_coeff), mo_energy_hartree=np.asarray(mf.mo_energy),
                         mo_occupation=np.asarray(mf.mo_occ), kpoints_inverse_bohr=kpts, lattice_angstrom=config.lattice)

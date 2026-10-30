@@ -305,8 +305,6 @@ class DFTConfig:
                     or self.resolved_relativity != 'none' or self.resolved_nuclear_model != 'point'):
                 raise ValueError('자체 엔진의 현재 범위는 H~Kr의 비상대론 전체전자·점핵입니다. '
                                  'ECP/X2C/무거운 원소는 PySCF 엔진을 선택하세요.')
-            if self.scf_solver != 'diis':
-                raise ValueError('자체 엔진은 직접 구현한 DIIS를 사용합니다. Newton은 PySCF 엔진에 있습니다.')
         elif self.initial_guess == 'perturbed':
             raise ValueError('perturbed 초기 추정은 자체 엔진에서만 지원합니다.')
         elif self.native_stability != 'none':

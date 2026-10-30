@@ -82,6 +82,13 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
 
+## 자체 2차 SCF와 주기계 밴드·DOS (0.9.0)
+
+- **자체 엔진 `scf_solver=newton`**: 신뢰영역 Newton(궤도 회전, Steihaug CG). 점유는 궤도 번호로 유지해 aufbau를 강제하지 않으며, 기울기가 0이 되면 최저 궤도 Hessian 고유값을 확인해 음수면 그 방향으로 내려간 뒤 계속합니다(안장점에서 멈추지 않음). aufbau 위반이면 경고. Hessian-벡터 곱이 유한차분이라 DIIS보다 수십 배 느리므로 DIIS가 수렴하지 않거나 안정성 분석이 불안정이라고 할 때 쓰세요. Cr·Co 원자는 여전히 수렴하지 않을 수 있습니다.
+- **주기계 DOS**: 모든 주기계 결과에 k 메쉬 고유값의 가우시안 확장 DOS(`dos_sigma_ev`, 기본 0.1 eV, states/eV/셀)와 HOMO/LUMO·메쉬 갭이 저장됩니다(`dos.csv`).
+- **주기계 밴드**: `band_path`(`auto` 또는 `GXWKGL` 같은 고대칭점; CLI `--band-path auto --band-points 60`). 수렴한 밀도로 경로 위 고유값을 비자기일관 계산하고 VBM/CBM·간접/직접 갭을 기록합니다(`bands.csv`). 메쉬 k점에서 밴드값과 SCF 고유값의 차이(Si에서 ~1 meV)를 `mesh_consistency_max_ev`로 남깁니다. slab은 2D 경로를 쓰지만 실계산 검증 전입니다.
+- 주기계 힘·응력은 PySCF 2.14가 GDF에서 지원하지 않아 아직 없습니다.
+
 ## 자체 SCF 안정성 분석과 수렴 개선 (0.8.6)
 
 - `native_stability`(화면 `수치 설정 > 자체 SCF 안정성 분석`, CLI `--stability check|follow`, 자체 엔진 전용): 수렴한 해가 궤도 회전에 대해 최소인지 검사합니다. 불안정하면 경고하고, `follow`이면 더 낮은 해를 찾아 다시 수렴시킵니다(최대 3회). 실수 내부 회전만 검사합니다(RKS→UKS 삼중항 불안정은 미검사). 결과 `scf_stability`에 회차별 최저 고유값·에너지를 기록합니다.

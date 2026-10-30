@@ -5,7 +5,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 2~8 완료(최신 단계 8 NEB 0.8.9 커밋). 사용자 "전부 해"(B·A·C·NEB) 완료. 원 첨부 요구의 남은 항목은 아래 단계 9 재개 지점. 실행 중 계산·미저장 코드 없음. **사용자 요청: 화면에 창을 띄우는 검증 금지 → GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 상태: HANDOFF_READY — 단계 9(0.9.0) 부분 완료: 자체 Newton SCF·주기계 밴드/DOS 구현·검증, **Cr·Co SCF 미해결**, 주기계 힘·응력은 PySCF GDF 미지원으로 보류. 다음은 아래 단계 10 재개 지점. 실행 중 계산·미저장 코드 없음. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -92,7 +92,25 @@
 - 검증: test_neb 3 통과. NH₃ 반전 7 이미지 5회 수렴, 대칭 프로필(54.986 kJ/mol), 최고 이미지 평면, TS 정밀화 장벽 54.985 kJ/mol. WSL 84, Windows 숨김 32(+4 skip).
 - 사고·조치: Windows Python write_text가 7개 소스를 CRLF로 바꿈 → 커밋 전 LF 복원(바이트 검사). 첫 CRLF 검사 명령은 오탐. PROJECT_STATE에 주의사항 기록.
 
-### 단계 9 재개 지점 (미착수, 원 첨부 요구의 남은 항목)
+### 단계 9: 자체 2차 SCF + 주기계 밴드·DOS (Claude, 부분 완료 — CHANGELOG 0.9.0)
+
+- 9-1 계획: native 궤도 회전 신뢰영역 Newton(Steihaug CG, Hessian-벡터 곱은 native_stability의 기울기 중심차분 재사용). 점유는 aufbau를 강제하지 않고 현재 점유 궤도를 유지; 마지막 정준화는 점유/가상 블록 각각 대각화. aufbau 위반이면 경고. scf_solver=newton을 native에서 허용. 검증: Fe·Cr·Co 수렴, PySCF newton과 에너지 비교, 수렴 해의 안정성(최저 고유값 ≥ 0), 물은 DIIS와 같은 에너지.
+- 9-1 진행(2026-10-30): engines/native_newton.py(Steihaug 신뢰영역 Newton, 점유는 궤도 번호로 유지, 수렴 시 최저 궤도 Hessian 고유값 검사 → 음수면 그 방향 선 탐색으로 안장점 탈출 후 계속, 블록 정준화, aufbau 위반 경고), native_scf 분기, molecular.py에서 native newton 허용, pyscf_engine의 PySCF newton 래퍼를 PySCF 엔진에만 적용(처음엔 native에도 적용되던 버그), 결과 `native_newton`. test_native의 'native+newton=오류' 단언 갱신. test_newton 2 통과(245초, 느림): 물 Newton=DIIS(1e-8), OH 안장점에서 시작해 더 낮은 안정 최소점.
+  - 프로브: 물 9회(36.8초)·Fe 57회(183초) DIIS와 같은 에너지. Cr: 탈출 없을 때 안장점(최저 고유값 −0.42, E 0.13 Ha 높음)에 '수렴' → 탈출 추가 후 100회 미수렴이나 E −1032.808862(PySCF DIIS 수렴해 −1032.808849보다 낮음). 300회 실행은 백그라운드로 확인 중(scratchpad/cr300.log). PySCF newton 비교 프로브는 내 래퍼 사용 오류로 무효(물 −75.795) → PySCF DIIS 값을 기준으로 씀.
+  - Cr 300회(scratchpad/cr300.log): 8회째 안장점 탈출(λ=−0.42) 후 회당 ~1e-12 Ha 감소, 기울기 4~7e-5 진동으로 미수렴(667초). 도달 E −1032.8088625(PySCF 수렴해보다 1.4e-5 낮음), aufbau 위반 없음. **Cr·Co 미해결 유지.**
+- 9-2 진행: PySCF 2.14 실측 — GDF 주기계 기울기 없음(`'GDF' object has no attribute 'get_j_e1'`), 응력은 FFTDF 전용(AssertionError) → 힘·응력 미구현 결정(엔진은 slab 2D 쿨롱 때문에 GDF). get_bands는 GDF에서 동작. 구현: engines/periodic_analysis.py(DOS 항상, 밴드는 band_path 지정 시; ASE bandpath, slab은 2D), PeriodicConfig dos_sigma_ev·band_path·band_points, dos.csv·bands.csv, CLI --band-path/--band-points. Si 2×2×2 tight: DOS 적분 51.999999/52, 간접 갭 0.488 eV(Γ→Γ-X), 직접 2.51 eV, 메쉬 일관성 1.1 meV(conv_tol 1e-10에서도 → get_bands 경로 고유 차이로 판단). test_periodic_analysis 3 + test_periodic 9 통과. slab 밴드 경로는 실계산 미검증.
+- 9-2 계획(원래): 주기계 밴드(고대칭 k 경로)·DOS(k 메쉬 고유값 Gaussian 확장) 후처리. PySCF PBC 기울기/응력 지원 여부를 실제로 확인 후 결정.
+
+- 최종 회귀: WSL 89 통과(68+21), Windows 숨김 28 통과(+3 skip WSL 통과). 문서·CHANGELOG·PROJECT_STATE 0.9.0.
+
+### 단계 10 재개 지점 (미착수)
+
+1. Cr·Co 원자 자체 SCF: Newton이 평평한 방향에서 기울기 4~7e-5로 진동(신뢰영역 반경 진동 추정). 후보: 해석적 궤도 Hessian(XC 커널 f_xc 필요) 또는 FD 단계 크기·CG 정밀도 조정, 분수 점유(앙상블) 모델과의 비교. 재현: `DFTConfig(atoms=Cr 0 0 0, spin=6, xc=pbe, basis=sto-3g, engine=native, grid_level=3, scf_solver=newton, max_cycle=300)`.
+2. Newton 속도: Hessian-벡터 곱 2회 Fock 생성 → 해석적 선형응답 또는 근사 대각 전처리.
+3. 주기계 힘·응력: FFTDF 기반 별도 경로(bulk 한정) 검토 — 현재 GDF는 PySCF 2.14에서 미지원.
+4. slab 밴드 2D 경로 실계산 검증, IRC, quasi-RRHO·용매, 연구용 HEA DFT 기준값.
+
+(원래 단계 9 재개 목록)
 
 1. IRC(TS→양쪽 최소점 연결 확인).
 2. 자체 SCF: Cr·Co 원자 정수 점유 미수렴(2차/Newton 해법), 삼중항(RKS→UKS)·복소 불안정 검사.

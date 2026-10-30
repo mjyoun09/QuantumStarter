@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 9 (자체 2차 SCF + 주기계 밴드·DOS) 2026-10-30 · 0.9.0 · Claude
+
+- 자체 엔진 신뢰영역 Newton SCF(engines/native_newton.py): Steihaug CG, 점유를 궤도 번호로 유지, 수렴 시 최저 궤도 Hessian 고유값 검사 후 음수면 선 탐색으로 탈출, 블록 정준화, aufbau 위반 경고, 결과 `native_newton`. 자체 엔진에서 scf_solver=newton 허용(PySCF 래퍼는 PySCF 엔진에만).
+- 주기계 DOS(항상)·밴드(band_path 지정 시) 후처리(engines/periodic_analysis.py), dos.csv·bands.csv, PeriodicConfig dos_sigma_ev·band_path·band_points, CLI --band-path/--band-points.
+- 주요 파일: engines/native_newton.py, engines/native_scf.py, engines/pyscf_engine.py, engines/periodic.py, engines/periodic_analysis.py, molecular.py, periodic.py, main.py, workflow.py, 신규 test_newton.py·test_periodic_analysis.py, test_native.py, README_KO.md, docs/*.
+- 검증: Newton=DIIS(물), OH 안장점 탈출, Fe 수렴; Si DOS 적분·밴드 일관성(1.1 meV). WSL 89개, Windows 숨김 28개(+3 skip WSL 통과).
+- **미해결**: Cr·Co 원자 SCF(Newton 300회도 미수렴), 주기계 힘·응력(PySCF GDF 미지원), slab 밴드 실계산 미검증.
+
 ## QS-20261029-NATIVE-DFT · 단계 8 (NEB) 완료 2026-10-30 · 0.8.9 · Claude
 
 - `calculation=neb`: 신규 engines/neb.py — geomeTRIC CI-NEB(ElasticBand/OptimizeChain/NEBParams)에 자체/PySCF 엔진의 에너지·해석적 힘을 공급. 선형 보간 초기 경로(정렬 없음), 양 끝 고정, 이미지별 밀도 재사용, 모든 기울기 계산 기록(neb/calc_NNNN), 사이클별 에너지·힘 기록, neb.csv·neb_path.xyz, 최고 이미지 전체 재계산. 설정 `neb_product`·`neb_images`·`neb_maxg_ev_per_angstrom`, GUI·CLI(`--neb-product`, `--neb-images`).

@@ -134,7 +134,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     mf.xc = config.xc
     configure_grids(mf.grids, config)
     progress(f'적분 격자: {config.resolved_grid_scheme} · level {config.grid_level}')
-    if config.scf_solver == 'newton':
+    if config.scf_solver == 'newton' and config.engine == 'pyscf':
         mf = mf.newton()
     mf.max_cycle = config.max_cycle
     mf.conv_tol = config.conv_tol
@@ -143,7 +143,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     history = []
 
     def iteration(env):
-        cycle = env['imacro'] if config.scf_solver == 'newton' else env['cycle']
+        cycle = env['imacro'] if config.scf_solver == 'newton' and config.engine == 'pyscf' else env['cycle']
         row = {'cycle': int(cycle) + 1, 'solver': config.scf_solver,
                'energy_hartree': float(env['e_tot']),
                'gradient_norm': float(env['norm_gorb']) if env.get('norm_gorb') is not None else None,
@@ -239,6 +239,10 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
         if config.resolved_relativity == 'x2c' and bases_used - {'dyall-v2z', 'dyall-v3z'}:
             warnings.append('X2C 계산에 비상대론용으로 수축된 기저가 섞여 있습니다. '
                             '해당 원소의 상대론 기저 수렴을 별도로 확인하세요.')
+    violation = getattr(mf, 'aufbau_violation_hartree', None)
+    if violation is not None and violation > 1e-6:
+        warnings.append(f'aufbau 위반: 가장 높은 점유 궤도가 가장 낮은 가상 궤도보다 {violation:.4f} Ha 높습니다. '
+                        '2차 해법이 찾은 정수 점유 국소 최소점이며, 분수 점유·다른 점유 배치와 비교가 필요합니다.')
     if stability is not None and not stability['stable']:
         warnings.append('SCF 안정성: 실수 내부 회전 방향으로 더 낮은 해가 있습니다(안장점). '
                         + ('follow로 더 낮은 해를 찾지 못했습니다. ' if config.native_stability == 'follow' else
@@ -347,7 +351,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     else:
         actual_guess = 'minao'  # Native auto also uses PySCF init_guess_by_minao since 0.8.6.
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.8.9',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.9.0',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
@@ -383,6 +387,9 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
         'total_energy_hartree': energy, 'total_energy_ev': energy * HARTREE_TO_EV,
         'scf_energy_hartree': scf_energy, 'dispersion': dispersion,
         'calculation': config.calculation, 'gradient': gradient, 'scf_stability': stability,
+        'native_newton': ({'saddle_escapes': mf.newton_escapes,
+                           'aufbau_violation_hartree': getattr(mf, 'aufbau_violation_hartree', None)}
+                          if hasattr(mf, 'newton_escapes') else None),
         'energy_definition': ('SCF + D4 dispersion; scf_history holds SCF energies only'
                               if dispersion is not None else 'SCF'),
         'nuclear_repulsion_hartree': float(mol.energy_nuc()),

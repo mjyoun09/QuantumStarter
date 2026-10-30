@@ -44,6 +44,9 @@ class PeriodicConfig:
     grid_level: int = 3
     threads: int = 4
     memory_mb: int = 4000
+    dos_sigma_ev: float = 0.1  # Gaussian broadening of the k-mesh DOS.
+    band_path: str = ''  # '' = no band structure; 'auto' = ASE default path; or e.g. 'GXWKGL'.
+    band_points: int = 60
 
     def __post_init__(self):
         if self.system != 'periodic':
@@ -88,6 +91,10 @@ class PeriodicConfig:
             real(getattr(self, key), key, low, high)
         for key, low, high in (('max_cycle', 1, 1000), ('grid_level', 0, 6), ('threads', 1, 64), ('memory_mb', 256, 64000)):
             integer(getattr(self, key), key, low, high)
+        real(self.dos_sigma_ev, 'DOS 확장 폭 [eV]', 1e-3, 2)
+        integer(self.band_points, '밴드 경로 점 수', 10, 500)
+        if not isinstance(self.band_path, str) or not all(c.isalnum() or c == ',' for c in self.band_path):
+            raise ValueError("band_path는 ''(없음), 'auto', 또는 GXWKGL 같은 고대칭점 문자열입니다.")
         from ase.geometry import find_mic
         pos = np.asarray([a.position for a in self.atoms])
         if len(pos) > 1:

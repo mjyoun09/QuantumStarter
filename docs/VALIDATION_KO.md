@@ -1,5 +1,22 @@
 # DFT 검증 기록 · 2026-10-29
 
+## 0.9.0: 자체 2차 SCF, 주기계 밴드·DOS
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 9 (담당 Claude, 2026-10-30). 환경 변경 없음. GUI 시험은 숨김 모드만.
+
+**자체 Newton SCF (engines/native_newton.py).**
+- `test_newton` 2개 통과(245.6초, 백그라운드 Cr 계산과 동시 실행): 물(PBE/STO-3G/grid2) Newton = DIIS 에너지 1e-8 이내, 최종 잔차 < 기준, aufbau 위반 없음; OH(grid1 엄격 수렴)에서 DIIS가 수렴한 불안정 해(최저 고유값 < −1e-4)에서 출발해 탈출 기록을 남기고 더 낮은(>1e-7 Ha) 안정 최소점에서 종료, 전자 수 9.
+- 프로브: 물 def2-SVP 9회(36.8초)·Fe STO-3G 57회(183초), 둘 다 DIIS와 같은 에너지. 탈출 기능 이전 Cr은 안장점(최저 고유값 −0.42, 0.13 Ha 높음)에서 '수렴' 판정 → 수렴 시 고유값 검사와 탈출을 추가. 이후 Cr 100회·300회 모두 미수렴(300회: 667초, 기울기 4~7e-5 진동, E −1032.8088625, PySCF DIIS 수렴해 −1032.8088486보다 1.4e-5 Ha 낮음). Co는 시간 제한으로 결과 없음.
+- 개발 중 버그: pyscf_engine이 scf_solver=newton이면 자체 엔진에도 PySCF `mf.newton()` 래퍼와 `env['imacro']`를 적용 → PySCF 엔진에만 적용하도록 수정. PySCF Newton 기준 비교 프로브는 내 래퍼 사용 오류(물 −75.795 Ha)로 무효 처리하고 PySCF DIIS 값을 기준으로 썼다.
+
+**주기계 DOS·밴드 (engines/periodic_analysis.py).**
+- PySCF 2.14 실측: GDF 주기계 기울기 미지원(`'GDF' object has no attribute 'get_j_e1'`), 응력은 FFTDF 전용(AssertionError) → 힘·응력은 구현하지 않음. `get_bands`는 GDF에서 동작.
+- Si(examples/silicon_bulk.json, GTH-DZVP-MOLOPT-SR, PBE) 2×2×2, smearing 0, conv_tol 1e-10, 경로 auto(GXWKGLUWLK,UX) 40점: 253초. DOS 적분 51.999999(기대 52), 가중 점유 합 8 = 원자가 전자, 메쉬 HOMO/LUMO 갭 0.616 eV, 경로 간접 갭 0.488 eV(VBM Γ, CBM Γ–X 위), 직접 갭(Γ) 2.51 eV, 메쉬 k점 밴드값과 SCF 고유값 차 1.1 meV(conv_tol 1e-10에서도 동일 → get_bands 경로의 고유 차이로 판단). 기저·k점 수렴 미확인이므로 정량 갭 값으로 쓰지 않는다.
+- `test_periodic_analysis` 3개 통과: 합성 고유값에서 DOS 적분·점유 합·HOMO/LUMO(RKS·UKS·smearing 금속), Γ점 Si 실계산의 DOS 적분·점유 합·경로 라벨·메쉬 일관성 < 5 meV·직접 ≥ 간접 갭.
+- 회귀: WSL 89개 통과(68개 121.8초 + 21개 230.6초). Windows(숨김 GUI) 31개 중 28 통과·3 skip(WSL 통과).
+
+한계: Newton은 느리고 Cr·Co 미해결; 주기계 힘·응력 없음; slab 밴드 경로 실계산 미검증; 밴드는 비자기일관 고유값이며 SOC 없음.
+
 ## 0.8.9: CI-NEB
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 8 (담당 Claude, 2026-10-30). 환경 변경 없음. GUI 시험은 숨김 모드만.
