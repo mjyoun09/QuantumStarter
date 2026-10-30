@@ -56,6 +56,26 @@ class SiliconBandTests(unittest.TestCase):
         gap = bands['gaps_by_spin'][0]
         self.assertGreater(gap['direct_gap_ev'], gap['gap_ev'] - 1e-9)
 
+    def test_graphene_slab_path_and_mesh_consistency(self):
+        from ase.build import graphene
+        from engines import calculate
+        from periodic import PeriodicConfig
+        cfg = PeriodicConfig.from_ase(graphene(a=2.46, vacuum=8), basis='gth-szv-molopt-sr',
+                                      kmesh=(2, 2, 1), grid_level=2, precision=1e-7,
+                                      conv_tol=1e-10, smearing_ev=.05, band_path='GMKG',
+                                      band_points=16, threads=1)
+        with tempfile.TemporaryDirectory() as temp:
+            result = calculate(cfg, temp, lambda _: None)
+        bands, dos = result['band_structure'], result['dos']
+        self.assertTrue(result['converged'])
+        self.assertEqual(bands['pbc'], [True, True, False])
+        self.assertEqual(bands['special_labels'], ['G', 'M', 'K', 'G'])
+        np.testing.assert_allclose(np.asarray(bands['kpoints_scaled'])[:, 2], 0., atol=1e-14)
+        self.assertTrue(np.isfinite(bands['bands_ev_by_spin']).all())
+        self.assertLess(bands['mesh_consistency_max_ev'], 5e-3)
+        self.assertAlmostEqual(dos['integrated_states'], dos['expected_states'], delta=1e-3)
+        self.assertAlmostEqual(result['electron_trace'], result['explicit_electrons'], places=8)
+
 
 if __name__ == '__main__':
     unittest.main()

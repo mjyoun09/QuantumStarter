@@ -20,8 +20,8 @@
 | 고정/거리 제약·스캔 (분자) | **구현·검증** | geomeTRIC `$freeze`/`$set` 제약, 이완 스캔(점마다 제약 최적화). 고정은 geomeTRIC 허용오차(~1e-4 Å) 내 |
 | Hessian·진동·ZPE (분자) | **구현·검증** | 해석적 힘 유한차분 Hessian, 정확한 병진·회전 제거, 허수 진동 판정, ZPE·진동 열역학. PySCF 해석적 Hessian과 ≤0.5 cm⁻¹ |
 | SCF 안정성 분석 (자체) | **구현·검증** | 실수 내부 회전, check/follow, PySCF 판정과 일치. 삼중항(RKS→UKS)·복소 불안정은 미검사 |
-| 자체 2차(Newton) SCF | **구현·검증** | 신뢰영역 Newton + 안장점 탈출(0.9.0). 물·Fe·OH 검증. FD Hessian-벡터 곱이라 느림 |
-| 전이금속 원자 SCF (자체) | 부분 | Fe 수렴, Cr·Co 정수 점유 미수렴(Newton 300회도 기울기 ~5e-5에서 정체) |
+| 자체 2차(Newton) SCF | **구현·검증** | 신뢰영역 Newton + 안장점 탈출. 0.9.1 해석적 J/K/XC 응답·전처리·수락 검사 개선, FD는 검증용 보존 |
+| 전이금속 원자 SCF (자체) | **기록된 Fe·Cr·Co 사례 수렴** | 0.9.1 Cr(스핀6)·Co(스핀3)/PBE/STO-3G/grid3 정수 점유 수렴, 실수 내부 안정성·독립 PySCF Newton 확인. 임의 화합물/스핀 탐색 보장 아님 |
 | 병진·회전 열역학, 자유에너지 G | **구현·검증 (분자, RRHO)** | ZPE/H/G 결과 필드, 대칭수 자동/입력, 반응 분석 선택. PySCF thermo와 H·G 1e-10 상대. quasi-RRHO·용매·표준상태 미구현 |
 | 반응/흡착에너지 및 호환성 검사 | 구현·검증 (제한 있음) | energy_analysis.py: 수렴/조건/수지/출처 검사. 주기계 동일 셀·k점만 허용, ZPE/열역학 없음 |
 | 전이상태 탐색 (분자) | **구현·검증** | geomeTRIC P-RFO(초기 Hessian은 우리 힘의 유한차분). NH₃ 반전 TS: 허수 진동 정확히 1개 확인 |
@@ -29,8 +29,8 @@
 | IRC | 미구현 | TS에서 양 방향 최소점 연결 확인 기능 없음 |
 | 주기계 k점·smearing·2D/3D 정전기 | 외부 PySCF에서 구현 | GDF+Gaussian/GTH, 평면파 아님 |
 | 결정·표면·진공/합금 후보 비교 | 부분 구현 | HEA/Pt 등 fcc111 후보 생성 |
-| 주기계 힘·응력·셀 최적화·표면 전하 보정 | 미구현 | PySCF 2.14: GDF 주기계 기울기 없음, 응력은 FFTDF 전용 — 엔진은 slab 2D 쿨롱 때문에 GDF 사용. 중성 slab만 지원 |
-| 밴드·DOS (주기계) | **구현·검증 (bulk)** | DOS 항상(가우시안), 밴드는 band_path 지정 시(ASE 경로, get_bands 비자기일관). Si 검증. slab 2D 경로는 실계산 미검증 |
+| 주기계 힘·응력·셀 최적화·표면 전하 보정 | 제품 API 미구현, bulk FFTDF 검토 완료 | GDF 미지원 유지. scripts/validate_periodic_extensions.py에서 bulk KRKS/PBE/GTH/Γ/uniform FFT의 힘·응력을 에너지 FD로 확인. 일반 k점/UKS/smearing 및 메쉬 수렴·GUI 통합은 후속 |
+| 밴드·DOS (주기계) | **구현·검증 (bulk 및 slab)** | DOS 항상(가우시안), 밴드는 band_path 지정 시(ASE 경로, get_bands 비자기일관). Si 및 graphene 2D GMKG 경로 실계산 검증 |
 | 자체/외부/ML 출처 구분 | 구현 | 결과 SCF 드라이버·적분/XC 라이브러리·체크포인트 출처 구분. 다른 엔진 에너지 혼합 차단 |
 | 용매·TDDFT·MD | 향후 필요 시 | 첨부 프롬프트도 당장 필수 구현으로 요구하지 않음 |
 

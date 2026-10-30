@@ -46,7 +46,7 @@ XYZ는 단일 프레임 형식(원자 수, 주석 한 행, 좌표)이며 Å 단�
 | 계 | 고립 원자·분자·이온, 고정 핵 단일점 계산 |
 | 원소 | PySCF H~Og (Z=1~118), 원자 1~100개/800 AO 이하. 자체 H~Kr/160 AO 이하 및 메모리 검사 |
 | 전자 상태 | 닫힌껍질 RKS, 열린껍질 UKS; auto는 2S로 결정 |
-| SCF 반복 | 자체 Pulay DIIS·밀도 혼합; 외부 PySCF DIIS 또는 2차 Newton |
+| SCF 반복 | 자체 Pulay DIIS·밀도 혼합 또는 2차 Newton; 외부 PySCF DIIS/Newton |
 | 코어 처리 | 전체전자 또는 무거운 원소의 def2 기저에 대응하는 scalar def2-ECP |
 | 기저함수 | STO-3G, 6-31G, 6-31G*, 6-31+G*, cc-pVDZ, def2-SVP/TZVP, Dyall-v2z/v3z |
 | 상대론·핵 | Dyall의 auto: 일전자 scalar X2C + Gaussian 유한 핵. 명시적 비상대론/점핵 선택 가능 |
@@ -82,17 +82,17 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
 
-## 자체 2차 SCF와 주기계 밴드·DOS (0.9.0)
+## 자체 2차 SCF와 주기계 밴드·DOS (0.9.1)
 
-- **자체 엔진 `scf_solver=newton`**: 신뢰영역 Newton(궤도 회전, Steihaug CG). 점유는 궤도 번호로 유지해 aufbau를 강제하지 않으며, 기울기가 0이 되면 최저 궤도 Hessian 고유값을 확인해 음수면 그 방향으로 내려간 뒤 계속합니다(안장점에서 멈추지 않음). aufbau 위반이면 경고. Hessian-벡터 곱이 유한차분이라 DIIS보다 수십 배 느리므로 DIIS가 수렴하지 않거나 안정성 분석이 불안정이라고 할 때 쓰세요. Cr·Co 원자는 여전히 수렴하지 않을 수 있습니다.
+- **자체 엔진 `scf_solver=newton`**: 궤도 회전 신뢰영역 Newton과 전처리 Steihaug CG. 0.9.1부터 자체 J/K/XC 선형응답과 Libxc 2차 미분으로 해석적 Hessian-벡터 곱을 계산합니다. 점유는 궤도 번호로 유지하며, 실수 내부 불안정 방향을 따라 더 낮은 해를 찾습니다(안정성 허용오차 −1e-4 Ha, 전역 바닥상태 보장 아님). aufbau 위반이면 경고합니다. 기록된 Cr·Co 원자(PBE/STO-3G, grid3, 2S=6/3) 미수렴이 해결됐으며 다른 조건의 수렴은 별도 확인해야 합니다. 물의 같은 궤도에서 응답 계산은 이전 FD 대비 약3.74배 빠릅니다(전체 SCF 배속 아님).
 - **주기계 DOS**: 모든 주기계 결과에 k 메쉬 고유값의 가우시안 확장 DOS(`dos_sigma_ev`, 기본 0.1 eV, states/eV/셀)와 HOMO/LUMO·메쉬 갭이 저장됩니다(`dos.csv`).
-- **주기계 밴드**: `band_path`(`auto` 또는 `GXWKGL` 같은 고대칭점; CLI `--band-path auto --band-points 60`). 수렴한 밀도로 경로 위 고유값을 비자기일관 계산하고 VBM/CBM·간접/직접 갭을 기록합니다(`bands.csv`). 메쉬 k점에서 밴드값과 SCF 고유값의 차이(Si에서 ~1 meV)를 `mesh_consistency_max_ev`로 남깁니다. slab은 2D 경로를 쓰지만 실계산 검증 전입니다.
-- 주기계 힘·응력은 PySCF 2.14가 GDF에서 지원하지 않아 아직 없습니다.
+- **주기계 밴드**: `band_path`(`auto` 또는 `GXWKGL` 같은 고대칭점; CLI `--band-path auto --band-points 60`). 수렴한 밀도로 경로 위 고유값을 비자기일관 계산하고 VBM/CBM·간접/직접 갭을 기록합니다(`bands.csv`). 메쉬 k점에서 밴드값과 SCF 고유값의 차이(Si에서 ~1 meV)를 `mesh_consistency_max_ev`로 남깁니다. graphene slab의 2D GMKG 경로도 실계산 검증했습니다(kz=0, 메쉬 일관성 차3.8e-9 eV).
+- 주기계 힘·응력 제품 기능은 아직 없습니다. 별도 스크립트 `scripts/validate_periodic_extensions.py fftdf --label <새이름>`에서 bulk FFTDF·uniform 격자 경로의 힘·응력을 에너지 유한차분으로 확인했습니다. 기존 GDF/2D 경로와 물리·수치 조건을 구분해야 하며 일반 k점/스핀·smearing·격자 수렴 검증과 API 통합은 후속입니다.
 
 ## 자체 SCF 안정성 분석과 수렴 개선 (0.8.6)
 
 - `native_stability`(화면 `수치 설정 > 자체 SCF 안정성 분석`, CLI `--stability check|follow`, 자체 엔진 전용): 수렴한 해가 궤도 회전에 대해 최소인지 검사합니다. 불안정하면 경고하고, `follow`이면 더 낮은 해를 찾아 다시 수렴시킵니다(최대 3회). 실수 내부 회전만 검사합니다(RKS→UKS 삼중항 불안정은 미검사). 결과 `scf_stability`에 회차별 최저 고유값·에너지를 기록합니다.
-- 자체 엔진 `auto` 초기 추정은 원자 밀도 중첩(PySCF minao 보조)이며 밀도 혼합은 잔차가 클 때만 적용합니다(`native_damping_residual`, 기본 1e-3). 반복 수가 약 30~50% 줄었고 Fe 원자가 수렴합니다. Cr·Co 원자는 여전히 수렴하지 않을 수 있습니다.
+- 자체 엔진 `auto` 초기 추정은 원자 밀도 중첩(PySCF minao 보조)이며 밀도 혼합은 잔차가 클 때만 적용합니다(`native_damping_residual`, 기본 1e-3). DIIS 반복 수가 약 30~50% 줄었고 Fe 원자가 수렴합니다. Cr·Co의 기록된 정수 점유 사례는 0.9.1 자체 Newton으로 수렴합니다.
 
 ## 조화 진동수·ZPE (0.8.5)
 

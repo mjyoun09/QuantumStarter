@@ -4,8 +4,34 @@
 
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
-- 담당 AI: Claude (Claude Code, Opus 5.5) — 2026-10-29 20:14 사용자 요청으로 ChatGPT Codex의 HANDOFF_READY 인계서를 인수. 인수 시점 Codex 파일 수정 없음(마지막 기록 20:11), 실행 중 계산 없음 확인.
-- 상태: HANDOFF_READY — 단계 9(0.9.0) 부분 완료: 자체 Newton SCF·주기계 밴드/DOS 구현·검증, **Cr·Co SCF 미해결**, 주기계 힘·응력은 PySCF GDF 미지원으로 보류. 다음은 아래 단계 10 재개 지점. 실행 중 계산·미저장 코드 없음. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 담당 AI: ChatGPT Codex — 2026-10-30 사용자 "MD에 기록된거 수행해볼래"에 따라 단계 10 인수. 시작 Git HEAD 8023fc6, 작업 트리 깨끗함. Claude 앱 프로세스는 존재하므로 세션 종료를 가정하지 않으며 수정 파일 충돌을 확인한다.
+- 상태: HANDOFF_READY — 단계 10 우선 작업(자체 Newton 개선, slab 검증, bulk FFTDF 지원 검토)은 완료(0.9.1). 장기 요청의 bulk API 통합·IRC·quasi-RRHO 등은 남아 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+
+### 단계 10 완료 및 최신 인계 (ChatGPT Codex, 2026-10-30)
+
+- 목적/완료 기준: 기록된 Cr·Co 정체 재현 → 원인 수정 → 정수 점유, 기존 잔차/밀도/에너지 기준을 유지한 수렴 및 실수 내부 안정성 확인. Newton 응답을 독립 유한차분·PySCF 기준과 비교하고 기존 RKS/UKS 회귀를 통과한다. 다음으로 bulk FFTDF 힘·응력의 실제 지원 범위와 slab 밴드를 확인한다. IRC/quasi-RRHO/용매 등 장기 항목은 별도 범위를 명시하며 미완료를 숨기지 않는다.
+- 계획: (1) 재현/계측을 outputs/에 보존, (2) native_newton/native_stability 및 필요 시 자체 XC 선형응답 모듈 수정, (3) test_newton·응답 검증 추가와 관련 회귀, (4) 주기계 지원 검토·slab 계산, (5) 상태/검증/요구사항/CHANGELOG 갱신.
+- 변경 예정: engines/native_newton.py, engines/native_stability.py, 필요 시 engines/native_response.py, test_newton.py 및 응답 검증 파일, scripts/ 검증 스크립트, 관련 Markdown.
+- 완료: Cr·Co 미수렴 재현과 수정, 해석적 응답 검증·성능 계측, 기존 물·Fe·OH 회귀, slab 실계산, bulk FFTDF 도입 가능성 검토, 관련 문서 및 완료 이력 갱신. 과거 완료 기록은 유지.
+- 진행 중: 없음. 코드·계산 결과 저장 완료.
+- 재현: WSL 기본 샌드박스 접근은 E_ACCESSDENIED; 승인된 `wsl --exec` 경로로 실행. `scripts/validate_newton.py --case Cr --max-cycle 50 --label baseline_20261030`: 기존 코드 144.8초, 잔차 3.9276e-5, 미수렴(격자3/PBE/STO-3G/스핀6/1스레드). outputs/newton_validation/에 이력 보존.
+- 구현 중: native_response.py 자체 J/K·XC 선형응답(Libxc Cartesian f_xc만 외부), native_stability 해석적 H·v/기존 FD 비교 경로, native_newton 궤도 간격 전처리·CG 정밀도·반올림 크기 수락 검사. 0/1차원 안정성 고유문제 처리.
+- 검증: test_native_response 8조건(RKS/UKS × LDA/PBE/PBE0/B3LYP)의 응답·Hessian FD, PySCF 응답, 대칭성/선형성, 캐시 없는 스트리밍 통과(5.45초). 첫 시험의 core 궤도 극단 스핀 밀도에서 FD 오차 ~1e-6 발생; 비정상점에 작은 일반 궤도 회전을 주어 노드/스핀 포화의 비매끄러움을 피한 뒤 허용오차 완화 없이 통과. 임의 가산 밀도 대신 물리적 궤도 회전으로 변위.
+- Cr/Co 실계산 성공: outputs/newton_validation/analytic_pcg_20261030/{Cr,Co}/report.json. Cr 73회/117.37초, E=-1032.8088678851316, 잔차2.10e-13, 최저곡률9.51e-7. Co(스핀3) 52회/64.68초, E=-1367.1350701366355, 잔차1.03e-12, 최저곡률2.36e-4. 기존 물리/수렴 기준·정수 점유 유지. 서로 다른 사례 동시 실행 시간이라 엄격 성능 벤치마크로 일반화하지 않는다.
+- OH 회귀 첫 실행: 수렴/에너지/최종 안정성은 통과하나 명시적 안장점 탈출 분기 기록을 요구하는 시험 단언 실패. 전처리 Newton 자체가 음의 곡률을 따라 탈출 가능하므로 구현 경로 단언을 최종 안정성 확인으로 교체. 실패를 숨기지 않으며 전체 재검증 예정.
+- 첫 관련 회귀: WSL 54개 통과(174.029초), Cr·Co 최종 밀도에서 독립 PySCF Newton도 수렴하며 에너지 차1e-9 Ha 이내. He/STO-3G의 회전 차원0 경고를 발견하여 Steihaug의 0 잔차 조기 종료 수정. 0/1차원·음의 곡률·최종 정준화 후 수렴 기준까지 추가 검사하는 최종 회귀 진행 중.
+- 속도 계측: 물 PBE/STO-3G/grid3/1스레드, 같은 수렴 궤도·방향·각7회 H·v 중앙값 해석0.032245초 vs FD0.120587초(3.74배), 최대 차3.04e-8. 초기 캐시 구축 포함 첫 응답0.07681초. 전체 SCF 속도 보장으로 일반화하지 않는다. outputs/newton_validation/benchmark_20261030/water/report.json.
+- 주기계 검토: scripts/validate_periodic_extensions.py. graphene(GTH-SZV, 2×2×1, 16 Å 진공, PBE, GMKG16점) 수렴, kz=0, 메쉬 고유값 차3.80e-9 eV, DOS 적분 오차3.31e-7 states. 결과 outputs/periodic_extension_validation/stage10_20261030/slab/.
+- FFTDF bulk 검토: 변위 Si, gamma/PBE/GTH-SZV, uniform FFT 25³/스미어링 없음. 기울기 vs SCF 에너지 FD 차7.39e-9 Ha/bohr, xx 응력 vs 고정 분율 좌표 변형 FD 차9.27e-12 Ha/bohr³. xy는 거의0이라 비영(非零) yz 성분도 추가 확인 예정. 기존 GDF/API는 바꾸지 않았으며 FFTDF가 별도 bulk 경로로 가능하다는 검토 결과다(일반 k점/UKS/smearing/메쉬 수렴·입력/출력/GUI 통합은 후속).
+- 추가 확인: Fe 자체 Newton 53회 수렴(E=-1249.5569908940256, 잔차7.24e-13, 최저곡률4.31e-4). Fe H·v도 FD 대비3.74배(각7회 중앙값), 최대차1.62e-8. FFTDF 비영 yz 응력=0.0003806094765 Ha/bohr³, SCF 에너지 FD 차1.25e-12. 각각 benchmark_20261030/Fe, stage10_shear_20261030/fftdf에 보존.
+- 최종 검증 중 주의: `-W error`로 실행한23개에서 native/응답/안정성10개와 주기계5개 통과, ASE `atoms.py`의 NumPy2.5 shape 할당 DeprecationWarning 때문에8개 오류. 제품 수치 오류가 아니며 환경 변경 없이 해당8개만 `-W error::RuntimeWarning`으로 재검증 중. 실패 원문 final_focus_wsl.log 보존.
+- Windows 첫21개는 로그 OK이나 PowerShell stderr 리다이렉트가 프로세스 성공과 다른 종료코드1을 반환. `outputs/newton_validation/run_windows_checks.py`가 subprocess 실제 종료코드를 수집하도록 재검증 중(환경 숨김 모드 유지).
+- 최종 결과: 위 ASE 경고로 중단된8개를 수치 RuntimeWarning=오류로 재검증하여 모두 통과(24.802초). WSL 고유69개 확인(첫54개 + 새 수치 경계2개 + 주기계13개; 중복 실행은 합계에 제외). 최종 native/Newton/응답/안정성10개는 모든 경고=오류에서도 통과. Windows21개 재검증77.997초, 실제 returncode=0, skip 없음(`windows_verified.log`, `windows_exit_status.json`). Python 컴파일·git diff --check·변경 파일 LF 바이트 검사 통과. 외부 ASE deprecation은 알려진 환경 경고로 남기며 패키지/환경은 수정하지 않았다.
+- 완료 이력: CHANGELOG 0.9.1 및 docs/VALIDATION_KO.md에 조건·실측·실패/조치·재현 명령 보존. 출력 데이터는 .gitignore 대상이므로 outputs/는 현 PC에서 별도로 보존해야 한다.
+- 미수행(다음 작업): bulk FFTDF 힘·응력의 제품 API 통합, IRC, quasi-RRHO·용매, 삼중항·복소 안정성. HEA 정밀 기준값은 사용자 현재 응용 목표가 아니므로 자동 우선순위로 삼지 않는다.
+- 정확한 재개 지점: bulk를 확장한다면 `scripts/validate_periodic_extensions.py`의 `fftdf()`를 먼저 읽는다. 일반 k점(고정 scaled k), UKS·smearing 자유에너지 미분 및 mesh 수렴을 검증한 뒤 `PeriodicConfig`의 명시적 FFTDF/균일 격자 설정, `engines/periodic.py` 분기·힘/응력 단위/출처, CLI/GUI·energy_analysis 호환성 검사를 추가한다. 현재 GDF+Becke 에너지를 FFTDF+uniform 힘/응력과 섞지 않는다. 셀 최적화는 그 다음이다.
+- 우선 명령: `git status --short`; `Get-Content docs/VALIDATION_KO.md -Encoding UTF8 -TotalCount 45`; `wsl --exec .venv-dft/bin/python scripts/validate_periodic_extensions.py fftdf --label <새이름>`. 이미 통과한 Cr·Co/전체 회귀는 변경 이유 없이 반복하지 않는다.
+- 아래 단계 2~9 및 말미의 첫 단계 인계는 역사 기록이며 현재 미구현 목록으로 해석하지 않는다. 이후 작업을 시작하면 이 최신 절의 담당자·상태·계획부터 갱신한다.
 
 ### 단계 2: 원소별 기저 선택 (Claude, 완료 — CHANGELOG 0.8.1)
 
@@ -103,7 +129,7 @@
 
 - 최종 회귀: WSL 89 통과(68+21), Windows 숨김 28 통과(+3 skip WSL 통과). 문서·CHANGELOG·PROJECT_STATE 0.9.0.
 
-### 단계 10 재개 지점 (미착수)
+### 단계 10 인수 당시 재개 목록 (수행 결과는 위 최신 인계 참조)
 
 1. Cr·Co 원자 자체 SCF: Newton이 평평한 방향에서 기울기 4~7e-5로 진동(신뢰영역 반경 진동 추정). 후보: 해석적 궤도 Hessian(XC 커널 f_xc 필요) 또는 FD 단계 크기·CG 정밀도 조정, 분수 점유(앙상블) 모델과의 비교. 재현: `DFTConfig(atoms=Cr 0 0 0, spin=6, xc=pbe, basis=sto-3g, engine=native, grid_level=3, scf_solver=newton, max_cycle=300)`.
 2. Newton 속도: Hessian-벡터 곱 2회 Fock 생성 → 해석적 선형응답 또는 근사 대각 전처리.

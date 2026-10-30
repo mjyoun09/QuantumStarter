@@ -1,4 +1,4 @@
-# 자체 분자 DFT · 0.8 구현과 검증
+# 자체 분자 DFT · 0.9.1 구현과 검증
 
 첨부 프롬프트에서 가장 먼저 요구한 자체 SCF를 추가했다. 기존 PySCF 백엔드를 유지하며, 같은 화면의
 **계산 방법 → 계산 엔진**에서 `native` 또는 `pyscf`를 선택한다. 기본값은 기존 결과와의 연속성을 위해
@@ -12,9 +12,10 @@
 | J/K의 ERI 수축, LDA/GGA XC 행렬 조립, 하이브리드 정확교환 계수 | 자체 코드 |
 | 겹침행렬 직교화, 일반화 KS 고유문제 구성, SCF, Pulay DIIS, 밀도 혼합 | 자체 코드; 행렬 고유값/선형풀이에는 NumPy/SciPy 사용 |
 | 총에너지 성분 합산, 에너지/밀도/commutator 수렴 판정 | 자체 코드 |
+| Newton·실수 내부 안정성·해석적 궤도 Hessian 응답 | native_newton.py / native_stability.py / native_response.py |
 | 기저 데이터, 겹침/운동/핵인력/전자반발 적분, AO 값과 도함수 | PySCF/libcint |
 | 원자 중심 방사·각도 격자 및 분할 가중치 | PySCF |
-| XC 에너지 밀도와 rho/sigma 미분 | Libxc (PySCF의 libxc 인터페이스) |
+| XC 에너지 밀도와 1·2차 밀도 미분 | Libxc (PySCF의 libxc 인터페이스; 2차 응답은 Cartesian 밀도/gradient 미분) |
 | CUBE 내보내기와 별도 밀도 적분 교차검사 | 기존 PySCF 내보내기 도구 |
 | pyscf 백엔드의 SCF 전체 | 외부 PySCF; 자체 구현 성과로 계산하지 않음 |
 
@@ -49,16 +50,17 @@ SCF는 에너지 변화, 밀도행렬 Frobenius 변화, 직교 기저에서 FDS�
   원소별 기저(`basis_overrides`, 0.8.1)도 같은 AO 기저 구성으로 사용한다. 혼합 기저 물에서 외부 엔진과 3.1e-11 Ha 일치(VALIDATION 0.8.1).
 - 직접 dense ERI를 보유하므로 최대160 AO이며 메모리 추정치가 `memory_mb`를 넘으면 실행을 거부한다. 모든 H~Kr 화합물의 수렴/정확도를 검증한 것은 아니다.
 - 기존 pyscf: H~Og의 Dyall 기저, ECP, X2C 등 기존 지원 유지. native에서 미지원인 옵션은 오류로 명시한다.
-- 자체 Newton, ECP/X2C, 구조 최적화/진동/NEB, 주기계 자체 SCF는 미구현이다. 분산 에너지·기울기는 D4(외부 dftd4)로 지원한다.
+- 자체 Newton·구조 최적화·진동·NEB는 구현됐다. 자체 ECP/X2C 및 주기계 자체 SCF는 미구현이다. 분산 에너지·기울기는 D4(외부 dftd4)로 지원한다.
 - **해석적 원자 기울기(0.8.3, engines/native_gradient.py)**: dE/dR_A = ΣD·dh/dR_A + J' + K' + XC' − ΣW·dS/dR_A + dV_nn/dR_A.
   W = ½DFD(RKS) 또는 Σ_s D_sF_sD_s(UKS), 2전자 미분 `int2e_ip1`은 한 bra 셸씩(메모리 3·n_shell·n³),
   XC는 고정 격자에서 ρ와 ∇ρ의 핵 좌표 미분(AO 1·2차 도함수)으로 계산한다. 격자 가중치 미분은 없다.
   고정 격자 유한차분과 1.2e-9~3.3e-9 Ha/bohr, 같은 격자의 PySCF 기울기와 1e-12 이하로 일치(VALIDATION 0.8.3).
 - **DIIS 수정(0.8.4)**: Pulay 계수 상한 30이 수렴 근처의 정상적인 큰 계수를 막아 OH에서 300회 중 289회 이력을 버리고 정체(ΔD ~2e-5)했다. B 행렬 고유분해 의사역행렬(수치적 영공간만 제거)로 바꿔 OH가 ~25회에 수렴한다. 다른 계의 반복 수·에너지는 불변.
-- **수렴 ≠ 최소**: 그 OH 해는 PySCF 안정성 분석에서 내부 불안정(더 낮은 UKS 해 존재, ~8e-6 Ha)으로 판정됐다. 근축퇴 열린 껍질은 여러 SCF 해가 있을 수 있으며 SCF 안정성 분석은 아직 없다. Fe 원자(STO-3G, 2S=4)는 자체 엔진에서 여전히 미수렴.
+- **수렴 ≠ 최소**: 그 OH 해는 PySCF 안정성 분석에서 내부 불안정(더 낮은 UKS 해 존재, ~8e-6 Ha)으로 판정됐다. 근축퇴 열린 껍질은 여러 SCF 해가 있을 수 있다. 이후 추가한 자체 실수 내부 안정성 분석으로 검출할 수 있다.
 - 구조 최적화에서 단계당 자체 SCF 반복 수가 PySCF보다 많았다(물 PBE-D4 예: 8~14회 vs 5~7회). 0.8.6에서 개선(아래).
-- **초기 추정·혼합(0.8.6)**: `auto` 초기 추정 = 원자 밀도 중첩(PySCF `init_guess_by_minao`, 외부 보조). 투영 밀도는 전자 수가 정확하지 않으므로 첫 Fock 생성에만 쓰고 그 점유 궤도에서 시작한다. 밀도 혼합은 교환자 노름 > `native_damping_residual`(기본 1e-3)일 때만. 물 14→9, CH4 14→7, NH2 14→10, O2 10→8회, Fe 원자(STO-3G, 2S=4) 수렴. Cr·Co 원자는 정수 점유로 여전히 미수렴(0.9.0 자체 Newton으로도 Cr 300회 미수렴: 안장점 탈출 후 평평한 방향에서 정체, 도달 에너지는 PySCF 수렴해보다 1.4e-5 Ha 낮음)(스미어링 상태는 수렴하나 정수 점유로 돌아가면 진동; 2차 해법 필요).
-- **SCF 안정성 분석(0.8.6, engines/native_stability.py, `native_stability=check|follow`)**: 궤도 회전 C·exp(K)에 대한 에너지 기울기 g_ai = 2n·F_ai(n=2 RKS, 1 UKS)를 직접 구성하고, Hessian-벡터 곱은 그 기울기의 중심차분, 최저 고유값은 Lanczos(eigsh). XC 커널 구현 없이 자체 Fock 빌더가 지원하는 모든 범함수에 적용된다. follow는 불안정 모드 방향 선 탐색 후 회전 궤도에서 SCF를 다시 수행(최대 3회). **실수 내부 회전만 검사**하며 RKS→UKS(삼중항)·복소 불안정은 검사하지 않는다.
+- **초기 추정·혼합(0.8.6)**: `auto` 초기 추정 = 원자 밀도 중첩(PySCF `init_guess_by_minao`, 외부 보조). 투영 밀도는 전자 수가 정확하지 않으므로 첫 Fock 생성에만 쓰고 그 점유 궤도에서 시작한다. 밀도 혼합은 교환자 노름 > `native_damping_residual`(기본 1e-3)일 때만. 물 14→9, CH4 14→7, NH2 14→10, O2 10→8회, Fe 원자(STO-3G, 2S=4) 수렴. 과거 남았던 Cr·Co 사례는 아래 0.9.1 Newton으로 해결됐다.
+- **SCF 안정성 분석(engines/native_stability.py, `native_stability=check|follow`)**: 궤도 회전 C·exp(K)에 대한 에너지 기울기 g_ai = 2n·F_ai(n=2 RKS, 1 UKS)를 직접 구성한다. 0.9.1부터 Hessian-벡터 곱은 해석적 응답, 최저 고유값은 Lanczos(eigsh; 0/1차원은 별도 처리)다. 기존 중심차분은 `hessian_vector_fd`로 검증용 보존한다. follow는 불안정 모드 방향 선 탐색 후 SCF를 다시 수행(최대3회). **실수 내부 회전만 검사**하며 RKS→UKS(삼중항)·복소 불안정은 검사하지 않는다.
+- **Newton 개선(0.9.1)**: 고정 격자에서 δF=J[δD]+f_xc[δD]−aK[δD](RKS 교환 계수1/2)를 직접 조립하고 궤도 회전 항을 더해 H·v를 계산한다. Libxc `eval_xc_eff(deriv=2)`는 밀도/Cartesian 기울기에 대한 함수 도함수만 제공한다([공식 인터페이스](https://pyscf.org/pyscf_api_docs/pyscf.dft.html)). AO·f_xc를 메모리 예산 내 캐시하고 부족하면 블록 단위로 재계산한다. 궤도 에너지 간격 전처리(최솟값1e-3 Ha), 잔차에 따른 CG 정밀도, 에너지 반올림 수준에서 기울기 감소를 요구하는 수락 검사로 기존 정체를 해소했다. 최종 정준화 뒤 잔차·에너지·밀도 기준을 다시 확인한다. Cr·Co(PBE/STO-3G/grid3/스핀6·3) 수렴·양의 실수 내부 곡률 확인. 가상의 분수 점유나 느슨한 수렴 기준은 사용하지 않았다.
 - 자체 프로그램이라는 것은 모든 수치 라이브러리를 새로 썼다는 뜻이 아니다. 적분/XC 라이브러리는 두 비교 엔진이 공유하므로 비교는 주로 자체 SCF/행렬/에너지 구현을 검증한다.
 
 ## 중단, 체크포인트, 재시작
@@ -89,6 +91,7 @@ SCF 반복마다 `checkpoint.npz`를 임시 파일에 쓴 뒤 원자적으로 �
 wsl --exec .venv-dft/bin/python -m unittest test_native test_energy_analysis test_molecular test_periodic -v
 wsl --exec .venv-dft/bin/python scripts/validate_native.py
 $env:QUANTUMSTARTER_GUI_DFT_TEST='1'
+$env:QUANTUMSTARTER_TK_HIDDEN='1'
 .\.venv\Scripts\python.exe -m unittest test_molecular_gui -v
 ```
 

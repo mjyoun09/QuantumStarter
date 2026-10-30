@@ -1,6 +1,6 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신: 2026-10-29 / Claude (원소별 기저 단계). 이전: ChatGPT Codex. 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
+최종 갱신: 2026-10-30 / ChatGPT Codex (단계 10, 자체 Newton 개선 및 주기계 후속 검증). 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 목표와 연구 목적
 
@@ -19,6 +19,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 | molecular.py / element_catalog.py / data/element_capabilities.json | 엔진 독립 입력 검증 및 실제 기저·의사퍼텐셜 지원표 |
 | engines/pyscf_engine.py | PySCF 고립계 RKS/UKS, ECP, X2C, 결과 저장 |
 | engines/native_scf.py / scf_control.py | 자체 밀도/Fock/XC/DIIS/SCF/에너지, 분자 중단·호환 체크포인트 |
+| engines/native_newton.py / native_stability.py / native_response.py | 자체 Newton·실수 내부 안정성, 해석적 J/K/XC 선형응답 |
 | geometry_tools.py / energy_analysis.py | 입력 구조 측정·수치 프리셋, 조건/수지 검사 반응·흡착 분석 |
 | periodic.py / engines/periodic.py / periodic_app.py | 격자·k점·2D/3D 경계, 주기적 PBE, 별도 화면 |
 | dft_workflow.py / dft_worker.py / engines/__init__.py | Windows→WSL 또는 로컬 실행, 엔진 분기, 실패 기록 |
@@ -61,6 +62,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **단계 7-C 완료 / 0.8.8 (Claude):** geomeTRIC 제약 최적화, 1차원 이완 스캔, P-RFO 전이상태 탐색(진동수로 1개 허수 확인). NEB·IRC는 미착수(geomeTRIC 1.1.1 API 존재 확인).
 - **단계 8 완료 / 0.8.9 (Claude, 2026-10-30):** CI-NEB(geomeTRIC 사슬 최적화 + 자체/PySCF 힘, 선형 보간, 양 끝 고정). NH₃ 반전에서 TS 탐색 장벽과 0.001 kJ/mol 일치. 사용자 지시 "전부 해"(B·A·C·NEB) 완료. IRC는 미구현.
 - **단계 9 / 0.9.0 (Claude, 2026-10-30, 사용자 "둘 다 해볼래"):** 자체 신뢰영역 Newton SCF(안장점 탈출 포함; 물·Fe·OH 검증, Cr·Co는 여전히 미수렴), 주기계 DOS·밴드(Si 검증; 힘·응력은 PySCF GDF 미지원으로 보류).
+- **단계 10 / 0.9.1 (ChatGPT Codex, 2026-10-30):** 자체 해석적 궤도 Hessian 응답(Libxc f_xc + 자체 J/K/XC 조립)·궤도 간격 전처리·CG 정밀도 및 신뢰영역 수락 개선. 기록된 Cr(스핀6)·Co(스핀3) PBE/STO-3G/grid3 정수 점유 사례 수렴 및 실수 내부 안정성 확인, 같은 밀도에서 독립 PySCF Newton 에너지 일치. 물 응답 7회 중앙값 FD 대비3.74배(전체 SCF 속도 보장 아님). graphene slab 밴드 실계산 검증. bulk FFTDF 힘·응력은 별도 검증 스크립트에서 에너지 FD 일치 확인했으며 제품 API 통합은 미구현. 상세 조건·로그는 docs/VALIDATION_KO.md와 ACTIVE_TASK.md.
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계
@@ -76,8 +78,8 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - 자체·외부 비교는 같은 적분/XC 라이브러리를 공유하는 구현 검증이다. OH 독립 SCF는2.4055e-6 Ha 차이가 있었으나 같은 밀도 에너지/Fock 및 그 밀도에서 재시작한 외부 해는 수치 정밀도 내 일치했다. 이를 자동 바닥상태 증거로 쓰지 않는다.
 - 분자 체크포인트 schema2는 물리/기저/격자 일치와 전자 수/점유수를 검사한다. 밀도만 재시작하며 DIIS는 초기화한다. 동일 물리 조건에서 엔진 간 전달은 허용하고 source_engine을 기록한다. 반응에너지 합산은 서로 다른 엔진의 에너지를 섞지 않는다.
 - X2C는 일전자 scalar 보정. SOC, 이전자 picture-change, 물리적 사성분 밀도 picture-change는 미구현. Gaussian 핵은 PySCF 기본 동위원소 질량·경험식; zeta를 기록한다.
-- 분자 DFT 원자 힘(0.8.3, 격자 응답 항 없음), geomeTRIC 구조 최적화(0.8.4), 유한차분 Hessian 조화 진동수·ZPE·진동 열역학(0.8.5)은 구현. 해석적 Hessian, quasi-RRHO·용매 자유에너지, IRC, 주기계 힘·응력(PySCF GDF 미지원), 주기계 힘/응력, 자동 바닥상태/스핀 탐색, SCF 안정성 분석, 들뜬 상태, 임의 ECP는 미구현. MLIP 표면 탐색은 금속 기판을 고정하고 H만 완화한다.
-- 2026-10-29 발견·수정: 자체 DIIS 계수 상한 30이 수렴 정체를 일으킴 → 의사역행렬로 수정(0.8.4). 근축퇴 열린 껍질(OH)은 다중 UKS 해가 있고 수렴한 해가 불안정(안장점)일 수 있음 → 0.8.6 자체 안정성 분석(check/follow)으로 검출·추적 가능. Fe 원자는 0.8.6에서 수렴, **Cr·Co 원자는 자체 엔진 정수 점유 미수렴(미해결)**.
+- 분자 DFT 원자 힘(격자 응답 항 없음), geomeTRIC 구조 최적화, 유한차분 핵 Hessian·조화 진동수·RRHO, 실수 내부 SCF 안정성은 구현. 해석적 **핵 좌표** Hessian(궤도 Hessian 응답과 다름), quasi-RRHO·용매 자유에너지, IRC, 주기계 힘·응력 제품 API, 자동 바닥상태/스핀 탐색, 삼중항·복소 SCF 안정성, 들뜬 상태, 임의 ECP는 미구현. FFTDF bulk 경로는 검증 스크립트에서만 지원을 확인했으며 GDF/2D 경로와 구분한다. MLIP 표면 탐색은 금속 기판을 고정하고 H만 완화한다.
+- 2026-10-29 발견·수정: 자체 DIIS 계수 상한 30이 수렴 정체를 일으킴 → 의사역행렬로 수정(0.8.4). 근축퇴 열린 껍질(OH)은 다중 UKS 해가 있고 수렴한 해가 불안정(안장점)일 수 있음 → 0.8.6 자체 안정성 분석(check/follow)으로 검출·추적 가능. Fe 원자는 0.8.6에서 수렴, 기록된 **Cr·Co 정수 점유 미수렴은 0.9.1 Newton에서 해결**. 모든 기저/스핀/격자 및 전이금속 화합물의 수렴·바닥상태 보증은 아니다.
 - SCF 수렴은 기저·격자·k점 수렴이나 정확도 보증이 아니다. 37원자 HEA의 정밀 DFT 기준값과 네 MLIP의 정확도·속도 비교는 아직 없음.
 
 ## 연구 데이터와 향후 방향

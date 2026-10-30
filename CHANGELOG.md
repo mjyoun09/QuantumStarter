@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 10 우선 작업 완료 2026-10-30 · 0.9.1 · ChatGPT Codex
+
+- 기록된 Cr·Co(PBE/STO-3G/grid3, 스핀6/3) 정수 점유 미수렴 해결. 자체 J/K/XC 선형응답과 Libxc 2차 미분으로 해석적 H·v 구성, 궤도 간격 전처리·CG 정밀도·신뢰영역 수락 개선. 최종 정준화 후 수렴 기준 재검사, 0/1차원 안정성 처리. 물·Fe·OH도 검증했고 같은 궤도의 응답 연산은 물·Fe에서 FD 대비 약3.74배(전체 SCF 배속 아님).
+- graphene slab GMKG 경로의 kz=0·SCF 메쉬 일관성·DOS 검증. bulk FFTDF 힘·응력의 별도 도입 가능성 검토: 변위 Si/Γ/uniform25³에서 에너지 FD와 기울기7.39e-9 Ha/bohr, xx·yz 응력1e-11 Ha/bohr³ 이내 일치. 제품 API는 아직 미구현.
+- 주요 파일: engines/native_response.py(신규), native_stability.py, native_newton.py, pyscf_engine.py, workflow.py; test_native_response.py(신규), test_newton.py, test_stability.py, test_periodic_analysis.py; scripts/validate_newton.py·validate_periodic_extensions.py(신규); PROJECT_STATE/ACTIVE_TASK/README 및 docs/NATIVE_DFT·REQUIREMENTS_STATUS·VALIDATION.
+- 검증: WSL 고유69개, Windows 숨김21개 통과. Cr·Co 독립 PySCF Newton 동일 밀도 재시작 에너지 차1e-9 Ha 이내. native 최종10개는 경고=오류 통과. ASE/NumPy deprecation 때문에 중단된 주기계8개는 수치 경고=오류로 재검증하여 통과(외부 deprecation은 잔여 환경 경고). 로그와 조건은 VALIDATION 0.9.1.
+- 장기 요청 전체는 미완료: bulk FFTDF 제품 통합, IRC, quasi-RRHO·용매·외부 안정성 등. ACTIVE_TASK는 HANDOFF_READY로 보존. 사용자 연구 응용 방향은 항공우주 물리이며 HEA는 과거 예시로 유지.
+
 ## QS-20261029-NATIVE-DFT · 단계 9 (자체 2차 SCF + 주기계 밴드·DOS) 2026-10-30 · 0.9.0 · Claude
 
 - 자체 엔진 신뢰영역 Newton SCF(engines/native_newton.py): Steihaug CG, 점유를 궤도 번호로 유지, 수렴 시 최저 궤도 Hessian 고유값 검사 후 음수면 선 탐색으로 탈출, 블록 정준화, aufbau 위반 경고, 결과 `native_newton`. 자체 엔진에서 scf_solver=newton 허용(PySCF 래퍼는 PySCF 엔진에만).

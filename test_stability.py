@@ -22,6 +22,10 @@ class StabilityInputTests(unittest.TestCase):
 @unittest.skipUnless(importlib.util.find_spec('pyscf'), 'Requires WSL PySCF')
 class StabilityPhysicsTests(unittest.TestCase):
     def setUp(self):
+        from pyscf import lib
+        old_threads = lib.num_threads()
+        lib.num_threads(1)
+        self.addCleanup(lib.num_threads, old_threads)
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
 

@@ -5,9 +5,10 @@ by orbital index, so the solution need not obey the aufbau rule (needed for open
 d shells such as the Cr and Co atoms, where DIIS with aufbau occupations
 oscillates). Steps solve (H) x = -g with Steihaug truncated conjugate gradients
 inside a trust radius; g and Hessian-vector products come from
-native_stability.OrbitalRotations (analytic gradient, central-difference H.v).
-A Newton step can only accept energy decreases, so the result is a local minimum
-with respect to real occupied-virtual rotations.
+native_stability.OrbitalRotations (analytic gradient and H.v). An orbital-gap
+preconditioner resolves the stiff core and soft valence directions together.
+Convergence also requires the lowest real internal curvature >= -1e-4 Ha;
+this numerical check does not establish a global ground state.
 """
 import numpy as np
 from scipy.linalg import eigh
@@ -16,12 +17,15 @@ from scf_control import check_cancelled
 from .native_stability import OrbitalRotations, lowest_mode
 
 
-def steihaug(hessian_vector, gradient, radius, tolerance, max_iterations=20):
+def steihaug(hessian_vector, gradient, radius, tolerance, max_iterations=100, diagonal=None):
     """Approximate argmin g.x + x.Hx/2 subject to |x| <= radius."""
     x = np.zeros_like(gradient)
     residual = -gradient
-    direction = residual.copy()
-    if np.linalg.norm(residual) < tolerance:
+    diagonal = np.ones_like(gradient) if diagonal is None else diagonal
+    z = residual / diagonal
+    direction = z.copy()
+    rz = residual @ z
+    if np.linalg.norm(residual) <= tolerance:
         return x
 
     def to_boundary(x, d):
@@ -33,14 +37,17 @@ def steihaug(hessian_vector, gradient, radius, tolerance, max_iterations=20):
         curvature = direction @ hd
         if curvature <= 0:  # Negative curvature: go to the trust boundary along it.
             return to_boundary(x, direction)
-        alpha = residual @ residual / curvature
+        alpha = rz / curvature
         trial = x + alpha * direction
         if np.linalg.norm(trial) >= radius:
             return to_boundary(x, direction)
         new_residual = residual - alpha * hd
         if np.linalg.norm(new_residual) < tolerance:
             return trial
-        direction = new_residual + (new_residual @ new_residual) / (residual @ residual) * direction
+        z = new_residual / diagonal
+        next_rz = new_residual @ z
+        direction = z + next_rz / rz * direction
+        rz = next_rz
         x, residual = trial, new_residual
     return x
 
@@ -111,16 +118,26 @@ def newton_kernel(mf, dm0=None):
             energy, radius = None, 0.2
             continue
         while True:
-            step = steihaug(rotations.hessian_vector, gradient, radius, tolerance=0.1 * np.linalg.norm(gradient))
+            gradient_norm = np.linalg.norm(gradient)
+            step = steihaug(rotations.hessian_vector, gradient, radius,
+                            tolerance=min(0.1, np.sqrt(gradient_norm)) * gradient_norm,
+                            max_iterations=max(20, min(200, rotations.dimension)),
+                            diagonal=rotations.diagonal())
             predicted = gradient @ step + 0.5 * step @ rotations.hessian_vector(step)
-            trial = rotations.energy_and_gradient(step)[0]
+            trial, trial_gradient = rotations.energy_and_gradient(step)
             ratio = (trial - current) / predicted if predicted < 0 else -1.0
-            if ratio > 0.1 or abs(trial - current) < config.conv_tol / 10:
+            # Only bypass an unresolved energy ratio at floating-point resolution,
+            # and require the gradient to improve. conv_tol is not an acceptance
+            # slack: using it here admits cycling with a significant residual.
+            rounding = 16 * np.finfo(float).eps * max(1.0, abs(current))
+            tiny_improvement = (abs(trial - current) <= rounding and
+                                np.linalg.norm(trial_gradient) < gradient_norm)
+            if ratio > 0.1 or tiny_improvement:
                 mf.mo_coeff = np.asarray(rotations.rotated(step)) if mf.unrestricted else rotations.rotated(step)[0]
                 if ratio > 0.75 and np.linalg.norm(step) > 0.9 * radius:
                     radius = min(2 * radius, 1.0)
                 elif ratio < 0.25:
-                    radius = max(radius / 4, 1e-4)
+                    radius = max(radius / 4, 1e-8)
                 break
             radius /= 4
             if radius < 1e-6:
@@ -131,6 +148,9 @@ def newton_kernel(mf, dm0=None):
     mf._dm = dm
     mf.components = components
     mf.final_residual = float(np.linalg.norm(mf.residual(fock, dm)))
+    mf.converged = bool(mf.converged and mf.final_residual < config.native_residual_tol
+                        and abs(energy - current) < config.conv_tol
+                        and np.linalg.norm(dm - previous_dm) < config.native_density_tol)
     mf.scf_summary = {'e1': components['kinetic'] + components['nuclear_attraction'],
                       'coul': components['coulomb'],
                       'exc': components['xc_semilocal'] + components['exact_exchange'],

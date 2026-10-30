@@ -1,4 +1,32 @@
-# DFT 검증 기록 · 2026-10-29
+# DFT 검증 기록 · 2026-10-30
+
+## 0.9.1: Cr·Co Newton 수렴, 해석적 응답, 주기계 후속 검토
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 10, ChatGPT Codex, 2026-10-30. 시작 HEAD `8023fc6`. 환경·물리 모델·정수 점유·수렴 허용오차 변경 없음. GUI는 숨김 모드만 실행.
+
+**자체 SCF 및 응답 검증.**
+- 기존 Cr(PBE/STO-3G, 2S=6, grid3, 1스레드) 50회: 144.8초, 미수렴, 잔차3.9276e-5. `outputs/newton_validation/baseline_20261030/Cr/report.json`에 이력 보존. 기존 FD 응답/무전처리20회CG/느슨한 에너지 수락 조건의 정체를 재현했다.
+- `native_response.py` 해석적 J/K/XC 응답, 궤도 간격 전처리, 적응 CG 정밀도, 반올림 수준의 기울기 개선 검사, 최종 정준화 뒤 전체 기준 재검사. XC 함수 2차 미분만 Libxc에서 가져오며 PySCF SCF/응답 조립은 호출하지 않는다.
+- `test_native_response`: RKS/UKS × LDA/VWN·PBE·PBE0·B3LYP 8조건. Fock/궤도기울기 유한차분, 독립 PySCF 응답, H·v 대칭성·선형성, 캐시 및 스트리밍 경로를 검증. 기존 `test_stability`는 에너지 유한차분도 확인한다. core 궤도의 극단 스핀 밀도에서는 FD 비매끄러움(~1e-6)이 관찰돼 작은 일반 궤도 회전의 비정상점에서 검사하며 허용오차는 완화하지 않았다.
+- Cr·Co의 수렴 밀도에서 독립 PySCF Newton 재시작도 수렴하고 에너지가1e-9 Ha 이내 일치. 다른 초기 해가 동일하다는 주장이나 전역 바닥상태 보장은 아니다. OH 안장점보다1e-7 Ha 이상 낮은 안정해, 물 DIIS 일치, 정수 점유·전자 수·0/1차원 안정성·강제 미수렴도 검사.
+
+| 원자 | 2S | 반복 | 에너지 [Ha] | 최종 잔차 | 최저 실수 내부 곡률 [Ha] |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cr | 6 | 73 | -1032.8088678851316 | 2.10e-13 | 9.51e-7 |
+| Co | 3 | 52 | -1367.1350701366355 | 1.03e-12 | 2.36e-4 |
+| Fe | 4 | 53 | -1249.5569908940256 | 7.24e-13 | 4.31e-4 |
+
+공통 PBE/STO-3G/grid3/1스레드, 에너지1e-9 Ha·밀도1e-7·잔차1e-6. Cr·Co 기록 `outputs/newton_validation/analytic_pcg_20261030/`, Fe는 `benchmark_20261030/Fe/`. 전체 SCF 측정117.37/64.68/50.42초는 다른 검증과 동시 실행했으므로 엄격한 성능 비교에 쓰지 않는다.
+
+**같은 수렴 궤도의 응답 속도.** 무작위 방향 고정(seed47), 각7회 중앙값, 한 스레드. 물: 해석0.032245초 vs FD0.120587초(3.740배), 최대 H·v 차3.04e-8. Fe: 해석0.028735초 vs FD0.107455초(3.740배), 차1.62e-8. 최초 캐시 구축 포함 응답은 물0.07681초/Fe0.11395초. 전체 SCF 배속을 의미하지 않는다. 재현: `wsl --exec .venv-dft/bin/python scripts/validate_newton.py --case Fe --max-cycle 100 --label <새이름> --benchmark`.
+
+**slab 밴드.** graphene, a=2.46 Å·셀 높이16 Å, PBE/GTH-SZV-MOLOPT-SR, 2×2×1, smearing0.05 eV, grid2/precision1e-7, SCF1e-10, GMKG16점. 수렴, kz=0, 메쉬 고유값 차3.80e-9 eV, DOS 적분 오차3.31e-7 states, 전자 수 오차1.78e-15. 원시 결과 `outputs/periodic_extension_validation/stage10_20261030/slab/graphene/`, 회귀는 `test_periodic_analysis`. 물성/격자/k메쉬 수렴 검증은 아니다.
+
+**bulk FFTDF 힘·응력 검토.** 변위 Si(두 번째 원자 x+0.08 Å), PBE/GTH-SZV-MOLOPT-SR, Γ, uniform 고정 FFT25³, precision1e-8, SCF1e-11, smearing 없음. 힘의 반대 부호인 에너지 기울기를 원자 변위±0.001 bohr 에너지 FD와 비교: 오차7.39e-9 Ha/bohr. 응력 정의 σ=(1/V)∂E/∂ε, 고정 분율 좌표·±1e-4 변형에서 xx 오차9.27e-12, **비영 yz 전단** 오차1.25e-12 Ha/bohr³(σ_yz=0.0003806094765). 해당 PySCF 응력 구현은 일부 항에 내부 유한차분을 사용하므로 완전 해석적 구현이라고 부르지 않는다. `scripts/validate_periodic_extensions.py fftdf --label <새이름>`, 결과 `outputs/periodic_extension_validation/stage10_shear_20261030/fftdf/report.json`. 이 스크립트는 지원 검토이며 제품 API가 아니다. 일반 k점/UKS/smearing/메쉬 수렴 및 입력·출력·GUI 통합은 후속이다.
+
+회귀: **WSL 고유69개 확인**(첫 관련54개 + 새 수치 경계2개 + 주기계13개; 중복 실행 제외). He 회전 차원0의 나눗셈 경고를 0잔차 조기 종료로 수정한 최종 native/Newton/응답/안정성10개는 모든 경고=오류에서도 통과했다. 최종23개 실행 중15개 통과,8개는 설치된 ASE `atoms.py`의 NumPy2.5 shape 할당 DeprecationWarning 때문에 오류로 종료했다. 해당8개만 수치 RuntimeWarning=오류 조건으로 재실행해 모두 통과(24.802초); 환경/라이브러리 수정은 하지 않았고 외부 deprecation 경고는 남는다. **Windows 숨김 GUI·workflow·수치 경계21개 통과**, skip 없음(최종77.997초, subprocess 실제 returncode=0). 첫 Windows 검사는 OK였으나 PowerShell stderr 리다이렉트의 종료코드1 때문에 실제 프로세스 코드를 수집하여 재검증했다. 원문 로그: `outputs/newton_validation/regression_wsl.log`, `final_focus_wsl.log`, `periodic_followup_wsl.log`, `windows_verified.log`, `windows_exit_status.json`. Python 컴파일·Git 공백 검사·변경 파일 LF 확인 통과.
+
+미완료: bulk FFTDF 제품 통합, IRC, quasi-RRHO/용매, 삼중항·복소 안정성, 자동 바닥상태 탐색. HEA는 현재 연구 목표가 아니므로 과거 예시 검증을 새 우선순위로 채택하지 않았다.
 
 ## 0.9.0: 자체 2차 SCF, 주기계 밴드·DOS
 
