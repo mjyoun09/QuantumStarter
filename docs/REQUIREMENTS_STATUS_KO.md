@@ -29,7 +29,8 @@
 | IRC | 미구현 | TS에서 양 방향 최소점 연결 확인 기능 없음 |
 | 주기계 k점·smearing·2D/3D 정전기 | 외부 PySCF에서 구현 | GDF+Gaussian/GTH, 평면파 아님 |
 | 결정·표면·진공/합금 후보 비교 | 부분 구현 | HEA/Pt 등 fcc111 후보 생성 |
-| 주기계 힘·응력·셀 최적화·표면 전하 보정 | 제품 API 미구현, bulk FFTDF 검토 완료 | GDF 미지원 유지. scripts/validate_periodic_extensions.py에서 bulk KRKS/PBE/GTH/Γ/uniform FFT의 힘·응력을 에너지 FD로 확인. 일반 k점/UKS/smearing 및 메쉬 수렴·GUI 통합은 후속 |
+| 주기계 힘·응력 (bulk) | **구현·검증 (0.9.2)** | `integral_scheme=fftdf` + `calculation=gradient`. Γ·일반 k점·UKS·smearing(F 미분)을 FD로 확인. slab·GDF는 미지원(PySCF 2.14). FFT mesh 수렴은 사용자가 확인 |
+| 주기계 셀 최적화·표면 전하 보정 | 미구현 | 응력이 생겼으므로 셀 최적화가 다음 단계 후보 |
 | 밴드·DOS (주기계) | **구현·검증 (bulk 및 slab)** | DOS 항상(가우시안), 밴드는 band_path 지정 시(ASE 경로, get_bands 비자기일관). Si 및 graphene 2D GMKG 경로 실계산 검증 |
 | 자체/외부/ML 출처 구분 | 구현 | 결과 SCF 드라이버·적분/XC 라이브러리·체크포인트 출처 구분. 다른 엔진 에너지 혼합 차단 |
 | 용매·TDDFT·MD | 향후 필요 시 | 첨부 프롬프트도 당장 필수 구현으로 요구하지 않음 |

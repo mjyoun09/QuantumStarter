@@ -47,6 +47,9 @@ class PeriodicConfig:
     dos_sigma_ev: float = 0.1  # Gaussian broadening of the k-mesh DOS.
     band_path: str = ''  # '' = no band structure; 'auto' = ASE default path; or e.g. 'GXWKGL'.
     band_points: int = 60
+    integral_scheme: str = 'gdf'  # 'gdf' (Becke XC grid; slabs) or 'fftdf' (bulk; uniform FFT XC grid).
+    fft_mesh: tuple = ()  # FFTDF only: explicit FFT mesh; () = PySCF's choice from `precision`.
+    calculation: str = 'single_point'  # 'gradient': forces and stress (FFTDF bulk only).
 
     def __post_init__(self):
         if self.system != 'periodic':
@@ -92,6 +95,22 @@ class PeriodicConfig:
         for key, low, high in (('max_cycle', 1, 1000), ('grid_level', 0, 6), ('threads', 1, 64), ('memory_mb', 256, 64000)):
             integer(getattr(self, key), key, low, high)
         real(self.dos_sigma_ev, 'DOS 확장 폭 [eV]', 1e-3, 2)
+        if self.integral_scheme not in ('gdf', 'fftdf'):
+            raise ValueError('integral_scheme은 gdf 또는 fftdf입니다.')
+        if self.calculation not in ('single_point', 'gradient'):
+            raise ValueError('주기계 calculation은 single_point 또는 gradient(힘·응력)입니다.')
+        if self.integral_scheme == 'fftdf' and self.boundary != 'bulk':
+            raise ValueError('FFTDF 경로는 bulk 전용입니다. slab의 2D Coulomb 처리는 GDF 경로에만 있습니다.')
+        if self.calculation == 'gradient' and self.integral_scheme != 'fftdf':
+            raise ValueError('주기계 힘·응력은 integral_scheme=fftdf(bulk)에서만 계산합니다. '
+                             'PySCF 2.14의 GDF는 주기계 기울기를 지원하지 않습니다.')
+        if not isinstance(self.fft_mesh, (tuple, list)) or len(self.fft_mesh) not in (0, 3):
+            raise ValueError('fft_mesh는 비우거나 정수 3개입니다.')
+        for n in self.fft_mesh:
+            integer(n, 'FFT mesh', 5, 400)
+        if self.fft_mesh and self.integral_scheme != 'fftdf':
+            raise ValueError('fft_mesh는 integral_scheme=fftdf에서만 씁니다.')
+        object.__setattr__(self, 'fft_mesh', tuple(self.fft_mesh))
         integer(self.band_points, '밴드 경로 점 수', 10, 500)
         if not isinstance(self.band_path, str) or not all(c.isalnum() or c == ',' for c in self.band_path):
             raise ValueError("band_path는 ''(없음), 'auto', 또는 GXWKGL 같은 고대칭점 문자열입니다.")

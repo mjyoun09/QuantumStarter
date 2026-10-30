@@ -87,7 +87,7 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 - **자체 엔진 `scf_solver=newton`**: 궤도 회전 신뢰영역 Newton과 전처리 Steihaug CG. 0.9.1부터 자체 J/K/XC 선형응답과 Libxc 2차 미분으로 해석적 Hessian-벡터 곱을 계산합니다. 점유는 궤도 번호로 유지하며, 실수 내부 불안정 방향을 따라 더 낮은 해를 찾습니다(안정성 허용오차 −1e-4 Ha, 전역 바닥상태 보장 아님). aufbau 위반이면 경고합니다. 기록된 Cr·Co 원자(PBE/STO-3G, grid3, 2S=6/3) 미수렴이 해결됐으며 다른 조건의 수렴은 별도 확인해야 합니다. 물의 같은 궤도에서 응답 계산은 이전 FD 대비 약3.74배 빠릅니다(전체 SCF 배속 아님).
 - **주기계 DOS**: 모든 주기계 결과에 k 메쉬 고유값의 가우시안 확장 DOS(`dos_sigma_ev`, 기본 0.1 eV, states/eV/셀)와 HOMO/LUMO·메쉬 갭이 저장됩니다(`dos.csv`).
 - **주기계 밴드**: `band_path`(`auto` 또는 `GXWKGL` 같은 고대칭점; CLI `--band-path auto --band-points 60`). 수렴한 밀도로 경로 위 고유값을 비자기일관 계산하고 VBM/CBM·간접/직접 갭을 기록합니다(`bands.csv`). 메쉬 k점에서 밴드값과 SCF 고유값의 차이(Si에서 ~1 meV)를 `mesh_consistency_max_ev`로 남깁니다. graphene slab의 2D GMKG 경로도 실계산 검증했습니다(kz=0, 메쉬 일관성 차3.8e-9 eV).
-- 주기계 힘·응력 제품 기능은 아직 없습니다. 별도 스크립트 `scripts/validate_periodic_extensions.py fftdf --label <새이름>`에서 bulk FFTDF·uniform 격자 경로의 힘·응력을 에너지 유한차분으로 확인했습니다. 기존 GDF/2D 경로와 물리·수치 조건을 구분해야 하며 일반 k점/스핀·smearing·격자 수렴 검증과 API 통합은 후속입니다.
+- **주기계 힘·응력(0.9.2, bulk 전용)**: `integral_scheme=fftdf`(CLI `--integral-scheme fftdf`, 선택 `--fft-mesh NX NY NZ`)와 `calculation=gradient`(CLI `--calculation gradient`). Coulomb과 XC를 같은 균일 FFT 격자에서 계산하며 PySCF 해석적 기울기·응력을 씁니다. 결과 `gradient`: 힘(eV/Å), 응력(Ha/bohr³·GPa, σ = (1/V)∂X/∂ε), 압력(−tr σ/3, GPa), 미분 대상(smearing이면 자유에너지 F = E − TS). FFTDF 에너지는 GDF 에너지와 다르므로 반응 분석에서 섞지 않습니다. slab은 GDF만 가능하므로 힘·응력이 없습니다. FFT mesh·기저·k점 수렴은 직접 확인하세요.
 
 ## 자체 SCF 안정성 분석과 수렴 개선 (0.8.6)
 

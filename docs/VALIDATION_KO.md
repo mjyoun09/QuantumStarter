@@ -1,5 +1,15 @@
 # DFT 검증 기록 · 2026-10-30
 
+## 0.9.2: bulk FFTDF 힘·응력 제품 API
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 11 (담당 Claude, 2026-10-30; Codex 단계 10 인계 이어받음). 환경 변경 없음. GUI 시험은 숨김 모드만.
+
+- 사전 실측(Si 2원자 한 원자 x 변위, GTH-SZV-MOLOPT-SR, PBE, FFT mesh 25³, UniformGrids, conv_tol 1e-11; scratchpad 프로브): UKS(spin 0) 기울기 vs 에너지 FD 7.4e-9 Ha/bohr, 응력 xx vs 변형 FD 9e-12 Ha/bohr³; 2×2×2 k 메쉬 4.6e-9 / 3.3e-11; Fermi smearing 0.1 eV에서는 기울기·응력이 **자유에너지 F의 미분**과 일치(1e-8 / 1e-11)하고 내부에너지 E 미분과는 1.8e-4 차. → 세 경우 모두 지원, 결과에 미분 대상을 명시.
+- `test_periodic_gradient` **4개 통과(61.7초)**: 제품 API(`calculate`)로 기울기 vs FD(허용 1e-7), 응력 xx vs 변형 FD(1e-9), eV/Å·GPa 변환(1 Ha/bohr³ = 29421.0157 GPa), 압력 = −tr/3, 합력 < 1e-3 eV/Å, smearing은 F 미분, GDF와 FFTDF 실행의 반응 분석 혼합 거부. 첫 실행의 입력 시험 1개 실패는 시험 사례가 calculation=gradient를 유지해 다른 규칙이 먼저 걸린 시험 쪽 오류였고 사례를 고쳐 통과.
+- 회귀: WSL test_periodic·periodic_analysis·energy_analysis·basis_overrides·dispersion 30개(181.7초), native·molecular·gradient·optimize·frequencies·stability·native_response 52개(101.0초) 통과. Windows(숨김 GUI) 33개 중 30 통과·3 skip(WSL 통과). NEB·제약·Newton 시험은 변경과 무관해 재실행하지 않았다.
+
+한계: bulk 전용(slab은 GDF), FFT mesh 수렴은 자동 확인하지 않음, 셀 최적화 미구현, 시험 구조(변위 Si, SZV 최소 기저)의 응력 값 자체는 물리적 의미가 없고 구현 일치 검사용이다.
+
 ## 0.9.1: Cr·Co Newton 수렴, 해석적 응답, 주기계 후속 검토
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 10, ChatGPT Codex, 2026-10-30. 시작 HEAD `8023fc6`. 환경·물리 모델·정수 점유·수렴 허용오차 변경 없음. GUI는 숨김 모드만 실행.

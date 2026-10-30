@@ -3,6 +3,13 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 11 (bulk FFTDF 힘·응력) 완료 2026-10-30 · 0.9.2 · Claude
+
+- 주기계 `integral_scheme`(gdf 기본/fftdf), `fft_mesh`, `calculation`(single_point/gradient). FFTDF는 bulk 전용, 힘·응력은 FFTDF 전용으로 설정 단계에서 검사. engines/periodic.py: FFTDF 분기(density_fit 생략, UniformGrids 같은 mesh), `periodic_gradient`(힘 eV/Å, 응력 Ha/bohr³·GPa, 압력, 미분 대상 E/F, mesh·부피 기록), 결과 integral_scheme·fft_mesh·xc_grid. energy_analysis는 적분 방식·mesh가 다른 주기계 에너지를 섞지 않는다. CLI --integral-scheme, --fft-mesh, 주기계 --calculation gradient.
+- 주요 파일: periodic.py, engines/periodic.py, energy_analysis.py, main.py, workflow.py, engines/pyscf_engine.py(버전), 신규 test_periodic_gradient.py, README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md.
+- 검증: Γ·2×2×2 k·UKS·smearing에서 해석적 기울기/응력 = 에너지(또는 F) 유한차분(≤1e-7 Ha/bohr, ≤1e-9 Ha/bohr³). WSL 86개, Windows 숨김 30개(+3 skip WSL 통과).
+- 한계: slab 힘·응력 없음(GDF), FFT mesh 수렴 자동 확인 없음, 셀 최적화 미구현.
+
 ## QS-20261029-NATIVE-DFT · 단계 10 우선 작업 완료 2026-10-30 · 0.9.1 · ChatGPT Codex
 
 - 기록된 Cr·Co(PBE/STO-3G/grid3, 스핀6/3) 정수 점유 미수렴 해결. 자체 J/K/XC 선형응답과 Libxc 2차 미분으로 해석적 H·v 구성, 궤도 간격 전처리·CG 정밀도·신뢰영역 수락 개선. 최종 정준화 후 수렴 기준 재검사, 0/1차원 안정성 처리. 물·Fe·OH도 검증했고 같은 궤도의 응답 연산은 물·Fe에서 FD 대비 약3.74배(전체 SCF 배속 아님).

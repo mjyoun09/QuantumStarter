@@ -57,7 +57,9 @@ def compatibility(result, energy_field='total_energy_hartree'):
                           dispersion_library=f"{details.get('library')} {details.get('library_version')}")
     else:
         common.update(basis=cfg.basis, pseudo=cfg.pseudo, lattice=cfg.lattice, boundary=cfg.boundary,
-                      kmesh=cfg.kmesh, smearing_ev=cfg.smearing_ev, precision=cfg.precision)
+                      kmesh=cfg.kmesh, smearing_ev=cfg.smearing_ev, precision=cfg.precision,
+                      # GDF+Becke and FFTDF+uniform-grid energies differ at the meV level: never mix.
+                      integral_scheme=cfg.integral_scheme, fft_mesh=result.get('fft_mesh'))
         if result.get('energy_normalization') != 'per_input_cell':
             raise ValueError('주기계 에너지는 입력 셀당 값이어야 합니다.')
     return common

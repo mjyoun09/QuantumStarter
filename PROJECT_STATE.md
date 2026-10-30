@@ -1,6 +1,6 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신: 2026-10-30 / ChatGPT Codex (단계 10, 자체 Newton 개선 및 주기계 후속 검증). 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
+최종 갱신: 2026-10-30 / Claude (단계 11, bulk FFTDF 힘·응력). 이전: ChatGPT Codex (단계 10). 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 목표와 연구 목적
 
@@ -63,6 +63,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **단계 8 완료 / 0.8.9 (Claude, 2026-10-30):** CI-NEB(geomeTRIC 사슬 최적화 + 자체/PySCF 힘, 선형 보간, 양 끝 고정). NH₃ 반전에서 TS 탐색 장벽과 0.001 kJ/mol 일치. 사용자 지시 "전부 해"(B·A·C·NEB) 완료. IRC는 미구현.
 - **단계 9 / 0.9.0 (Claude, 2026-10-30, 사용자 "둘 다 해볼래"):** 자체 신뢰영역 Newton SCF(안장점 탈출 포함; 물·Fe·OH 검증, Cr·Co는 여전히 미수렴), 주기계 DOS·밴드(Si 검증; 힘·응력은 PySCF GDF 미지원으로 보류).
 - **단계 10 / 0.9.1 (ChatGPT Codex, 2026-10-30):** 자체 해석적 궤도 Hessian 응답(Libxc f_xc + 자체 J/K/XC 조립)·궤도 간격 전처리·CG 정밀도 및 신뢰영역 수락 개선. 기록된 Cr(스핀6)·Co(스핀3) PBE/STO-3G/grid3 정수 점유 사례 수렴 및 실수 내부 안정성 확인, 같은 밀도에서 독립 PySCF Newton 에너지 일치. 물 응답 7회 중앙값 FD 대비3.74배(전체 SCF 속도 보장 아님). graphene slab 밴드 실계산 검증. bulk FFTDF 힘·응력은 별도 검증 스크립트에서 에너지 FD 일치 확인했으며 제품 API 통합은 미구현. 상세 조건·로그는 docs/VALIDATION_KO.md와 ACTIVE_TASK.md.
+- **단계 11 / 0.9.2 (Claude, 2026-10-30):** bulk FFTDF 주기계 힘·응력 제품 API(`integral_scheme=fftdf`, `calculation=gradient`). Γ·일반 k점·UKS·smearing(F 미분)을 유한차분으로 확인. slab은 GDF만이라 힘·응력 없음. 셀 최적화는 다음 후보.
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계

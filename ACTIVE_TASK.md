@@ -4,8 +4,21 @@
 
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
-- 담당 AI: ChatGPT Codex — 2026-10-30 사용자 "MD에 기록된거 수행해볼래"에 따라 단계 10 인수. 시작 Git HEAD 8023fc6, 작업 트리 깨끗함. Claude 앱 프로세스는 존재하므로 세션 종료를 가정하지 않으며 수정 파일 충돌을 확인한다.
-- 상태: HANDOFF_READY — 단계 10 우선 작업(자체 Newton 개선, slab 검증, bulk FFTDF 지원 검토)은 완료(0.9.1). 장기 요청의 bulk API 통합·IRC·quasi-RRHO 등은 남아 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 담당 AI: Claude (Claude Code) — 2026-10-30 10:03 사용자 "다음 작업 진행해주라 md에 있는거"로 Codex 단계 10 인계(HANDOFF_READY, 커밋 f32c0d3, 작업 트리 깨끗, 마지막 수정 10:00)를 인수. 이전 담당: ChatGPT Codex(단계 10).
+- 상태: HANDOFF_READY — 단계 11(bulk FFTDF 힘·응력, 0.9.2) 완료·커밋. 남은 장기 항목은 아래 단계 12 재개 지점. 실행 중 계산·미저장 코드 없음. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+
+### 단계 12 재개 지점 (미착수)
+
+- 사용자 응용 방향(PROJECT_STATE): HEA가 아니라 **DFT × 항공우주 물리**. 구체 주제는 사용자·지도교수 결정 대기. 제안된 1순위: 고온 기체·추진제의 온도별 열물성(Cp/H/S, NASA 7계수 다항식)과 TST 반응 속도, JANAF/NASA 기준 독립 검증 — 현재 엔진(경원소 분자, TS/NEB, 진동수·RRHO)과 가장 잘 맞음.
+- 코드 측 남은 항목: 주기계 셀 최적화(응력 사용, FFTDF bulk), FFT mesh 수렴 보조, IRC, quasi-RRHO·용매, 삼중항·복소 SCF 안정성, 주기계 GUI(periodic_app)에 fftdf/gradient 노출(숨김 모드 GUI 시험 필요).
+- 재개 시: PROJECT_STATE → 이 문서 → `git log --oneline | head -5` → 해당 모듈. 이미 통과한 회귀는 이유 없이 반복하지 않는다.
+
+### 단계 11: bulk FFTDF 힘·응력 API 통합 (Claude, 완료 — CHANGELOG 0.9.2)
+
+- 계획: (1) scripts/validate_periodic_extensions.py `fftdf()` 확인, (2) 일반 k점(고정 scaled k)·UKS·smearing에서 PySCF FFTDF 기울기/응력 지원 여부와 FD 일치 실측, 지원 안 되면 설정에서 명시 거부, (3) PeriodicConfig 명시적 `integral_scheme`(gdf 기본/fftdf)·계산 종류, FFT mesh 기록, (4) engines/periodic.py 분기·힘(eV/Å)·응력(GPa) 단위·부호·출처, (5) CLI·energy_analysis 호환(적분 방식 혼합 금지), (6) 테스트·문서. GDF+Becke 에너지와 FFTDF+uniform 힘/응력을 섞지 않는다. 셀 최적화는 그 다음.
+- 실측(Si 변위, GTH-SZV, PBE, FFT mesh 25³, UniformGrids, scratchpad/probe_fftdf.py): UKS(spin 0) 기울기 vs FD 7.4e-9 Ha/bohr, 응력 xx vs 변형 FD 9e-12. smearing(Fermi 0.1 eV) 기울기·응력은 **자유에너지 e_free의 미분**과 일치(1e-8, 1e-11), 내부에너지 e_tot 미분과는 1.8e-4 차 → 결과에 '미분 대상 = F'를 명시해야 함. 2×2×2 k 메쉬: 기울기 vs FD 4.6e-9, 응력 xx vs FD 3.3e-11 → 일반 k점·UKS·smearing 모두 지원 확인.
+- 구현: PeriodicConfig `integral_scheme`(gdf/fftdf), `fft_mesh`, `calculation`(single_point/gradient) + 규칙(fftdf는 bulk만, gradient는 fftdf만, fft_mesh는 fftdf만). engines/periodic.py: FFTDF면 density_fit 생략·UniformGrids(같은 mesh)·small_rho_cutoff 0, `periodic_gradient`(힘 eV/Å, 응력 Ha/bohr³·GPa, 압력 −tr/3, 미분 대상 E 또는 F 명시, mesh·부피 기록), 결과 integral_scheme/fft_mesh/xc_grid. energy_analysis 주기계 호환에 integral_scheme·fft_mesh 추가. CLI --integral-scheme, --fft-mesh, 주기계 --calculation gradient 허용.
+- test_periodic_gradient 4개 통과(61.7초; 첫 실행 입력 시험 1개는 내 시험 사례가 calculation=gradient를 유지해 다른 규칙이 먼저 걸린 시험 오류 → 사례 수정): 제품 API로 기울기 vs FD(1e-7), 응력 xx vs 변형 FD(1e-9), GPa·eV/Å 변환, 압력, smearing은 F 미분, GDF/FFTDF 반응 분석 혼합 거부.
 
 ### 단계 10 완료 및 최신 인계 (ChatGPT Codex, 2026-10-30)
 
