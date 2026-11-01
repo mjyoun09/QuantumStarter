@@ -42,6 +42,11 @@ def main():
     parser.add_argument('--integral-scheme', choices=['gdf', 'fftdf'],
                         help='주기계 적분: gdf(기본, slab 가능) 또는 fftdf(bulk 전용, 힘·응력 가능)')
     parser.add_argument('--fft-mesh', nargs=3, type=int, metavar=('NX', 'NY', 'NZ'), help='FFTDF FFT 격자 (생략 시 자동)')
+    parser.add_argument('--cell-relaxation', choices=['full', 'isotropic'], help='셀 모양+체적 또는 모양 고정 체적 완화')
+    parser.add_argument('--cell-max-steps', type=int)
+    parser.add_argument('--cell-force-tol', type=float, help='최대 원자 힘 [eV/Å]')
+    parser.add_argument('--cell-stress-tol-gpa', type=float, help='셀 응력 잔차 [GPa]')
+    parser.add_argument('--cell-energy-tol-ev', type=float, help='연속 단계 E/F 변화 [eV/cell]')
     parser.add_argument("--charge", type=int, help="전체 전하")
     parser.add_argument("--spin", type=int, help="2S = N_alpha - N_beta; 다중도 아님")
     parser.add_argument("--basis", help="기저함수 (원소별 지정이 없는 원소의 기본값)")
@@ -50,7 +55,7 @@ def main():
                              '설정 파일의 원소별 지정을 대체합니다.')
     parser.add_argument("--xc", help="교환·상관 함수")
     parser.add_argument('--calculation', choices=['single_point', 'gradient', 'optimize', 'frequencies', 'scan',
-                                                  'transition_state', 'neb'],
+                                                  'transition_state', 'neb', 'cell_optimize'],
                         help='gradient: 에너지+원자 힘. optimize: geomeTRIC 구조 최적화(geometric 필요). '
                              'frequencies: 조화 진동수·ZPE')
     parser.add_argument('--freq-step', dest='freq_step_bohr', type=float, help='진동수 유한차분 변위 [bohr] (기본 0.005)')
@@ -80,8 +85,13 @@ def main():
     parser.add_argument("--output", type=Path, help="실행 폴더들을 저장할 상위 경로")
     parser.add_argument("--no-show", action="store_true", help="그래프 창 없이 파일만 저장")
     args = parser.parse_args()
+    periodic_keys = ('boundary', 'kmesh', 'smearing_ev', 'band_path', 'band_points', 'integral_scheme', 'fft_mesh',
+                     'cell_relaxation', 'cell_max_steps', 'cell_force_tol', 'cell_stress_tol_gpa', 'cell_energy_tol_ev')
+    has_periodic_options = any(getattr(args, key) is not None for key in periodic_keys)
     try:
         if args.hydrogen_check:
+            if has_periodic_options:
+                parser.error('--hydrogen-check에는 주기계 옵션을 함께 사용할 수 없습니다.')
             if args.xyz or args.structure or args.boundary or args.kmesh or args.smearing_ev is not None or args.engine or args.initial_guess or args.restart or args.basis_element or any(getattr(args, key) is not None for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'native_stability', 'opt_constraints', 'scan_spec', 'neb_images', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme')):
                 parser.error('--hydrogen-check에는 분자 DFT 옵션을 함께 사용할 수 없습니다.')
             run(load_config(args.config or ROOT / 'config.json'), args.output or ROOT / 'outputs' / 'hydrogen', show=not args.no_show)
@@ -97,12 +107,10 @@ def main():
                       if args.structure else load_calculation_config(args.config or ROOT / 'molecule.json'))
             overrides = {key: getattr(args, key) for key in ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps', 'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'opt_constraints', 'scan_spec', 'neb_images', 'scf_solver', 'ecp', 'relativity', 'nuclear_model', 'grid_scheme', 'engine', 'initial_guess', 'native_stability') if getattr(args, key) is not None}
             if config.system == 'periodic':
-                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation not in (None, 'single_point', 'gradient') or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None or args.thermo_pressure_pa is not None or args.symmetry_number is not None or args.native_stability or args.opt_constraints or args.scan_spec:
-                    parser.error('주기계는 --xyz / --ecp / --scf-solver / --relativity / --nuclear-model / --grid-scheme / --engine / --initial-guess / --restart / --basis-element / --dispersion 및 single_point·gradient 외 --calculation을 지원하지 않습니다.')
-                overrides.update({key: getattr(args, key) for key in ('boundary', 'kmesh', 'smearing_ev', 'band_path', 'band_points',
-                                                                 'integral_scheme', 'fft_mesh') if getattr(args, key) is not None})
-            elif (args.boundary or args.kmesh or args.smearing_ev is not None or args.band_path or args.band_points
-                  or args.integral_scheme or args.fft_mesh):
+                if args.xyz or args.ecp or args.scf_solver or args.relativity or args.nuclear_model or args.grid_scheme or args.engine or args.initial_guess or args.restart or args.basis_element or args.dispersion or args.calculation not in (None, 'single_point', 'gradient', 'cell_optimize') or args.opt_convergence or args.opt_max_steps or args.freq_step_bohr is not None or args.thermo_temperature_k is not None or args.thermo_pressure_pa is not None or args.symmetry_number is not None or args.native_stability or args.opt_constraints or args.scan_spec or args.neb_product or args.neb_images is not None:
+                    parser.error('주기계는 single_point·gradient·cell_optimize만 지원하며 분자 전용 옵션은 사용할 수 없습니다.')
+                overrides.update({key: getattr(args, key) for key in periodic_keys if getattr(args, key) is not None})
+            elif has_periodic_options or args.calculation == 'cell_optimize':
                 parser.error('주기계 옵션에는 --structure 또는 주기계 --config가 필요합니다.')
             if args.xyz:
                 overrides.update(atoms=read_xyz(args.xyz), unit='angstrom')

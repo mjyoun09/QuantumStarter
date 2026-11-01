@@ -49,7 +49,12 @@ class PeriodicConfig:
     band_points: int = 60
     integral_scheme: str = 'gdf'  # 'gdf' (Becke XC grid; slabs) or 'fftdf' (bulk; uniform FFT XC grid).
     fft_mesh: tuple = ()  # FFTDF only: explicit FFT mesh; () = PySCF's choice from `precision`.
-    calculation: str = 'single_point'  # 'gradient': forces and stress (FFTDF bulk only).
+    calculation: str = 'single_point'  # gradient / cell_optimize: FFTDF bulk only.
+    cell_relaxation: str = 'full'  # full cell shape, or isotropic volume with fixed shape.
+    cell_max_steps: int = 50
+    cell_force_tol: float = 0.02  # eV/angstrom, maximum atomic force norm.
+    cell_stress_tol_gpa: float = 0.1
+    cell_energy_tol_ev: float = 1e-5  # E or Mermin F change per input cell.
 
     def __post_init__(self):
         if self.system != 'periodic':
@@ -97,11 +102,11 @@ class PeriodicConfig:
         real(self.dos_sigma_ev, 'DOS 확장 폭 [eV]', 1e-3, 2)
         if self.integral_scheme not in ('gdf', 'fftdf'):
             raise ValueError('integral_scheme은 gdf 또는 fftdf입니다.')
-        if self.calculation not in ('single_point', 'gradient'):
-            raise ValueError('주기계 calculation은 single_point 또는 gradient(힘·응력)입니다.')
+        if self.calculation not in ('single_point', 'gradient', 'cell_optimize'):
+            raise ValueError('주기계 calculation은 single_point, gradient, cell_optimize입니다.')
         if self.integral_scheme == 'fftdf' and self.boundary != 'bulk':
             raise ValueError('FFTDF 경로는 bulk 전용입니다. slab의 2D Coulomb 처리는 GDF 경로에만 있습니다.')
-        if self.calculation == 'gradient' and self.integral_scheme != 'fftdf':
+        if self.calculation in ('gradient', 'cell_optimize') and self.integral_scheme != 'fftdf':
             raise ValueError('주기계 힘·응력은 integral_scheme=fftdf(bulk)에서만 계산합니다. '
                              'PySCF 2.14의 GDF는 주기계 기울기를 지원하지 않습니다.')
         if not isinstance(self.fft_mesh, (tuple, list)) or len(self.fft_mesh) not in (0, 3):
@@ -111,6 +116,12 @@ class PeriodicConfig:
         if self.fft_mesh and self.integral_scheme != 'fftdf':
             raise ValueError('fft_mesh는 integral_scheme=fftdf에서만 씁니다.')
         object.__setattr__(self, 'fft_mesh', tuple(self.fft_mesh))
+        if self.cell_relaxation not in ('full', 'isotropic'):
+            raise ValueError('cell_relaxation은 full 또는 isotropic입니다.')
+        integer(self.cell_max_steps, '셀 최적화 최대 단계', 1, 500)
+        real(self.cell_force_tol, '원자 힘 기준 [eV/Å]', 1e-6, 1)
+        real(self.cell_stress_tol_gpa, '응력 기준 [GPa]', 1e-5, 10)
+        real(self.cell_energy_tol_ev, '셀 에너지 변화 기준 [eV]', 1e-10, .1)
         integer(self.band_points, '밴드 경로 점 수', 10, 500)
         if not isinstance(self.band_path, str) or not all(c.isalnum() or c == ',' for c in self.band_path):
             raise ValueError("band_path는 ''(없음), 'auto', 또는 GXWKGL 같은 고대칭점 문자열입니다.")

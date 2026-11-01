@@ -56,6 +56,9 @@ def compatibility(result, energy_field='total_energy_hartree'):
             common.update(dispersion_parameters=details.get('parameters'),
                           dispersion_library=f"{details.get('library')} {details.get('library_version')}")
     else:
+        # Cell relaxation keeps the original request in config, but energies are
+        # evaluated in the final cell. Compare the latter to prevent silent mixing.
+        cfg = config_from_dict(result.get('final_geometry_config', result['config']))
         common.update(basis=cfg.basis, pseudo=cfg.pseudo, lattice=cfg.lattice, boundary=cfg.boundary,
                       kmesh=cfg.kmesh, smearing_ev=cfg.smearing_ev, precision=cfg.precision,
                       # GDF+Becke and FFTDF+uniform-grid energies differ at the meV level: never mix.

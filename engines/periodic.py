@@ -52,7 +52,7 @@ HARTREE_PER_BOHR3_GPA = (physical_constants['Hartree energy'][0]
 
 
 def periodic_gradient(mf, config, cell):
-    """Forces and stress per input cell from PySCF's FFTDF analytic gradient.
+    """Forces and stress per input cell from PySCF's FFTDF derivative drivers.
 
     stress = (1/V) dX/d(strain) with X = E, or the Mermin free energy F = E - TS with
     smearing; pressure = -trace/3. Both were checked against finite differences.
@@ -64,7 +64,8 @@ def periodic_gradient(mf, config, cell):
         raise RuntimeError('유한한 주기계 기울기/응력을 얻지 못했습니다.')
     forces = -gradient * HARTREE_TO_EV / BOHR_ANGSTROM
     stress_gpa = stress * HARTREE_PER_BOHR3_GPA
-    return {'driver': 'PySCF pbc analytic gradient and stress (FFTDF, uniform XC grid)',
+    return {'driver': 'PySCF pbc analytic nuclear gradient / get_stress (FFTDF, uniform XC grid)',
+            'stress_method_note': 'PySCF 2.14 stress includes finite differences of kinetic and overlap integrals (strain 1e-5).',
             'derivative_of': 'Mermin free energy F = E - TS' if config.smearing_ev else 'total energy E',
             'gradient_hartree_per_bohr': gradient.tolist(), 'forces_ev_per_angstrom': forces.tolist(),
             'max_atomic_force_ev_per_angstrom': float(np.linalg.norm(forces, axis=1).max()),
@@ -75,13 +76,16 @@ def periodic_gradient(mf, config, cell):
             'fft_mesh': [int(n) for n in cell.mesh], 'cell_volume_bohr3': float(cell.vol)}
 
 
-def calculate_periodic(config, directory, progress=print):
+def calculate_periodic(config, directory, progress=print, cancel_directory=None):
     import pyscf
     from pyscf import lib
     from pyscf.pbc import dft, scf
+    from scf_control import check_cancelled
     started = time.perf_counter()
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    cancel_directory = directory if cancel_directory is None else Path(cancel_directory)
+    check_cancelled(cancel_directory)
     save_dft_config(config, directory / 'settings.json')
     lib.num_threads(config.threads)
     cell, valence = build_cell(config)
@@ -101,8 +105,8 @@ def calculate_periodic(config, directory, progress=print):
                     (cell.nelectron - config.spin) * nk // 2)
     mf.xc = config.xc
     if fftdf:
-        # Coulomb and XC on the same uniform FFT mesh: the setting whose PySCF analytic
-        # gradient and stress were checked against finite differences (VALIDATION 0.9.1/0.9.2).
+        # Coulomb and XC on the same uniform FFT mesh; energy finite differences
+        # check both gradient and stress (VALIDATION 0.9.1/0.9.2).
         mf.grids = dft.gen_grid.UniformGrids(cell)
         mf.grids.mesh = np.asarray(cell.mesh)
         mf.small_rho_cutoff = 0
@@ -117,6 +121,7 @@ def calculate_periodic(config, directory, progress=print):
     history = []
 
     def callback(env):
+        check_cancelled(cancel_directory)
         row = {'cycle': len(history) + 1, 'energy_hartree': float(env['e_tot']),
                'gradient_norm': float(env.get('norm_gorb', 0))}
         history.append(row)
@@ -146,22 +151,25 @@ def calculate_periodic(config, directory, progress=print):
     if abs(ne_trace - cell.nelectron) > 1e-5 or abs(spin_trace - config.spin) > 1e-5:
         raise RuntimeError(f'전자 수/스핀 검증 실패: Tr(DS)={ne_trace}, spin={spin_trace}')
     gradient = None
+    check_cancelled(cancel_directory)
     if config.calculation == 'gradient':
         if mf.converged:
             progress('주기계 힘·응력(PySCF FFTDF 해석적 기울기)을 계산합니다.')
             gradient = periodic_gradient(mf, config, cell)
         else:
             progress('SCF 미수렴: 주기계 힘·응력을 계산하지 않았습니다.')
+    check_cancelled(cancel_directory)
     from .periodic_analysis import band_structure, density_of_states
     dos = density_of_states(mf.mo_energy, mf.mo_occ, [1 / nk] * nk, unrestricted, config.dos_sigma_ev, HARTREE_TO_EV)
     bands = None
-    if config.band_path:
+    if config.band_path and mf.converged:
         progress('밴드 구조: 수렴한 밀도로 고대칭 경로의 고유값을 계산합니다(비자기일관).')
         bands = band_structure(mf, cell, config, unrestricted, HARTREE_TO_EV)
+    check_cancelled(cancel_directory)
     warnings = ['SCF 수렴은 기저·k점·수치 격자·진공·슬래브 두께 수렴의 보증이 아닙니다.',
-                '고정 구조의 단일점 에너지입니다. 주기계 힘·응력·구조 최적화는 미구현입니다'
-                '(PySCF 2.14의 GDF는 주기계 기울기를, 응력은 FFTDF만 지원).',
                 'GTH 의사퍼텐셜 계산이며 SOC·분산 보정은 포함하지 않습니다.']
+    if not fftdf:
+        warnings.append('GDF 경로에서는 주기계 힘·응력·셀 최적화를 지원하지 않습니다.')
     if config.smearing_ev:
         warnings.append('내부에너지 E, 자유에너지 F=E−TS, 외삽 에너지 (E+F)/2를 구분하세요. 비교에는 같은 smearing을 사용하세요.')
     if not mf.converged:
@@ -169,7 +177,7 @@ def calculate_periodic(config, directory, progress=print):
     if config.boundary == 'slab':
         warnings.append('xy 주기·z 비주기 2D Coulomb 경계입니다. z 방향 셀 길이에 대한 수치 수렴도 확인하세요.')
     result = {
-        'schema_version': 3, 'version': '0.9.2', 'engine': 'pyscf-pbc', 'pyscf_version': pyscf.__version__,
+        'schema_version': 3, 'version': '0.9.3', 'engine': 'pyscf-pbc', 'pyscf_version': pyscf.__version__,
         'created_at_utc': datetime.now(timezone.utc).isoformat(), 'config': config.to_dict(),
         'formula': config.formula, 'status': 'converged' if mf.converged else 'not_converged',
         'converged': bool(mf.converged), 'total_energy_hartree': energy, 'total_energy_ev': energy * HARTREE_TO_EV,

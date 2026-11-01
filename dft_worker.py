@@ -22,7 +22,8 @@ def main():
         config = load_calculation_config(args.config)
         directory = Path(args.output)
         result = {'status': 'cancelled', 'converged': False, 'config': config.to_dict(),
-                  'formula': config.formula, 'engine': config.engine, 'message': str(exc),
+                  'formula': config.formula, 'engine': config.engine if config.system == 'molecule' else 'pyscf-pbc',
+                  'message': str(exc),
                   'checkpoint_file': 'checkpoint.npz' if (directory / 'checkpoint.npz').exists() else None}
         (directory / 'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
         print(str(exc), flush=True)

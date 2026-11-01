@@ -10,7 +10,7 @@
 | 자체 분자 DFT: 밀도/Fock/SCF/DIIS/에너지 | **구현·실계산 검증** | native_scf.py; RKS/UKS, LDA/GGA/global hybrid. 적분·XC 함수는 외부 라이브러리 |
 | RKS/UKS, LDA/GGA/hybrid, ECP/X2C, 밀도/MO | 자체/외부에서 구현, 범위 다름 | 자체 ECP/X2C는 미지원. 외부 PySCF의 기존 지원 보존 |
 | 에너지 성분, 초기 추정 선택·비교 | 구현·검증 | 성분 합·전자 수·잔차·core/perturbed 검증 |
-| 중단·체크포인트·재시작 | 분자 구현·검증 | 물리 설정/전자 수 검사, 중단 상태 보존. 주기계는 미지원 |
+| 중단·체크포인트·재시작 | 분자 구현·검증, 주기계 중단 구현 | 분자 물리 설정/전자 수 검사·재시작. 주기계는 SCF/셀 단계 경계 취소와 이력 보존, 최적화 재시작은 미지원 |
 | 실시간 SCF, 응답 GUI, 기록/내보내기 | 구현·검증 | 잔차 정의/엔진 구분, 수렴 그래프, 다중 기록 비교 |
 | 구조 미리보기·거리/각도, 프리셋 | 구현·검증 | geometry_tools.py, 실제 변경 수치 표시 |
 | 원소별 기저 선택 | **구현·검증 (분자)** | `basis_overrides`, GUI/CLI/JSON. 원소별 ECP·X2C 판정, 반응 분석의 원소별 대조. 주기계는 미지원 |
@@ -29,8 +29,10 @@
 | IRC | 미구현 | TS에서 양 방향 최소점 연결 확인 기능 없음 |
 | 주기계 k점·smearing·2D/3D 정전기 | 외부 PySCF에서 구현 | GDF+Gaussian/GTH, 평면파 아님 |
 | 결정·표면·진공/합금 후보 비교 | 부분 구현 | HEA/Pt 등 fcc111 후보 생성 |
-| 주기계 힘·응력 (bulk) | **구현·검증 (0.9.2)** | `integral_scheme=fftdf` + `calculation=gradient`. Γ·일반 k점·UKS·smearing(F 미분)을 FD로 확인. slab·GDF는 미지원(PySCF 2.14). FFT mesh 수렴은 사용자가 확인 |
-| 주기계 셀 최적화·표면 전하 보정 | 미구현 | 응력이 생겼으므로 셀 최적화가 다음 단계 후보 |
+| 주기계 힘·응력 (bulk) | **구현·검증 (0.9.2 API, 0.9.3 GUI)** | `integral_scheme=fftdf` + `calculation=gradient`. Γ·일반 k점·UKS·smearing(F 미분)을 FD로 확인. slab·GDF는 미지원(PySCF 2.14). 응력 일부는 내부 적분 유한차분 |
+| 주기계 셀 최적화 (bulk) | **구현·검증 (0.9.3)** | `cell_optimize`, ASE BFGS/FrechetCellFilter, full/isotropic, 고정 FFT·상대 k점, E/F·힘·응력 판정. Si 등방 및 전단 변형 완화 검증 |
+| FFT mesh 수렴 보조 | **구현·검증 (0.9.3)** | 고정 구조, 마지막 두 연속 구간 E/F·힘·응력 비교, CLI/GUI·개별 실행 보존. k점/기저 수렴은 별도 |
+| 표면 전하 보정 | 미구현 | 주기계는 중성 셀만 지원 |
 | 밴드·DOS (주기계) | **구현·검증 (bulk 및 slab)** | DOS 항상(가우시안), 밴드는 band_path 지정 시(ASE 경로, get_bands 비자기일관). Si 및 graphene 2D GMKG 경로 실계산 검증 |
 | 자체/외부/ML 출처 구분 | 구현 | 결과 SCF 드라이버·적분/XC 라이브러리·체크포인트 출처 구분. 다른 엔진 에너지 혼합 차단 |
 | 용매·TDDFT·MD | 향후 필요 시 | 첨부 프롬프트도 당장 필수 구현으로 요구하지 않음 |

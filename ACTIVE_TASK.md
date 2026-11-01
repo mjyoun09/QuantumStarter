@@ -4,14 +4,28 @@
 
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
-- 담당 AI: Claude (Claude Code) — 2026-10-30 10:03 사용자 "다음 작업 진행해주라 md에 있는거"로 Codex 단계 10 인계(HANDOFF_READY, 커밋 f32c0d3, 작업 트리 깨끗, 마지막 수정 10:00)를 인수. 이전 담당: ChatGPT Codex(단계 10).
-- 상태: HANDOFF_READY — 단계 11(bulk FFTDF 힘·응력, 0.9.2) 완료·커밋. 남은 장기 항목은 아래 단계 12 재개 지점. 실행 중 계산·미저장 코드 없음. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 담당 AI: ChatGPT Codex — 2026-10-30 사용자 "MD에 있는거 수행해줘"에 따라 단계 11 이후 인수. 시작 HEAD 2bec7b3, 작업 트리 깨끗함. 기존 완료 구현을 반복하지 않고 코드와 최신 인계를 기준으로 진행한다.
+- 상태: HANDOFF_READY — 단계 12 COMPLETED(2026-11-01 최종 기록). bulk 셀 최적화·FFT mesh 수렴 보조·주기계 GUI 통합 완료. 전체 장기 요구의 미완료 항목이 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 
-### 단계 12 재개 지점 (미착수)
+### 단계 12 완료 기록 (ChatGPT Codex, 2026-10-30 구현·검증 / 2026-11-01 정리)
+
+- 목적/완료 기준: 기존 FFTDF bulk 힘·응력을 사용한 원자/셀 동시 최적화, 명시적 에너지(E 또는 smearing F)·힘·응력 수렴 판정 및 반복 한도/실패 구분. 고정 정수 FFT mesh·scaled k점을 유지하고 모든 단계/최종 구조를 보존한다. FFT mesh별 E/F·힘·응력 차이를 비교하는 보조 기능과 GUI/CLI 설정을 제공한다.
+- 계획: (1) ASE 셀 필터/최적화 API와 응력 단위 검토, (2) PeriodicConfig·새 periodic optimizer·dispatch·CLI, (3) mesh 수렴 도구, (4) periodic_app 설정·결과 및 숨김 GUI 시험, (5) 독립 에너지 최소점/미분·실계산·실패/취소·회귀 검증, (6) 문서/CHANGELOG/Git 보존.
+- 주요 변경: periodic.py, engines/periodic.py, engines/periodic_optimizer.py(신규), engines/__init__.py, main.py, periodic_app.py, periodic_convergence.py(신규), dft_workflow.py/dft_worker.py, energy_analysis.py/periodic_plotting.py, 셀/mesh/GUI 검증 파일 및 scripts/, 관련 Markdown.
+- 완료: 셀 완화·FFT 검사·CLI/GUI·취소/최종 구조 비교 구현. Si 등방(7단계, F)/전단 full(10단계, E) 실제 수렴과 인근 체적 에너지 상승, 초기·최종 FFT21³/25³/29³ 검사 통과. 숨김 GUI6개 통과. 상세 방법 문서 작성.
+- 검증 완료: WSL 고유51개 + 숨김 GUI6개 통과. core_regression27개/65.286초, remaining_tests8개/162.337초, 공유 실행17개/29.430초(자동 mesh1개 중복), gui_final6개/26.300초. `outputs/cell_validation/`에 파일 로그와 반환 코드 보존(공유 실행17개는 도구 출력). 첫 밴드 회귀 묶음은 요약 없이 exit1로 종료했으나 로그 runner로 분리 재검사해 모두 exit0. 원인은 확정 못 했으며 허용오차를 완화하지 않았다.
+- 최종 Windows CLI 확인: `main.py --config examples/silicon_cell.json --no-show --output outputs/cell_validation/final_cli`, exit0. `20261030_202319_940271_g2izg_ts/`: version0.9.3, 7단계 수렴, 힘1.44886e-4 eV/Å·평균응력 잔차7.48862e-4 GPa. `settings.json=cell_optimize`, `final_settings.json=gradient`, `final/` 재검사, 루트 최적화 판정·궤적·전자구조·periodic.png 보존 확인. 그림은 저장 파일로 확인했고 GUI 창은 띄우지 않음.
+- 진행 중: 없음. Python 구문 컴파일·git diff --check 통과. 결과 데이터는 Git 제외이므로 별도로 보존한다. 최종 코드/문서 커밋 제목은 `Add bulk cell relaxation and FFT mesh convergence workflows`.
+- 미수행: 전체 장기 요구 중 IRC·quasi-RRHO·용매·삼중항/복소 안정성 및 항공우주 구체 연구 주제는 이후 항목으로 보존한다.
+- 다음 재개: 이 절을 우선한다. 새 최적화의 SCF 미수렴을 성공 처리하지 않으며, coarse FFT mesh의 수치 수렴을 물성 정확도로 설명하지 않는다.
+
+### 단계 13 재개 후보 (미착수, 다음 AI는 이 절 우선)
 
 - 사용자 응용 방향(PROJECT_STATE): HEA가 아니라 **DFT × 항공우주 물리**. 구체 주제는 사용자·지도교수 결정 대기. 제안된 1순위: 고온 기체·추진제의 온도별 열물성(Cp/H/S, NASA 7계수 다항식)과 TST 반응 속도, JANAF/NASA 기준 독립 검증 — 현재 엔진(경원소 분자, TS/NEB, 진동수·RRHO)과 가장 잘 맞음.
-- 코드 측 남은 항목: 주기계 셀 최적화(응력 사용, FFTDF bulk), FFT mesh 수렴 보조, IRC, quasi-RRHO·용매, 삼중항·복소 SCF 안정성, 주기계 GUI(periodic_app)에 fftdf/gradient 노출(숨김 모드 GUI 시험 필요).
-- 재개 시: PROJECT_STATE → 이 문서 → `git log --oneline | head -5` → 해당 모듈. 이미 통과한 회귀는 이유 없이 반복하지 않는다.
+- 코드 측 남은 항목: IRC, quasi-RRHO·용매/표준상태, 삼중항·복소 SCF 안정성. 주기계 셀 완화·FFT 검사·GUI 노출은 단계12 완료이므로 반복 구현하지 않는다.
+- 우선 후보 IRC: `engines/optimizer.py:optimize_molecule`의 geomeTRIC Engine 어댑터, `engines/frequencies.py:frequency_molecule`/`harmonic_analysis`, `test_constraints.py`의 NH₃ TS 검증을 읽는다. 설치 geomeTRIC `params.py`에 `irc`/`irc_direction` 인자가 존재함만 확인했으며 실제 동작·질량 가중 경로·양쪽 종료 판정은 아직 검증하지 않았다. 구현 전 ACTIVE_TASK에 별도 단계 목표·완료 기준을 적는다. 허수 모드1개 확인된 TS에서 양 방향 추적·최소점 최적화·연결 확인을 검증 후보로 삼고, 실행 완료를 반응 연결의 증명으로 처리하지 않는다.
+- 재개 시: PROJECT_STATE → 이 문서 → `git status --short`, `git log -5 --oneline` → 해당 모듈. `Get-Content outputs/cell_validation/core_regression/tests.json -Encoding UTF8`로 최근 검사 확인. 이미 통과한 회귀는 이유 없이 반복하지 않는다.
+- 현재 제한: bulk/FFTDF/외부압력0만 셀 완화, 원자 제약·최적화 재시작·포논 안정성·자동 k점/기저 수렴은 없음. 실험 조건/실패 기록은 docs/VALIDATION_KO.md 0.9.3에 있다.
 
 ### 단계 11: bulk FFTDF 힘·응력 API 통합 (Claude, 완료 — CHANGELOG 0.9.2)
 
@@ -168,6 +182,15 @@
 - 결정 필요: (a) Grimme D3(BJ)를 자체 구현 — 매개변수 표(C6 참조값, r0, r2r4)를 공개 데이터에서 가져와 에너지/좌표수 식을 직접 작성, 사용자의 "DFT를 직접 만든다" 목표에 부합, 독립 기준값은 simple-dftd3로 검증. (b) `simple-dftd3`/`dftd4` Python 패키지를 .venv-dft에 설치해 호출(빠르지만 외부 경계 추가). 어느 쪽이든 결과에 별도 에너지 성분 `dispersion`과 모델·매개변수 출처를 기록하고, 패키지 없이도 기본 기능은 동작해야 한다.
 - 영향 파일 예상: molecular.py(DFTConfig.dispersion 필드·검증), engines/pyscf_engine.py(성분 합산·출처), engines/native_scf.py(성분 표시만; SCF에는 영향 없음 — D3는 밀도 비의존), scf_control.signature(분산은 밀도에 영향 없으므로 서명에서 제외 검토), energy_analysis.compatibility(분산 모델 일치 검사), GUI/CLI, 테스트.
 - 이후 순서(인계 원문 유지): 힘(유한차분 검증) → 구조 최적화/제약/스캔 → Hessian/진동/ZPE → NEB → 주기계 응력/밴드/DOS.
+
+## 단계 12 중간 기록 (2026-10-30 당시 기록, 최종 결과는 위 완료 절)
+
+- `PeriodicConfig.cell_optimize`, ASE BFGS/FrechetCellFilter 기반 원자·셀 완화, 고정 FFT 정수 격자/상대 k점, E 또는 smearing F 목적함수, 힘·응력·에너지 개별 종료 기준 구현.
+- `periodic_convergence.py`: 고정 구조 mesh 3개 이상, 마지막 연속 두 구간의 E/F·힘·응력 차이 판정, JSON/CSV 및 개별 계산 보존. CLI 및 GUI 연결 작성 중.
+- 첫 Γ-only Si / FFT25³ / smearing 0 검증은 step 3 SCF 미수렴으로 명시적 중단. `outputs/cell_validation/first_si` 보존. 미수렴 힘을 최적화에 전달하지 않음.
+- smearing 0.1 Γ-only 시도는 지나친 체적 팽창 및 느린 SCF를 보임. 이를 물리적 Si 평형 결과로 해석하지 않음. 예제 kmesh 2³, conv_tol 1e-9로 변경하여 별도 검증 예정.
+- PowerShell `python -c` 문자열 인자 따옴표 소실/Store alias 실행 실패는 검증 harness 문제. 파일 스크립트 및 `.venv/Scripts/python.exe`, WSL `.venv-dft/bin/python` 사용.
+- 구현 초안이며 아래 후속 단계는 검증 전: 실제 셀 수렴/인근 체적 E/F 확인, mesh 실제 실행, 실패·취소·최대단계 회귀, 숨김 GUI, 문서와 버전 갱신.
 
 ## 작업 목적
 

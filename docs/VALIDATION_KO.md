@@ -1,4 +1,54 @@
-# DFT 검증 기록 · 2026-10-30
+# DFT 검증 기록 · 최근 정리 2026-11-01
+
+## 0.9.3: bulk 셀 완화·FFT mesh 수렴·주기계 GUI
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 12, ChatGPT Codex. 시작 HEAD `2bec7b3`. 환경/의존성 설치 변경 없음. WSL Python3.12.3 / PySCF2.14.0 / ASE3.29.0 / NumPy2.5.4. Windows GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`로 루트·Toplevel 모두 숨김; 화면 배치의 시각 검사는 하지 않았다.
+
+계산·시험 실행은 2026-10-30, 최종 저장 확인·완료 기록은 2026-11-01. 최종 Windows CLI(`main.py --config examples/silicon_cell.json --no-show`)도 exit0/7단계 수렴: `outputs/cell_validation/final_cli/20261030_202319_940271_g2izg_ts/`. version0.9.3, 최초 요청 설정·`final/` 독립 재계산·최종 구조·단계 기록·그림을 확인했다.
+
+**수치 방법.** PySCF FFTDF+동일 uniform XC mesh의 힘·응력과 ASE BFGS/FrechetCellFilter. 원자 및 셀 동시 완화, 외부 압력0. 고정 정수 FFT mesh와 상대 k점. smearing이면 F=E−TS, 없으면 E를 최소화한다. 최대 원자 힘0.02 eV/Å, 응력 잔차0.1 GPa, 단계 E/F 변화1e-5 eV/cell을 각각 검사하고 최종 구조를 다시 SCF 계산한다. 응력 잔차는 isotropic의 |tr(σ)/3|, full의 max|sym(σ)|이다. PySCF 2.14 응력 API는 운동에너지·겹침 적분 내부 유한차분(strain1e-5)을 포함한다. 힘은 해석적 원자 기울기이며 전체 응력이 순수 해석적이라는 이전 문구를 정정했다.
+
+**실제 셀 완화.** Si2, PBE/GTH-SZV-MOLOPT-SR/GTH-PBE, 2×2×2 k점, FFT25³, precision1e-8, SCF1e-9 Ha, 1스레드. 시작 격자 a=5.43 Å의 원시 셀에서 두 번째 원자 x+0.08 Å. full 사례는 추가 대칭 xy strain0.03. 단계 최대40.
+
+| 방식 / 목적함수 | 단계 | 최종 체적 [Å³] | 최대 힘 [eV/Å] | 응력 잔차 [GPa] | 최종 E/F [eV/cell] |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| isotropic / F (smearing0.1 eV) | 7 | 45.808030 | 1.44886e-4 | 7.48862e-4 | -210.5274642378 |
+| full / E (smearing0) | 10 | 45.806122 | 2.66441e-4 | 8.71519e-3 | -210.5274605874 |
+
+최종 독립 SCF와 마지막 단계 목적함수 차이는 두 사례 모두 출력 정밀도에서0. 최종 구조의 모든 길이(좌표와 셀)를 0.995/1.005배로 변형한 독립 단일점에서 목적함수는 각각 isotropic +0.00260741/+0.00252960 eV, full +0.00262046/+0.00251840 eV 상승했다. 이 비교는 샘플링한 체적 방향의 국소 점검이며 모든 변위의 최소점/포논 안정성 증명은 아니다.
+
+원시 결과: `outputs/cell_validation/si_k2/`, `si_full_shear/`의 `validation.json`, `relax/steps/`, `volume_*`. 초기 개발 실행은 버전 필드를 올리기 전이므로 내부 엔진 version이0.9.2이고 최종 재계산을 루트에 저장한 이전 출력 형식이다. 최종 코드는 `final/`에서 재검사한 뒤 루트에 전체 판정을 쓰며 요청 `settings.json`을 보존한다. 최종 저장 방식의 성공·미수렴·취소는 아래 자동 검사와 `final_cli/` 실제 CLI로 확인한다.
+
+**FFT mesh 검사.** 같은 Si 입력 및 isotropic 최종 구조에서 21³→25³→29³. 마지막 두 구간의 모든 차이가 기준(1 meV/atom, 0.01 eV/Å, 0.1 GPa)을 통과했다. 마지막29³를 선택으로 기록하며 원래 입력 mesh를 바꾸지 않는다.
+
+| 구조 / 구간 | ΔF [eV/atom] | 최대 힘 차이 [eV/Å] | 최대 응력 차이 [GPa] |
+| --- | ---: | ---: | ---: |
+| 입력 21³→25³ | 5.62323e-6 | 3.67854e-5 | 5.45175e-4 |
+| 입력 25³→29³ | 1.43959e-6 | 8.26827e-6 | 9.05713e-5 |
+| 최종 21³→25³ | 3.35678e-6 | 1.97512e-4 | 1.06727e-3 |
+| 최종 25³→29³ | 6.61334e-7 | 5.62373e-5 | 2.77383e-4 |
+
+원시 JSON/CSV와 개별 실행: `outputs/cell_validation/mesh_initial/20261030_201133_825216_psp1okj6/`, `mesh_final/20261030_201518_785695_1jh4k0ut/`. 수렴검사 대상은 고정 구조이며 k점·기저 수렴 및 더 촘촘한 전체 mesh 범위의 보증은 아니다.
+
+**실패와 비교 사례.** 첫 Γ/FFT25³/smearing0 실행은 step3 SCF 미수렴으로 중단됐고 힘을 최적화에 넘기지 않았다(`first_si/`). Γ/smearing0.1은21단계로 수렴했지만 체적 약131.88 Å³, 큰 편차/전단 응력이 남았다(`smeared_si/`); 연구용 Si 평형 자료로 사용하지 않는다. 이 결과와 2³ k점 결과의 큰 차이는 k점 수렴을 FFT mesh 수렴과 분리해야 하는 이유다. 예제의 최소 기저와 낮은 k점 수는 구현 검증용이다.
+
+**자동 검사.** WSL 고유51개, Windows 숨김 GUI6개 통과.
+
+- 핵심27개: `test_periodic_cell`, `test_periodic_convergence`, `test_periodic_gradient`, `test_periodic`. 독립 탄성 모형의 전단/체적/원자 최소점, 자동 mesh 최초1회 결정, F 선택, 단계 한도, 최종 재계산 불일치·취소, 실제 작업자 SCF 실패·단계 사이 취소, CLI 옵션, 힘·응력 에너지 유한차분, 기존 slab/스핀/후보 검사. `outputs/cell_validation/core_regression/tests.log` 및 `tests.json`, 65.286초.
+- 밴드/DOS·에너지 분석8개: `test_periodic_analysis`, `test_energy_analysis`. 완화 후 최종 셀이 다른 결과의 에너지 합산 차단 포함. `remaining_tests/tests.log` 및 `tests.json`, 162.337초.
+- 공유 실행 회귀17개(위 자동 mesh1개 중복): 분자 입력8, 자체/외부 체크포인트2, 분자 CLI 미수렴1, 수소 저장5, 자동 mesh1. 29.430초, exit0. 물리 허용오차를 변경하지 않았다.
+- 최종 GUI6개: 설정·밴드/DOS 필드 보존, FFT 보고 표시, 실제 셀 한도 종료, 작업자 시작 전 취소, 기존 GDF 실계산·그림. `gui_final/tests.log` 및 `tests.json`, 26.300초. 별도 창이 나타나지 않도록 숨김 모드만 사용.
+- 첫 회귀 묶음은 Si 밴드 시험에서 요약 없이 exit1로 종료되고 WSL Python 프로세스가 사라졌다. 원인은 확정하지 못했으며 통과로 세지 않았다. 파일 로그/실제 반환 코드를 남기는 runner로 핵심27개와 분석8개를 분리해 재검증해 모두 exit0. 외부 ASE/NumPy deprecation 및 extxyz metadata 경고는 남아 있다.
+
+재현(레이블은 기존 출력과 겹치지 않게 지정):
+
+```powershell
+wsl --exec .venv-dft/bin/python scripts/validate_cell.py --label new_isotropic --check-volumes
+wsl --exec .venv-dft/bin/python scripts/validate_cell.py --label new_full --mode full --shear .03 --smearing 0 --check-volumes
+wsl --exec .venv-dft/bin/python scripts/run_validation_tests.py --label new_core test_periodic_cell test_periodic_convergence test_periodic_gradient test_periodic
+```
+
+사용법/제한: [PERIODIC_CELL_KO.md](PERIODIC_CELL_KO.md). slab/GDF 힘·셀 완화, 외부 압력, 제약·최적화 재시작, 포논 안정성·자동 k점/기저 수렴은 미지원. 장기 요청의 IRC/quasi-RRHO/용매/외부 SCF 안정성은 이번 단계 범위 밖이다.
 
 ## 0.9.2: bulk FFTDF 힘·응력 제품 API
 

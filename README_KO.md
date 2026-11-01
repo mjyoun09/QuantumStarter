@@ -1,4 +1,4 @@
-# QuantumStarter 0.8 · 자체/외부 분자 DFT와 표면 탐색
+# QuantumStarter 0.9.3 · 자체/외부 분자 DFT와 주기계 계산
 
 **자체 SCF 엔진을 추가했습니다.** `계산 방법 → 계산 엔진 → native` 또는 **자체 DFT · 물 (LDA 검증)** 예제를 선택하세요.
 밀도·Fock/XC 행렬·DIIS·SCF·에너지 성분은 직접 구현하고, 기저/적분/격자는 PySCF, XC 함수는 Libxc를 사용합니다.
@@ -6,6 +6,8 @@
 중단/체크포인트/재시작, 실시간 SCF 그래프, 구조 미리보기·거리/각도, 수치 프리셋도 추가했습니다.
 **실행 기록**에서 조건별 결과 비교와 [반응·흡착에너지 분석](docs/ENERGY_ANALYSIS_KO.md)을 사용할 수 있습니다.
 첨부 프롬프트 전체의 후속 연구 기능이 끝난 것은 아닙니다. [미구현 항목 추적](docs/REQUIREMENTS_STATUS_KO.md)을 확인하세요.
+
+**bulk 셀 완화와 FFT mesh 수렴 검사**를 추가했습니다. 고체·표면 화면의 **Si 셀 완화** 예제에서 시작할 수 있습니다. 원자 힘·응력 표시와 계산 중단을 지원합니다. [설정·수치 정의·결과 안내](docs/PERIODIC_CELL_KO.md).
 
 **분자 계산을 H~Og, 118개 원소로 확장했습니다.** Dyall-v2z/v3z, 스칼라 X2C, 유한 핵 모형을 추가했습니다.
 상단 **원소별 지원표**에서 사용 가능한 기저와 주기계 지원을 확인하세요. [원소 지원 안내](docs/ELEMENTS_KO.md).
@@ -87,7 +89,7 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 - **자체 엔진 `scf_solver=newton`**: 궤도 회전 신뢰영역 Newton과 전처리 Steihaug CG. 0.9.1부터 자체 J/K/XC 선형응답과 Libxc 2차 미분으로 해석적 Hessian-벡터 곱을 계산합니다. 점유는 궤도 번호로 유지하며, 실수 내부 불안정 방향을 따라 더 낮은 해를 찾습니다(안정성 허용오차 −1e-4 Ha, 전역 바닥상태 보장 아님). aufbau 위반이면 경고합니다. 기록된 Cr·Co 원자(PBE/STO-3G, grid3, 2S=6/3) 미수렴이 해결됐으며 다른 조건의 수렴은 별도 확인해야 합니다. 물의 같은 궤도에서 응답 계산은 이전 FD 대비 약3.74배 빠릅니다(전체 SCF 배속 아님).
 - **주기계 DOS**: 모든 주기계 결과에 k 메쉬 고유값의 가우시안 확장 DOS(`dos_sigma_ev`, 기본 0.1 eV, states/eV/셀)와 HOMO/LUMO·메쉬 갭이 저장됩니다(`dos.csv`).
 - **주기계 밴드**: `band_path`(`auto` 또는 `GXWKGL` 같은 고대칭점; CLI `--band-path auto --band-points 60`). 수렴한 밀도로 경로 위 고유값을 비자기일관 계산하고 VBM/CBM·간접/직접 갭을 기록합니다(`bands.csv`). 메쉬 k점에서 밴드값과 SCF 고유값의 차이(Si에서 ~1 meV)를 `mesh_consistency_max_ev`로 남깁니다. graphene slab의 2D GMKG 경로도 실계산 검증했습니다(kz=0, 메쉬 일관성 차3.8e-9 eV).
-- **주기계 힘·응력(0.9.2, bulk 전용)**: `integral_scheme=fftdf`(CLI `--integral-scheme fftdf`, 선택 `--fft-mesh NX NY NZ`)와 `calculation=gradient`(CLI `--calculation gradient`). Coulomb과 XC를 같은 균일 FFT 격자에서 계산하며 PySCF 해석적 기울기·응력을 씁니다. 결과 `gradient`: 힘(eV/Å), 응력(Ha/bohr³·GPa, σ = (1/V)∂X/∂ε), 압력(−tr σ/3, GPa), 미분 대상(smearing이면 자유에너지 F = E − TS). FFTDF 에너지는 GDF 에너지와 다르므로 반응 분석에서 섞지 않습니다. slab은 GDF만 가능하므로 힘·응력이 없습니다. FFT mesh·기저·k점 수렴은 직접 확인하세요.
+- **주기계 힘·응력(bulk 전용)**: `integral_scheme=fftdf`(CLI `--integral-scheme fftdf`, 선택 `--fft-mesh NX NY NZ`)와 `calculation=gradient`. Coulomb과 XC를 같은 균일 FFT 격자에서 계산하며 PySCF 해석적 원자 기울기와 응력 API(적분 일부는 내부 유한차분)를 씁니다. 결과 `gradient`: 힘(eV/Å), 응력(Ha/bohr³·GPa, σ = (1/V)∂X/∂ε), 압력(−tr σ/3, GPa), 미분 대상(smearing이면 자유에너지 F = E − TS). FFTDF/GDF 에너지를 반응 분석에서 섞지 않습니다. slab은 GDF만 가능하므로 힘·응력이 없습니다. 0.9.3의 `cell_optimize`와 FFT 수렴 도구는 [별도 안내](docs/PERIODIC_CELL_KO.md)를 참조하세요.
 
 ## 자체 SCF 안정성 분석과 수렴 개선 (0.8.6)
 

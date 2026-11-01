@@ -17,5 +17,8 @@ def calculate(config, directory, progress=print):
             return frequency_molecule(config, directory, progress)
         from .pyscf_engine import calculate_molecule
         return calculate_molecule(config, directory, progress)
+    if config.calculation == 'cell_optimize':
+        from .periodic_optimizer import optimize_periodic
+        return optimize_periodic(config, directory, progress)
     from .periodic import calculate_periodic
     return calculate_periodic(config, directory, progress)

@@ -67,6 +67,18 @@ class EnergyAnalysisTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '원소 H'):
             reaction_energy([(2, water_h), (-2, self.h2), (-1, terms[2][1])])
 
+    def test_periodic_relaxed_energy_uses_final_lattice(self):
+        from periodic import load_calculation_config
+        cfg = load_calculation_config('examples/silicon_cell.json')
+        final = replace(cfg, lattice=tuple(tuple(x * 1.01 for x in row) for row in cfg.lattice))
+        extra = dict(engine='pyscf-pbc', energy_normalization='per_input_cell', fft_mesh=list(cfg.fft_mesh))
+        initial = self.fixture('periodic_initial', cfg, -7., **extra)
+        relaxed = self.fixture('periodic_relaxed', cfg, -7.1, final_geometry_config=final.to_dict(), **extra)
+        with self.assertRaisesRegex(ValueError, 'lattice'):
+            reaction_energy([(1, relaxed), (-1, initial)])
+        matched = self.fixture('periodic_final', final, -7.05, **extra)
+        self.assertAlmostEqual(reaction_energy([(1, relaxed), (-1, matched)])['energy_hartree'], -.05)
+
 
 if __name__ == '__main__':
     unittest.main()

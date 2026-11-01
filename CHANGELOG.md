@@ -3,6 +3,14 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 12 (bulk 셀 완화·FFT 수렴·GUI) 완료 2026-11-01 · 0.9.3 · ChatGPT Codex
+
+- `cell_optimize`: ASE BFGS/FrechetCellFilter + PySCF FFTDF bulk 힘·응력. 원자/셀 동시 완화(full/isotropic), 고정 FFT 정수 mesh·상대 k점, E 또는 smearing F 목적함수. 힘·응력·ΔE/F 별도 수렴 기준과 최종 독립 SCF 재검사. 중간 SCF 실패/취소/단계 한도를 성공으로 표시하지 않는다. 요청 설정·단계 이력·최종 구조 보존, 최종 단일점은 `final/`에서 계산한 뒤 루트에 전체 판정을 쓴다.
+- FFT mesh 수렴 도구: 고정 구조에서 마지막 연속 두 구간의 원자당 E/F·힘·응력 차이를 판정, JSON/CSV·개별 실행 보존. GUI/CLI 셀·FFT 설정, 힘·응력 표시, 중단 요청. GUI 설정 저장 시 밴드/DOS 등 필드 보존, 그림·에너지 호환성 검사에 최종 셀 사용.
+- 주요 파일: periodic.py, engines/periodic.py, 신규 engines/periodic_optimizer.py·periodic_convergence.py, engines/__init__.py, dft_workflow.py/dft_worker.py, main.py, periodic_app.py/periodic_plotting.py, energy_analysis.py, 신규 examples/silicon_cell.json·test_periodic_cell.py·test_periodic_convergence.py·scripts/validate_cell.py·scripts/run_validation_tests.py, GUI/분석 검사, 상태/검증/사용법 문서.
+- 검증(2026-10-30 실행): WSL 고유51개 + Windows 숨김 GUI6개 통과. Si 2³ k점/FFT25³ 등방 F7단계·전단 full E10단계 수렴, 주변 체적 에너지 상승. 초기·최종 FFT21³→25³→29³ 차이 기준 통과. 최종 Windows CLI exit0·7단계·결과/그림 저장 확인. 첫 회귀 묶음의 예기치 않은 종료는 원인 미확정이며, 파일 로그를 남긴 분리 재검사는 모두 exit0. 수치 조건·실패 사례는 docs/VALIDATION_KO.md.
+- 한계: bulk/FFTDF/외부압력0만 지원. slab 셀 완화·제약·최적화 재시작·포논 안정성·자동 k점/기저 수렴은 없음. 최소 기저 Si는 구현 검증용. IRC·quasi-RRHO·용매·외부 안정성 등 장기 요구는 미완료로 ACTIVE_TASK에 인계.
+
 ## QS-20261029-NATIVE-DFT · 단계 11 (bulk FFTDF 힘·응력) 완료 2026-10-30 · 0.9.2 · Claude
 
 - 주기계 `integral_scheme`(gdf 기본/fftdf), `fft_mesh`, `calculation`(single_point/gradient). FFTDF는 bulk 전용, 힘·응력은 FFTDF 전용으로 설정 단계에서 검사. engines/periodic.py: FFTDF 분기(density_fit 생략, UniformGrids 같은 mesh), `periodic_gradient`(힘 eV/Å, 응력 Ha/bohr³·GPa, 압력, 미분 대상 E/F, mesh·부피 기록), 결과 integral_scheme·fft_mesh·xc_grid. energy_analysis는 적분 방식·mesh가 다른 주기계 에너지를 섞지 않는다. CLI --integral-scheme, --fft-mesh, 주기계 --calculation gradient.

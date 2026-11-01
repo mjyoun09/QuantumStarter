@@ -5,7 +5,7 @@ from matplotlib.figure import Figure
 
 
 def create_periodic_figure(summary):
-    config = summary['config']
+    config = summary.get('final_geometry_config', summary['config'])
     figure = Figure(figsize=(10, 5), layout='constrained')
     figure.get_layout_engine().set(wspace=.18)
     ax = figure.add_subplot(121, projection='3d')

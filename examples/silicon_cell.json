@@ -1,0 +1,23 @@
+{
+  "system": "periodic",
+  "atoms": [
+    {"element": "Si", "position": [0.0, 0.0, 0.0]},
+    {"element": "Si", "position": [1.4375, 1.3575, 1.3575]}
+  ],
+  "lattice": [[0.0, 2.715, 2.715], [2.715, 0.0, 2.715], [2.715, 2.715, 0.0]],
+  "boundary": "bulk",
+  "basis": "gth-szv-molopt-sr",
+  "kmesh": [2, 2, 2],
+  "integral_scheme": "fftdf",
+  "fft_mesh": [25, 25, 25],
+  "calculation": "cell_optimize",
+  "cell_relaxation": "isotropic",
+  "cell_max_steps": 40,
+  "cell_force_tol": 0.02,
+  "cell_stress_tol_gpa": 0.1,
+  "cell_energy_tol_ev": 0.00001,
+  "smearing_ev": 0.1,
+  "precision": 1e-8,
+  "conv_tol": 1e-9,
+  "threads": 1
+}

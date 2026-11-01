@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from app import AppCanvas
-from dft_workflow import ROOT, _wsl_path, process_options, run_calculation
+from dft_workflow import ROOT, RunControl, _wsl_path, process_options, run_calculation
 from molecular import save_dft_config
 from periodic import PERIODIC_BASES, PeriodicAtom, PeriodicConfig, load_calculation_config, read_periodic_structure
 from periodic_plotting import create_periodic_figure
@@ -24,7 +24,9 @@ class PeriodicApp:
         self.messages = queue.Queue()
         self.canvas = None
         self.screen_path = None
-        root.title('QuantumStarter 0.7 | 고체·표면 · 빠른 탐색 + DFT 검증')
+        self.control = None
+        self.summary, self.current_dir = None, None
+        root.title('QuantumStarter 0.9.3 | 고체·표면 · DFT / 힘 / 셀 최적화')
         root.geometry('1320x900')
         root.minsize(1100, 760)
         self.status = tk.StringVar(value='주기계 단일점 PBE · 격자와 k점을 확인하세요.')
@@ -41,7 +43,9 @@ class PeriodicApp:
         sidebar.pack(side='left', fill='y', padx=(0, 12))
         self.run_button = ttk.Button(sidebar, text='주기적 DFT 계산 시작', command=self.start_calculation)
         self.run_button.pack(side='bottom', fill='x', pady=10)
-        ttk.Label(sidebar, text='PBE / GTH-PBE · 중성 셀 · 고정 구조 단일점\nslab: xy 주기, z 비주기 · SOC/분산/힘/응력 미포함', wraplength=395).pack(side='bottom', anchor='w')
+        self.cancel_button = ttk.Button(sidebar, text='계산 중단 요청', command=self.cancel, state='disabled')
+        self.cancel_button.pack(side='bottom', fill='x')
+        ttk.Label(sidebar, text='PBE / GTH-PBE · 중성 셀 · FFTDF bulk: 힘·응력·셀 완화\nslab: GDF 단일점 · SOC/분산 미포함', wraplength=395).pack(side='bottom', anchor='w')
         scroll_frame = ttk.Frame(sidebar)
         scroll_frame.pack(fill='both', expand=True)
         self.settings_canvas = tk.Canvas(scroll_frame, width=420, highlightthickness=0)
@@ -61,8 +65,8 @@ class PeriodicApp:
             ttk.Button(actions, text=text, command=command).pack(side='left', padx=2)
         examples = ttk.Frame(left)
         examples.pack(fill='x', pady=7)
-        for name in ('silicon_bulk', 'pt111_small'):
-            ttk.Button(examples, text='Si 벌크' if name == 'silicon_bulk' else 'Pt(111) 소형 예제',
+        for name, label in (('silicon_bulk', 'Si 벌크'), ('pt111_small', 'Pt(111)'), ('silicon_cell', 'Si 셀 완화')):
+            ttk.Button(examples, text=label,
                        command=lambda n=name: self.apply_config(load_calculation_config(ROOT / 'examples' / (n + '.json')))).pack(side='left', padx=2)
         ttk.Label(left, text='원소 x y z · Cartesian Å').pack(anchor='w')
         self.coordinates = scrolledtext.ScrolledText(left, height=8, width=44, wrap='none')
@@ -74,19 +78,35 @@ class PeriodicApp:
         fields.pack(fill='x')
         self.vars = {}
         definitions = [('boundary', '경계', 'bulk', ['bulk', 'slab']),
+                       ('calculation', '계산 종류', 'single_point', ['single_point', 'gradient', 'cell_optimize']),
+                       ('integral_scheme', '적분 방식', 'gdf', ['gdf', 'fftdf']),
+                       ('fft_mesh', 'FFT mesh (빈칸=자동)', '', None),
                        ('basis', '기저', PERIODIC_BASES[0], PERIODIC_BASES),
                        ('kmesh', 'k점 x y z', '2 2 2', None), ('spin', '셀당 스핀 2S', '0', None),
                        ('smearing_ev', 'Smearing [eV]', '.1', None), ('grid_level', '적분 격자', '3', None),
                        ('conv_tol', 'SCF 기준 [Ha]', '1e-8', None), ('precision', '적분 정밀도', '1e-7', None),
                        ('max_cycle', '최대 반복', '100', None), ('threads', 'CPU 스레드', '4', None),
-                       ('memory_mb', '메모리 목표 [MB]', '4000', None)]
+                       ('memory_mb', '메모리 목표 [MB]', '4000', None),
+                       ('cell_relaxation', '셀 완화 범위', 'full', ['full', 'isotropic']),
+                       ('cell_max_steps', '셀 최대 단계', '50', None),
+                       ('cell_force_tol', '셀 원자 힘 [eV/Å]', '.02', None),
+                       ('cell_stress_tol_gpa', '셀 응력 잔차 [GPa]', '.1', None),
+                       ('cell_energy_tol_ev', '셀 ΔE/ΔF [eV]', '1e-5', None),
+                       ('band_path', '밴드 경로 (빈칸=생략)', '', None),
+                       ('band_points', '밴드 점 수', '60', None)]
         for i, (key, label, default, choices) in enumerate(definitions):
             self.vars[key] = tk.StringVar(value=default)
             ttk.Label(fields, text=label).grid(row=i, column=0, sticky='w', pady=2)
             widget = (ttk.Combobox(fields, textvariable=self.vars[key], values=choices, state='readonly', width=24)
                       if choices else ttk.Entry(fields, textvariable=self.vars[key], width=26))
             widget.grid(row=i, column=1, sticky='ew', pady=2)
-        self.result = scrolledtext.ScrolledText(right, height=7, wrap='word')
+        ttk.Label(left, text='FFT 수렴 검사 mesh (세미콜론으로 구분)').pack(anchor='w', pady=(10, 0))
+        self.mesh_sequence = tk.StringVar(value='21 21 21;25 25 25;29 29 29')
+        ttk.Entry(left, textvariable=self.mesh_sequence).pack(fill='x')
+        ttk.Label(left, text='고정 구조 · 마지막 두 구간 ΔE/F ≤ 1 meV/atom,\nΔ힘 ≤ 0.01 eV/Å, Δ응력 ≤ 0.1 GPa', wraplength=395).pack(anchor='w')
+        self.mesh_button = ttk.Button(left, text='FFT mesh 수렴 확인', command=self.start_mesh_check)
+        self.mesh_button.pack(fill='x', pady=5)
+        self.result = scrolledtext.ScrolledText(right, height=10, wrap='word')
         self.result.pack(fill='x')
         self.result.insert('end', '구조와 격자·k점을 확인한 뒤 계산을 시작하세요.\nSi / Pt 소형 예제는 작동 확인용으로 수치 설정을 낮춘 예시입니다.\n정량 비교에는 기저·k점·진공·슬래브 두께 수렴이 필요합니다.')
         self.chart = ttk.Frame(right)
@@ -126,21 +146,23 @@ class PeriodicApp:
             return
         if not isinstance(config, PeriodicConfig):
             raise ValueError('주기계 JSON 설정을 선택하세요.')
+        self.base_config = config
         for widget, text in [(self.coordinates, '\n'.join(a.element + ' ' + ' '.join(f'{x:.12g}' for x in a.position) for a in config.atoms)),
                              (self.lattice, '\n'.join(' '.join(f'{x:.12g}' for x in row) for row in config.lattice))]:
             widget.delete('1.0', 'end')
             widget.insert('end', text)
         for key, variable in self.vars.items():
             value = getattr(config, key)
-            variable.set(' '.join(map(str, value)) if key == 'kmesh' else str(value))
+            variable.set(' '.join(map(str, value)) if key in ('kmesh', 'fft_mesh') else str(value))
         self._plot(dict(config=config.to_dict(), formula=config.formula, status='Input structure'))
 
     def numeric_settings(self):
         values = {key: variable.get().strip() for key, variable in self.vars.items()}
         values['kmesh'] = tuple(int(x) for x in values['kmesh'].split())
-        for key in ('spin', 'grid_level', 'max_cycle', 'threads', 'memory_mb'):
+        values['fft_mesh'] = tuple(int(x) for x in values['fft_mesh'].split())
+        for key in ('spin', 'grid_level', 'max_cycle', 'threads', 'memory_mb', 'cell_max_steps', 'band_points'):
             values[key] = int(values[key])
-        for key in ('smearing_ev', 'conv_tol', 'precision'):
+        for key in ('smearing_ev', 'conv_tol', 'precision', 'cell_force_tol', 'cell_stress_tol_gpa', 'cell_energy_tol_ev'):
             values[key] = float(values[key])
         return values
 
@@ -151,7 +173,7 @@ class PeriodicApp:
                 element, *coords = line.split()
                 atoms.append(PeriodicAtom(element, tuple(float(x) for x in coords)))
         lattice = tuple(tuple(float(x) for x in row.split()) for row in self.lattice.get('1.0', 'end').splitlines() if row.strip())
-        return PeriodicConfig(atoms=tuple(atoms), lattice=lattice, **self.numeric_settings())
+        return replace(self.base_config, atoms=tuple(atoms), lattice=lattice, **self.numeric_settings())
 
     def import_structure(self):
         if self.busy: return
@@ -174,22 +196,46 @@ class PeriodicApp:
             if path: save_dft_config(config, path)
         except Exception as exc: messagebox.showerror('설정 오류', str(exc), parent=self.root)
 
-    def _launch(self, operation):
+    def _launch(self, operation, control=None):
         if self.busy: return
         self.busy = True
+        self.control = control
+        self.cancel_button.state(['!disabled'] if control is not None else ['disabled'])
         self.status.set('계산 중 · 실행 로그에서 진행 상황을 확인하세요.')
-        for button in (self.run_button, self.screen_button, self.verify_button): button.state(['disabled'])
+        for button in (self.run_button, self.screen_button, self.verify_button, self.mesh_button): button.state(['disabled'])
         def worker():
             try: self.messages.put(('done', operation()))
             except Exception as exc: self.messages.put(('error', str(exc)))
         threading.Thread(target=worker, daemon=True).start()
 
     def start_calculation(self):
+        if self.busy: return
         try: config = self.read_config()
         except Exception as exc:
             messagebox.showerror('입력 오류', str(exc), parent=self.root)
             return
-        self._launch(lambda: ('dft', run_calculation(config, progress=lambda msg: self.messages.put(('log', msg)))))
+        control = RunControl()
+        self._launch(lambda: ('dft', run_calculation(config, progress=lambda msg: self.messages.put(('log', msg)),
+                                                  control=control)), control)
+
+    def start_mesh_check(self):
+        if self.busy: return
+        from periodic_convergence import parse_meshes, run_mesh_convergence, validate_mesh_request
+        try:
+            config, meshes = self.read_config(), parse_meshes(self.mesh_sequence.get())
+            validate_mesh_request(config, meshes, (.001, .01, .1))
+        except Exception as exc:
+            messagebox.showerror('입력 오류', str(exc), parent=self.root)
+            return
+        control = RunControl()
+        self._launch(lambda: ('mesh', run_mesh_convergence(config, meshes,
+                     progress=lambda msg: self.messages.put(('log', msg)), control=control)), control)
+
+    def cancel(self):
+        if self.control is not None:
+            self.control.cancel()
+            self.cancel_button.state(['disabled'])
+            self.status.set('중단 요청 · 현재 SCF/힘 계산의 안전한 경계에서 종료합니다.')
 
     def start_screen(self):
         from surface_workflow import generate_candidates
@@ -255,6 +301,8 @@ class PeriodicApp:
             return
         try:
             settings = self.numeric_settings()
+            if settings['integral_scheme'] != 'gdf' or settings['calculation'] != 'single_point':
+                raise ValueError('표면 검증에는 주기계 설정의 gdf / single_point를 선택하세요.')
             # A surface job always uses 2D boundaries; preserve in-plane k points.
             settings.update(boundary='slab', kmesh=(*settings['kmesh'][:2], 1))
             settings.pop('spin')  # template parity minimum; recorded per candidate, no ground-state claim
@@ -283,7 +331,9 @@ class PeriodicApp:
                 self.status.set(value)
                 continue
             self.busy = False
-            for button in (self.run_button, self.screen_button, self.verify_button): button.state(['!disabled'])
+            self.control = None
+            self.cancel_button.state(['disabled'])
+            for button in (self.run_button, self.screen_button, self.verify_button, self.mesh_button): button.state(['!disabled'])
             if kind == 'error':
                 self.status.set('실행 실패 · 로그 확인')
                 self.log.insert('end', value + '\n')
@@ -292,13 +342,42 @@ class PeriodicApp:
                 task, data = value
                 if task == 'dft':
                     summary, directory = data
+                    self.summary, self.current_dir = summary, directory
                     self.result.delete('1.0', 'end')
-                    self.result.insert('end', f"{summary['formula']} · {summary['status']}\nE = {summary['total_energy_ev']:.9f} eV / cell\n"
-                                       f"F = {summary['free_energy_ev']:.9f} eV / cell\n(E+F)/2 = {summary['extrapolated_energy_ev']:.9f} eV / cell\n"
-                                       + '\n'.join(summary['warnings']) + f'\n저장: {directory}')
+                    lines = [f"{summary['formula']} · {summary['status']}"]
+                    if 'total_energy_ev' in summary:
+                        lines += [f"E = {summary['total_energy_ev']:.9f} eV / cell",
+                                  f"F = {summary['free_energy_ev']:.9f} eV / cell",
+                                  f"(E+F)/2 = {summary['extrapolated_energy_ev']:.9f} eV / cell"]
+                    if summary.get('gradient'):
+                        gradient = summary['gradient']
+                        lines += [f"최대 원자 힘 = {gradient['max_atomic_force_ev_per_angstrom']:.6g} eV/Å",
+                                  f"압력 = {gradient['pressure_gpa']:.6g} GPa", '응력 [GPa]:']
+                        lines += ['  '.join(f'{x: .5g}' for x in row) for row in gradient['stress_gpa']]
+                    if summary.get('cell_optimization'):
+                        block = summary['cell_optimization']
+                        lines += [f"셀 완화: {block['mode']} · {block['steps']}단계 · {block['objective']}",
+                                  f"수렴 기준 충족: {block['final_criteria_met']}"]
+                    lines += summary.get('warnings', []) + [f'저장: {directory}']
+                    self.result.insert('end', '\n'.join(lines))
                     self._plot(summary)
                     self.canvas.figure.savefig(directory / 'periodic.png', dpi=140)
                     self.status.set(f"{summary['status']} · {directory}")
+                elif task == 'mesh':
+                    report, directory = data
+                    self.summary, self.current_dir = report, directory
+                    lines = [f"FFT mesh 수렴 확인: {report['status']} · 비교량 {report['objective']}",
+                             'mesh | ΔE/F [eV/atom] | Δ힘 [eV/Å] | Δ응력 [GPa] | 통과']
+                    for row in report['rows']:
+                        changes = ' | '.join(f'{row[key]:.4g}' if key in row else '—' for key in
+                                            ('delta_energy_ev_per_atom', 'max_force_difference_ev_per_angstrom',
+                                             'max_stress_difference_gpa'))
+                        lines.append(f"{row['mesh']} | {changes} | {row['passed']}")
+                    lines += [f"선택 mesh: {report['selected_mesh']}",
+                              '입력 구조에서의 검사입니다. 셀 완화 후 최종 구조와 k점 수렴을 별도로 확인하세요.', f'저장: {directory}']
+                    self.result.delete('1.0', 'end')
+                    self.result.insert('end', '\n'.join(lines))
+                    self.status.set(f"FFT 검사 {report['status']} · {directory}")
                 elif task == 'screen':
                     self._show_screen(data)
                     self.status.set(f'탐색 종료 · 수렴/미수렴 상태와 선택 후보를 확인하세요. {data}')

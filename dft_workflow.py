@@ -90,8 +90,8 @@ def run_calculation(config, output_root=None, backend='auto', progress=lambda me
     save_dft_config(config, directory / 'settings.json')
     lines = []
     try:
-        if (control is not None or restart_from is not None) and config.system != 'molecule':
-            raise ValueError('중단/SCF 재시작은 현재 분자 엔진에서 지원합니다.')
+        if restart_from is not None and config.system != 'molecule':
+            raise ValueError('SCF 체크포인트 재시작은 현재 분자 엔진에서 지원합니다.')
         if restart_from is not None:
             source = Path(restart_from)
             if source.is_dir():
