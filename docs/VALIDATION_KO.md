@@ -1,5 +1,50 @@
 # DFT 검증 기록 · 최근 정리 2026-11-01
 
+## 0.9.4: 분자 IRC와 열역학 독립 교차검증
+
+작업 ID: QS-20261029-NATIVE-DFT 단계 13, Claude. 시작 HEAD `2dd6c8f`. 환경/의존성 설치 변경 없음. WSL Python 3.12.3 / PySCF 2.14.0 / geomeTRIC 1.1.1 / ASE 3.29.0 / NumPy 2.5.4, Windows Python 3.13.5 / ASE 3.29.0. 실행 2026-11-01. GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`(창 표시 없음).
+
+**수치 방법.** `calculation=irc`: geomeTRIC 1.1.1 내장 IRC(Gonzalez–Schlegel 1990 질량가중 2단계, `irc_direction=both`, 끝 근처 최소화 전환). 시작 Hessian은 우리 해석적 힘의 유한차분(6N회). 경로는 geomeTRIC이 받아들인 스텝만(거부 스텝 제외, optimize.py:981 확인). 경로 길이 s는 연속 구조를 질량가중 Kabsch로 겹친 뒤의 거리 합 [bohr·amu^½], 질량은 geomeTRIC이 경로를 정의할 때 쓴 PeriodicTable(표준 원자량). 끝점 판정은 원자별 기울기 노름의 RMS·최대(geomeTRIC calcGradNorm과 같은 정의)를 `opt_convergence` 기준과 비교한다.
+
+**발견 1 — geomeTRIC customengine IRC 결함.** run_optimizer는 IRC일 때 단일 조각 판정에 `M.molecules`를 좌표계 생성 전에 읽는다. 파일로 읽은 분자는 토폴로지가 있지만 customengine 분자는 없어 AttributeError로 중단됐다(재현: 수정 전 첫 NH₃ 실행). 조치: 분자에 `build_topology()`를 먼저 호출(파일 입력 경로와 같은 거리 기반 결합).
+
+**발견 2 — 한 방향의 단계 한도를 geomeTRIC이 성공으로 보고.** HCN⇌HNC 첫 실행(`outputs/irc_validation/hcn_hnc_pbe_svp_20261101/`): HNC 쪽(선형 끝점) 방향이 정상 IRC 23스텝 후 기울기 ~1e-3 Ha/bohr에서 스텝당 ~1e-6 Å로 77스텝 정체, 방향당 한도 100에 도달하자 geomeTRIC은 조용히 반대 방향으로 넘어가 마지막에 "Converged"를 기록했다. 우리 끝점별 검사가 HNC 끝(최대 기울기 9.9e-4 > tight 4.5e-5)을 미수렴으로 판정했다. 조치: 기준 미달 끝점은 그 IRC 구조에서 일반 최소화(`endpoint_<방향>/`)로 마무리하고 IRC 끝점(`irc_end`)·최소화 결과(`relaxation`: 단계, 이동 RMSD, ΔE)를 함께 기록. 이동 RMSD > 0.1 Å이면 경고. 마지막 방향에서 한도에 걸리면 geomeTRIC이 예외로 경로 객체를 잃으므로, 매 평가마다 쓰는 `geometric_irc.xyz`(Å 10자리)를 기록된 계산(전정밀도 에너지·기울기)과 좌표 일치(1e-7 Å)로 맞춰 경로를 복구한다. 전체 수렴은 geomeTRIC 판정이 아니라 두 끝점의 기준 충족으로 정한다(`geometric_converged`는 별도 기록).
+
+**NH₃ 반전 (대칭 재배열, CLI).** 자체 PBE/STO-3G, grid 3, default 기준, TS는 같은 수준 transition_state 결과(`examples/nh3_inversion_ts.xyz`). Windows CLI→WSL `main.py --xyz examples/nh3_inversion_ts.xyz --basis sto-3g --xc pbe --engine native --calculation irc`, exit 0, version 0.9.4: `outputs/irc_validation/cli/20261101_144237_018561_debc906r/`.
+
+| 항목 | 값 |
+| --- | --- |
+| TS 시작 Hessian 허수 진동 | 1개, −880.60 cm⁻¹ |
+| 기울기 계산 / Hessian / 방향별 | 63 / 24 / forward 20·backward 19 |
+| 경로 점 | 33 (s = ±1.625 bohr·amu^½) |
+| 끝점 에너지 [Ha] | −55.7169351915 / −55.7169356229 (차 4.3e-7 Ha = 0.0011 kJ/mol) |
+| 끝점 장벽 [kJ/mol] | 54.985 / 54.986 |
+| 끝점 최대 원자 기울기 [Ha/bohr] | 1.42e-4 / 1.36e-4 (기준 4.5e-4) |
+| TS에서 오르막 최대 [Ha] | 0 / 0 |
+| 두 끝점 RMSD 고유 회전 / 거울상 허용 [Å] | 0.443 / 7.6e-5 (서로 거울상) |
+
+test_irc는 같은 TS에서 독립 최적화한 NH₃와 끝점 에너지(2e-6 Ha)·구조(거울상 허용 RMSD 5e-3 Å) 일치, 방향당 12단계 한도에서 경로 파일 복구 + 양 끝 최소화 후 일치, 최소점 입력의 명시적 거부, geomeTRIC 부재 오류를 검사한다.
+
+**HCN ⇌ HNC (서로 다른 끝점, 연결 확인).** `scripts/validate_irc.py --label hcn_hnc_pbe_svp_20261101_relax`: 자체 PBE/def2-SVP, grid 3, tight 기준(TS 탐색은 default). HCN·HNC 독립 최적화 → 굽은 초기 구조에서 P-RFO TS → TS 진동수 → IRC → 각 끝점을 독립 최적화 구조와 RMSD·에너지로 대조 → 끝점 진동수. 결과 `outputs/irc_validation/hcn_hnc_pbe_svp_20261101_relax/report.json`.
+
+| 항목 | 값 |
+| --- | --- |
+| TS 허수 진동 (진동수 계산) | 1개, −1077.13 cm⁻¹ |
+| IRC | 수렴(끝점 기준), 181.6초, 방향별 계산 forward 103(한도)·backward 34 |
+| forward 끝 → HNC | 최소화 4단계(IRC 끝에서 이동 RMSD 4.2e-4 Å, ΔE −6.4e-7 Ha). 독립 HNC와 RMSD 1.29e-4 Å, ΔE 2.0e-8 Ha. 최소화 전 IRC 끝도 HNC로 판별(RMSD 3.9e-4 Å) |
+| backward 끝 → HCN | 최소화 불필요. 독립 HCN과 RMSD 5.9e-5 Å, ΔE −5.4e-8 Ha |
+| 끝점 진동수 | 둘 다 허수 없음(minimum) |
+| 장벽 HCN→TS / HNC→TS | 194.08 / 132.39 kJ/mol |
+| 이성질화 HCN→HNC | +61.68 kJ/mol (0.6393 eV) |
+
+에너지 값은 이 계산 수준(PBE/def2-SVP)의 결과이며 문헌·실험값과 비교하지 않았다(기준값 출처 미확인). 검증 대상은 "TS의 IRC가 독립적으로 최적화한 두 이성질체를 잇는다"는 연결과 구현 일관성이다.
+
+**열역학 독립 교차검증.** 같은 진동수·질량·구조·대칭수·다중도를 ASE 3.29 IdealGasThermo에 넣어 우리 `ideal_gas_thermo`와 비교: H₂O(비선형, σ2, 단일항), O₂(선형, σ2, 삼중항), CO₂(선형, σ2), OH(선형, σ1, 이중항), O 원자(삼중항) × (298.15 K/101325 Pa, 1500 K/1e5 Pa, 3000 K/2e6 Pa). 최대 상대차 H 3.39e-7, S 4.09e-7, G는 (|H|+T·S) 대비 3.05e-7. ASE kB(CODATA 2014)와 우리(scipy CODATA) kB의 상대차 −3.39e-7과 같은 크기이므로 상수 판 차이로 설명된다. 첫 시험은 G에 상대 기준 2e-6을 그대로 적용해 물 298 K에서 1.93e-7 eV 차로 실패했다. G=H−TS가 큰 두 항의 차이여서 기준 크기를 |H|+T·S로 바꿨고, 허용 상대값 2e-6은 그대로 두었다. 참고: 물 S(298.15 K, 101325 Pa) = 188.56 J/mol/K.
+
+**자동 검사.** WSL 최종 코드: test_irc/frequencies/optimize/constraints/neb/molecular/energy_analysis/basis_overrides/gradient/dispersion/native/stability 83개 통과(166.8초, `wsl_final.log`). 중간 확인: test_irc 6개(58.3초), 리팩터 직후 회귀 56개(74.4초). Windows: 숨김 실계산 GUI IRC·최적화·진동수 3개(72.8초), 빠른 시험 46개 중 19 통과·27 skip(PySCF/실계산 필요분은 WSL에서 확인). 로그 `outputs/irc_validation/*.log`.
+
+**한계.** 분자 전용(주기계 IRC 없음), 제약 불가, 단일 TS에서 양방향만(재시작 없음). 선형 끝점 근처의 geomeTRIC IRC 정체는 끝점 최소화로 보완하지만 그만큼 계산이 낭비된다(HCN⇌HNC에서 77회). 끝점 최소화는 최급강하 경로의 연장이 아니므로 이동 RMSD를 함께 본다. IRC는 반응 연결의 필요조건 확인이며, 끝점이 의도한 반응물·생성물인지는 사용자가 비교해야 한다. 경로 질량(표준 원자량)과 진동 질량(최빈 동위원소)이 다르다.
+
 ## 0.9.3: bulk 셀 완화·FFT mesh 수렴·주기계 GUI
 
 작업 ID: QS-20261029-NATIVE-DFT 단계 12, ChatGPT Codex. 시작 HEAD `2bec7b3`. 환경/의존성 설치 변경 없음. WSL Python3.12.3 / PySCF2.14.0 / ASE3.29.0 / NumPy2.5.4. Windows GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`로 루트·Toplevel 모두 숨김; 화면 배치의 시각 검사는 하지 않았다.

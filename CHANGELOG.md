@@ -3,6 +3,16 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261029-NATIVE-DFT · 단계 13 (분자 IRC·열역학 독립 교차검증) 완료 2026-11-01 · 0.9.4 · Claude
+
+- `calculation=irc`: geomeTRIC 1.1.1 내장 IRC(Gonzalez–Schlegel 질량가중, 양방향, 끝 근처 최소화) + 자체/PySCF 해석적 힘. 경로 `irc_path.xyz`/`irc.csv`(질량가중 s, TS 기준 kJ/mol, 원자별 기울기), 양 끝점 xyz, 끝점별 장벽·기울기 판정, TS에서 오르막 검사, 끝점 RMSD(거울상 허용 포함), 시작 Hessian 허수 진동 재해석. 상단 폴더는 TS 재계산.
+- 발견·수정: geomeTRIC customengine IRC는 토폴로지 없이 `M.molecules`를 읽어 실패 → `build_topology()` 선호출. geomeTRIC은 한 방향이 단계 한도에 걸려도 전체 성공을 보고함(HCN⇌HNC의 선형 HNC 끝에서 77스텝 정체 실측) → 성공 판정을 끝점별 기울기 검사로 하고, 기준 미달 끝점은 일반 최소화로 마무리(IRC 끝점·이동 RMSD·ΔE 함께 기록), 마지막 방향 한도 시 `geometric_irc.xyz`를 기록된 계산과 맞춰 경로 복구.
+- optimizer.py의 geomeTRIC 엔진 어댑터를 공유 함수로 분리(기존 최적화·TS·스캔 동작 불변, 회귀로 확인). GUI 계산 종류·IRC 지표, CLI `--calculation irc`, 예제 examples/nh3_inversion_ts.xyz.
+- 열역학: RRHO 결과를 독립 구현 ASE IdealGasThermo와 5종 × 298/1500/3000 K 비교, H ≤3.4e-7·S ≤4.1e-7 상대(ASE 구 CODATA k_B 차와 같은 크기).
+- 주요 파일: 신규 engines/irc.py·test_irc.py·scripts/validate_irc.py·examples/nh3_inversion_ts.xyz, engines/optimizer.py, engines/__init__.py, molecular.py, main.py, molecular_app.py, test_frequencies.py, test_molecular_gui.py, 버전(workflow.py, engines/pyscf_engine.py, engines/periodic.py, periodic_app.py), README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md, PROJECT_STATE.md.
+- 검증: NH₃ 반전 CLI(Windows→WSL, exit 0) 끝점 ΔE 0.0011 kJ/mol·거울상 RMSD 7.6e-5 Å·오르막 0·허수 1개. HCN⇌HNC(PBE/def2-SVP) 두 끝점 = 독립 최적화 HCN·HNC(RMSD ≤1.3e-4 Å, |ΔE| ≤5.4e-8 Ha), 끝점 진동수 허수 없음, TS 허수 1개. WSL 83개 통과, Windows 숨김 실계산 GUI 3개 통과. 결과 outputs/irc_validation/.
+- 한계: 분자 전용, 제약·재시작 없음, 선형 끝점 정체 시 계산 낭비, 끝점의 반응물·생성물 대조는 사용자 몫. quasi-RRHO·용매·삼중항/복소 안정성은 미완료.
+
 ## QS-20261029-NATIVE-DFT · 단계 12 (bulk 셀 완화·FFT 수렴·GUI) 완료 2026-11-01 · 0.9.3 · ChatGPT Codex
 
 - `cell_optimize`: ASE BFGS/FrechetCellFilter + PySCF FFTDF bulk 힘·응력. 원자/셀 동시 완화(full/isotropic), 고정 FFT 정수 mesh·상대 k점, E 또는 smearing F 목적함수. 힘·응력·ΔE/F 별도 수렴 기준과 최종 독립 SCF 재검사. 중간 SCF 실패/취소/단계 한도를 성공으로 표시하지 않는다. 요청 설정·단계 이력·최종 구조 보존, 최종 단일점은 `final/`에서 계산한 뒤 루트에 전체 판정을 쓴다.

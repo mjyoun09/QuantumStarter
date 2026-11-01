@@ -1,0 +1,6 @@
+4
+NH3 inversion transition state (native PBE/STO-3G grid 3 transition_state search, rounded to 1e-6 A)
+N -0.001007 0.269182 0.016025
+H -0.001629 1.295287 -0.003789
+H 0.887857 -0.243738 0.026694
+H -0.889597 -0.244210 0.024835

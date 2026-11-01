@@ -4,8 +4,32 @@
 
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
-- 담당 AI: ChatGPT Codex — 2026-10-30 사용자 "MD에 있는거 수행해줘"에 따라 단계 11 이후 인수. 시작 HEAD 2bec7b3, 작업 트리 깨끗함. 기존 완료 구현을 반복하지 않고 코드와 최신 인계를 기준으로 진행한다.
-- 상태: HANDOFF_READY — 단계 12 COMPLETED(2026-11-01 최종 기록). bulk 셀 최적화·FFT mesh 수렴 보조·주기계 GUI 통합 완료. 전체 장기 요구의 미완료 항목이 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 담당 AI: Claude — 2026-11-01 사용자 "codex가 12단계 완료하고 커밋 했다는데 해볼래"(직전 대화에서 Claude가 제안한 IRC·열역학 독립 검증 진행 승인)에 따라 단계 13 인수. 시작 HEAD 2dd6c8f, 작업 트리 깨끗함. 이전: ChatGPT Codex(단계 10·12).
+- 상태: HANDOFF_READY — 단계 13 COMPLETED(2026-11-01, CHANGELOG 0.9.4). 전체 장기 요구의 미완료 항목(quasi-RRHO·용매, 삼중항·복소 안정성, 항공우주 구체 주제)이 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+
+### 단계 14 재개 후보 (미착수, 다음 AI는 이 절 우선)
+
+- 사용자 응용 방향: DFT × 항공우주 물리. 구체 주제는 사용자·지도교수 결정 대기. 열물성 방향이 확정되면: 온도 구간별 Cp/H/S 표 출력, NASA 7계수 다항식 적합(200–1000/1000–6000 K 관례), JANAF/NASA Glenn/ATcT 등 기준 데이터 대조(출처·라이선스 확인 후). 반응 속도 방향이면: TS·IRC(0.9.4) 위에 TST k(T)(분배함수 비, 터널링 보정은 별도 결정).
+- 코드 측 남은 항목: quasi-RRHO·용매/표준상태, 삼중항(RKS→UKS)·복소 SCF 안정성. IRC는 단계 13 완료이므로 반복 구현하지 않는다.
+- 재개 시: PROJECT_STATE → 이 문서 → `git status --short`, `git log -5 --oneline`. 최근 검사 로그 `outputs/irc_validation/wsl_final.log`(83개 통과). 이미 통과한 회귀는 이유 없이 반복하지 않는다.
+
+### 단계 13: 분자 IRC + 열역학 독립 교차검증 (Claude, 완료 — CHANGELOG 0.9.4)
+
+- 목적: TS에서 양 방향 최소 에너지 경로(IRC)를 따라 반응물·생성물 연결을 확인하는 `calculation='irc'`. 항공우주 방향 후보(TST 속도)의 전제인 "TS가 원하는 두 최소점을 잇는가"를 확인하는 도구. 함께 RRHO 열역학을 PySCF 외 독립 구현(ASE IdealGasThermo)과 교차검증.
+- 결정(2026-11-01, Claude): IRC 구동기는 **geomeTRIC 1.1.1 내장 IRC**. 근거: 설치 확인 결과 Sella·jax 미설치(Sella는 jax 추가 의존), geomeTRIC IRC는 기존 TS 탐색과 같은 내부좌표·엔진 어댑터를 쓰고 Gonzalez–Schlegel(1990) 질량가중 2단계 스텝, 'both' 방향, 끝 근처에서 최소화 전환을 제공(소스 optimize.py IRC_step/evaluate_IRC_step/reset_irc 확인). geomeTRIC 질량은 자체 PeriodicTable(표준 원자량)이므로 경로 정의 질량을 결과에 기록. 거부된 스텝은 progress에서 제거됨(optimize.py:981) → 경로는 geomeTRIC progress를 사용. 단일 분자 TRIC는 run_optimizer가 DLC로 전환(optimize.py:1291). ASE Calculator 래퍼는 이번 범위에서 불필요(열역학 비교는 ASE 함수에 진동수만 전달).
+- 완료 기준: (1) NH₃ 반전 TS에서 IRC 양방향 수렴, 두 끝점 에너지 = 별도 최적화 NH₃(허용오차는 최적화 기준 수준), 두 끝점은 거울상, 경로 에너지가 TS에서 양쪽으로 단조 감소. (2) HCN⇌HNC: TS 탐색→허수 진동 1개→IRC→끝점이 독립 최적화 HCN·HNC와 구조(RMSD)·에너지 일치 — 검증 스크립트·outputs/ 보존. (3) 최소점 입력은 명시적 오류, 제약과 함께 요청은 입력 오류. (4) ASE IdealGasThermo와 H·S·G 일치(비선형·선형·원자). (5) 관련 회귀 + 숨김 GUI 통과. (6) 문서·CHANGELOG·버전 0.9.4.
+- 계획: (a) engines/optimizer.py의 geomeTRIC 엔진 어댑터를 공유 함수로 분리(동작 불변) → (b) `irc_molecule`: run_optimizer(irc=True, 'both', hessian='first'), 경로·질량가중 호 길이 s·상대에너지·양 끝점·장벽·단조성·끝점 RMSD(고유/거울 포함), TS 재계산을 실행 폴더 최상위에 → (c) molecular.py CALCULATIONS·제약 규칙, engines/__init__.py, main.py, molecular_app.py(콤보 설명·지표) → (d) test_irc.py, test_frequencies에 ASE 비교 → (e) scripts/validate_irc.py HCN/HNC → (f) 회귀·문서.
+- 변경 예정: engines/optimizer.py, molecular.py, engines/__init__.py, main.py, molecular_app.py, test_irc.py(신규), test_frequencies.py, scripts/validate_irc.py(신규), README_KO·docs(VALIDATION/REQUIREMENTS_STATUS/NATIVE_DFT)·PROJECT_STATE·CHANGELOG, 버전 문자열.
+- 예상 문제: 선형 끝점(HCN/HNC)에서 내부좌표 특이점, IRC 끝 근처 진동(geomeTRIC이 최소화로 전환), 미수렴 시 run_optimizer 예외로 progress 소실 → 자체 기록으로 진단.
+- 진행(완료):
+  - (a) optimizer.py: `_recording_engine`/`_start`/`_geometric_molecule`로 분리(동작 불변; 오류 문구만 "… 계산을 중단합니다"). (b) 신규 engines/irc.py `irc_molecule` + `superposition_distance`/`rmsd`(가중 Kabsch, 거울상 허용 선택). (c) molecular.py CALCULATIONS에 'irc'(원자 ≥2, 제약 불가는 기존 규칙), engines/__init__.py, main.py, molecular_app.py(설명·`_irc_metric` 지표). (d) test_irc.py(입력·Kabsch·NH₃ 양방향·최소점 거부·라이브러리 부재), test_frequencies `test_ideal_gas_thermo_matches_ase`, test_molecular_gui `test_real_native_irc_run`(wait_finished timeout 인자 추가). (e) scripts/validate_irc.py(HCN⇌HNC).
+  - 발견·수정: geomeTRIC 1.1.1 run_optimizer는 IRC일 때 `M.molecules`(조각 수)를 좌표계 생성 전에 읽는데, customengine 분자는 토폴로지가 없어 AttributeError → irc.py에서 `molecule.build_topology()` 선호출(파일 입력 경로와 같은 거리 기반 결합).
+  - 실측(탐색, scratchpad): NH₃ native PBE/STO-3G/grid3, TS 탐색 29.3초 후 IRC 41.3초. 양방향 수렴, 경로 33점, 끝점 ΔE 0.0011 kJ/mol, 거울상 RMSD 7.6e-5 Å(고유 회전 RMSD 0.443 Å), 오르막 0, s=±1.625 bohr·amu^½, 끝점 장벽 54.99 kJ/mol, TS 허수 −880.6 cm⁻¹ 1개, 기울기 계산 63회(Hessian 24). 거부된 스텝은 경로에서 제외 확인.
+  - Windows: test_irc 입력 2개 + FrequencyInputTests 4개 통과. ASE 비교 첫 실행에서 물 298 K의 G만 1.93e-7 eV 차로 상대 2e-6 기준 초과 → G=H−TS는 큰 항의 차이라 허용오차 기준을 |H|+T·S로 변경(허용 상대값 2e-6 유지). 측정: S 상대차 ≈4.0e-7 = ASE kB(CODATA2014)와 3.39e-7 차 + 소량, H ≤2.9e-7. 물 S(298 K) 188.56 J/mol/K.
+  - HCN⇌HNC 첫 실행(outputs/irc_validation/hcn_hnc_pbe_svp_20261101/): 연결은 맞았으나 HNC(선형) 끝에서 geomeTRIC IRC가 23스텝 후 ~1e-6 Å 스텝으로 77스텝 정체 → 방향 한도 100 도달 후 geomeTRIC은 조용히 반대 방향으로 넘어가 "Converged" 보고. 우리 끝점 검사가 HNC 끝(최대 기울기 9.9e-4 > tight 4.5e-5)을 미수렴으로 잡음. 조치: 기준 미달 끝점 일반 최소화(endpoint_<방향>/), `irc_end`·`relaxation` 기록, 마지막 방향 한도 시 geometric_irc.xyz(평가마다 기록, Å 10자리)를 기록된 계산과 맞춰 경로 복구(state['gradients'] 추가), 성공 판정 = 두 끝점 기준 충족. test_irc에 방향당 12단계 한도 시험 추가.
+  - HCN⇌HNC 재실행(…_relax/): IRC 수렴 181.6초, forward 103(한도)·backward 34회, HNC 끝 최소화 4단계(이동 RMSD 4.2e-4 Å, ΔE −6.4e-7 Ha) 후 독립 HNC와 RMSD 1.29e-4 Å·ΔE 2.0e-8 Ha, HCN 끝 RMSD 5.9e-5 Å·ΔE −5.4e-8 Ha, 끝점 진동수 허수 없음, TS 허수 −1077.13 cm⁻¹ 1개. 장벽 194.08/132.39, 이성질화 61.68 kJ/mol(PBE/def2-SVP; 문헌 대조 안 함).
+  - CLI(Windows→WSL) NH₃: outputs/irc_validation/cli/20261101_144237_018561_debc906r, exit 0, 0.9.4, 탐색 결과와 같은 값. CLI 콘솔에 OPT_JSON 줄이 출력되는 것은 기존 optimize와 같은 동작(변경하지 않음).
+  - 검사: WSL 최종 83개 통과(166.8초), test_irc 6개(58.3초), 리팩터 직후 회귀 56개(74.4초), Windows 숨김 실계산 GUI 3개(72.8초), Windows 빠른 시험 46개(19 통과/27 skip). git diff --check·py_compile·변경 파일 LF 바이트 검사 통과. 문서: README_KO, VALIDATION 0.9.4, REQUIREMENTS_STATUS, PROJECT_STATE, CHANGELOG.
 
 ### 단계 12 완료 기록 (ChatGPT Codex, 2026-10-30 구현·검증 / 2026-11-01 정리)
 
@@ -19,7 +43,7 @@
 - 미수행: 전체 장기 요구 중 IRC·quasi-RRHO·용매·삼중항/복소 안정성 및 항공우주 구체 연구 주제는 이후 항목으로 보존한다.
 - 다음 재개: 이 절을 우선한다. 새 최적화의 SCF 미수렴을 성공 처리하지 않으며, coarse FFT mesh의 수치 수렴을 물성 정확도로 설명하지 않는다.
 
-### 단계 13 재개 후보 (미착수, 다음 AI는 이 절 우선)
+### 단계 13 재개 후보 (Codex 작성 — 단계 13에서 IRC로 진행·완료됨, 역사 기록)
 
 - 사용자 응용 방향(PROJECT_STATE): HEA가 아니라 **DFT × 항공우주 물리**. 구체 주제는 사용자·지도교수 결정 대기. 제안된 1순위: 고온 기체·추진제의 온도별 열물성(Cp/H/S, NASA 7계수 다항식)과 TST 반응 속도, JANAF/NASA 기준 독립 검증 — 현재 엔진(경원소 분자, TS/NEB, 진동수·RRHO)과 가장 잘 맞음.
 - 코드 측 남은 항목: IRC, quasi-RRHO·용매/표준상태, 삼중항·복소 SCF 안정성. 주기계 셀 완화·FFT 검사·GUI 노출은 단계12 완료이므로 반복 구현하지 않는다.

@@ -55,7 +55,7 @@ def main():
                              '설정 파일의 원소별 지정을 대체합니다.')
     parser.add_argument("--xc", help="교환·상관 함수")
     parser.add_argument('--calculation', choices=['single_point', 'gradient', 'optimize', 'frequencies', 'scan',
-                                                  'transition_state', 'neb', 'cell_optimize'],
+                                                  'transition_state', 'neb', 'irc', 'cell_optimize'],
                         help='gradient: 에너지+원자 힘. optimize: geomeTRIC 구조 최적화(geometric 필요). '
                              'frequencies: 조화 진동수·ZPE')
     parser.add_argument('--freq-step', dest='freq_step_bohr', type=float, help='진동수 유한차분 변위 [bohr] (기본 0.005)')

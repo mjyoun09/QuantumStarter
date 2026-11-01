@@ -47,8 +47,8 @@ class MolecularGuiTests(unittest.TestCase):
                 self.app.close()
             self.temp.cleanup()
 
-    def wait_finished(self):
-        deadline = time.monotonic() + 120
+    def wait_finished(self, timeout=120):
+        deadline = time.monotonic() + timeout
         while self.app.busy and time.monotonic() < deadline:
             self.root.update()
             time.sleep(.02)
@@ -276,6 +276,26 @@ class MolecularGuiTests(unittest.TestCase):
             error.assert_not_called()
         self.assertEqual(len(app.summary['frequencies']['frequencies_cm1']), 1)
         self.assertIn('최저 진동', app.metrics[1].get())
+
+    @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
+    def test_real_native_irc_run(self):
+        from test_irc import NH3_TS
+        from molecular import parse_coordinates
+        app = self.app
+        cfg = DFTConfig(atoms=parse_coordinates(NH3_TS), basis='sto-3g', xc='pbe', engine='native',
+                        calculation='irc', cube_points=12, grid_level=3, threads=1)
+        app.apply_config(cfg)
+        self.assertEqual(app.read_config(), cfg)
+        with patch('molecular_app.messagebox.showerror') as error:
+            app.start_calculation()
+            self.wait_finished(timeout=400)
+            error.assert_not_called()
+        self.assertTrue(app.summary['irc']['converged'])
+        self.assertIn('IRC 수렴', app.metrics[1].get())
+        self.assertIn('끝점 장벽', app.metrics[1].get())
+        self.assertNotIn('OPT_JSON', '\n'.join(app.log_lines))
+        self.assertTrue((app.current_dir / 'irc_path.xyz').is_file())
+        self.assertEqual(load_dft_config(app.current_dir / 'settings.json'), cfg)
 
     @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
     def test_real_ecp_run_and_serialized_metadata(self):

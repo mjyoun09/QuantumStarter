@@ -233,7 +233,8 @@ class MolecularApp(QuantumApp):
         self._combo(method, '교환·상관 함수', self.vars['xc'], FUNCTIONALS, 'LDA / PBE / B3LYP / PBE0', self._settings_changed)
         self._combo(method, '계산 종류', self.vars['calculation'], list(CALCULATIONS),
                     'gradient: 에너지와 원자 힘. optimize: geomeTRIC 구조 최적화(격자 수준 3 이상 권장). '
-                    'frequencies: 조화 진동수·ZPE·G. scan: 이완 스캔. transition_state: 전이상태 탐색(진동수로 확인).',
+                    'frequencies: 조화 진동수·ZPE·G. scan: 이완 스캔. transition_state: 전이상태 탐색(진동수로 확인). '
+                    'irc: TS에서 양 방향 최소 에너지 경로(끝점 최적화).',
                     self._settings_changed)
         self._combo(method, '분산 보정', self.vars['dispersion'], list(DISPERSIONS),
                     'd4: Grimme DFT-D4 (dftd4 라이브러리). PBE/PBE0/B3LYP만, LDA 불가. '
@@ -675,6 +676,17 @@ class MolecularApp(QuantumApp):
                 self._plot_scf()
             self.root.after(80, self._poll)
 
+    @staticmethod
+    def _irc_metric(irc):
+        if not irc:
+            return ''
+        text = f' · IRC {"수렴" if irc["converged"] else "미수렴"}'
+        if irc.get('endpoints'):
+            ends = irc['endpoints']
+            text += (f' · 끝점 장벽 {ends["forward"]["barrier_to_ts_kj_mol"]:.1f} / '
+                     f'{ends["backward"]["barrier_to_ts_kj_mol"]:.1f} kJ/mol')
+        return text
+
     def _complete(self, summary, directory):
         if summary['status'] == 'cancelled':
             self._set_busy(False)
@@ -700,7 +712,8 @@ class MolecularApp(QuantumApp):
                                f'{summary["optimization"]["steps"]}단계' if summary.get('optimization') else '')
                             + (f' · 최저 진동 {summary["frequencies"]["frequencies_cm1"][0]:.1f} cm⁻¹ · 허수 '
                                f'{len(summary["frequencies"]["imaginary_frequencies_cm1"])}개'
-                               if summary.get('frequencies') and summary['frequencies']['frequencies_cm1'] else ''))
+                               if summary.get('frequencies') and summary['frequencies']['frequencies_cm1'] else '')
+                            + self._irc_metric(summary.get('irc')))
         engine_label = '자체' if summary['engine'] == 'quantumstarter-native' else 'PySCF'
         self.metrics[2].set(f'{engine_label} · {summary["method"]} / {summary["xc"].upper()}'
                             + ('-D4' if dispersion else ''))

@@ -37,6 +37,41 @@ class FrequencyInputTests(unittest.TestCase):
         hot = vibrational_thermo([10.], 5000.)
         self.assertAlmostEqual(hot['cv_vib_hartree_per_k'] / (Boltzmann / physical_constants['Hartree energy'][0]), 1, places=5)
 
+    @unittest.skipUnless(importlib.util.find_spec('ase'), 'Requires ASE')
+    def test_ideal_gas_thermo_matches_ase(self):
+        # Independent implementation (ASE IdealGasThermo) given the same frequencies, masses,
+        # geometry, symmetry number and spin. ASE's constants are an older CODATA set, so the
+        # thermal corrections agree to a few 1e-7 relative, not to machine precision.
+        from ase import Atoms, units
+        from ase.thermochemistry import IdealGasThermo
+        from engines.frequencies import BOHR_ANGSTROM, HARTREE_TO_EV, ideal_gas_thermo
+        cases = (  # symbols, positions [Å], masses [amu], frequencies [cm^-1], sigma, multiplicity, ASE geometry
+            ('OH2', [[0, 0, 0.1173], [0, 0.7572, -0.4692], [0, -0.7572, -0.4692]], [15.994915, 1.007825, 1.007825],
+             [1594.6, 3657.1, 3755.9], 2, 1, 'nonlinear'),
+            ('O2', [[0, 0, 0], [0, 0, 1.2075]], [15.994915, 15.994915], [1580.2], 2, 3, 'linear'),
+            ('CO2', [[0, 0, 0], [0, 0, 1.1621], [0, 0, -1.1621]], [12.0, 15.994915, 15.994915],
+             [667.4, 667.4, 1333.0, 2349.2], 2, 1, 'linear'),
+            ('HO', [[0, 0, 0], [0, 0, 0.9697]], [1.007825, 15.994915], [3737.8], 1, 2, 'linear'),
+            ('O', [[0, 0, 0]], [15.994915], [], 1, 3, 'monatomic'))
+        for symbols, positions, masses, frequencies, sigma, multiplicity, geometry in cases:
+            atoms = Atoms(symbols, positions=positions, masses=masses)
+            reference = IdealGasThermo([f * units.invcm for f in frequencies], geometry, potentialenergy=0.0,
+                                       atoms=atoms, symmetrynumber=sigma, spin=(multiplicity - 1) / 2)
+            for temperature, pressure in ((298.15, 101325.0), (1500.0, 1e5), (3000.0, 2e6)):
+                with self.subTest(molecule=symbols, temperature=temperature):
+                    ours = ideal_gas_thermo(0.0, frequencies, np.asarray(masses), np.asarray(positions) / BOHR_ANGSTROM,
+                                            multiplicity, sigma, temperature, pressure)
+                    enthalpy = reference.get_enthalpy(temperature, verbose=False)
+                    entropy = reference.get_entropy(temperature, pressure, verbose=False)
+                    # G = H - TS is a difference of larger terms; its tolerance follows their size.
+                    for value, expected, scale in (
+                            (ours['enthalpy_hartree'] * HARTREE_TO_EV, enthalpy, abs(enthalpy)),
+                            (ours['entropy_hartree_per_k'] * HARTREE_TO_EV, entropy, entropy),
+                            (ours['gibbs_free_energy_hartree'] * HARTREE_TO_EV,
+                             reference.get_gibbs_energy(temperature, pressure, verbose=False),
+                             abs(enthalpy) + temperature * entropy)):
+                        self.assertAlmostEqual(value, expected, delta=2e-6 * scale + 1e-12)
+
 
 @unittest.skipUnless(READY, 'Requires WSL PySCF and geomeTRIC')
 class FrequencyPhysicsTests(unittest.TestCase):

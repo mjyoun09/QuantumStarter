@@ -11,7 +11,7 @@ import scipy
 
 from solver import BOHR_TO_ANGSTROM, HARTREE_TO_EV, Config, Result, quality_warnings
 
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 ORBITALS = ("s", "p", "d", "f", "g", "h")
 PRESETS = {"빠른 확인": 2000, "권장": 6000, "정밀": 12000}
 FIELD_NAMES = {

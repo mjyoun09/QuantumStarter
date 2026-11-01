@@ -1,4 +1,4 @@
-# QuantumStarter 0.9.3 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.9.4 · 자체/외부 분자 DFT와 주기계 계산
 
 **자체 SCF 엔진을 추가했습니다.** `계산 방법 → 계산 엔진 → native` 또는 **자체 DFT · 물 (LDA 검증)** 예제를 선택하세요.
 밀도·Fock/XC 행렬·DIIS·SCF·에너지 성분은 직접 구현하고, 기저/적분/격자는 PySCF, XC 함수는 Libxc를 사용합니다.
@@ -84,6 +84,20 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 기본값은 def2-SVP이며, 이 기저에 없는 Ce~Lu/Fr~Og는 Dyall 기저를 선택하세요.
 이는 이 앱이 검사한 PySCF 내장 기저 데이터의 지원 범위이며, 외부 기저 데이터를 자동으로 받지 않습니다.
 
+## IRC: 전이상태에서 반응물·생성물로 (0.9.4)
+
+`calculation=irc`(화면 `계산 종류`, CLI `--calculation irc`)는 **전이상태 구조**에서 허수 진동 방향 양쪽으로 질량가중 최급강하 경로(intrinsic reaction coordinate)를 따라가 양 끝의 최소점을 찾습니다.
+
+- geomeTRIC 1.1 IRC(Gonzalez–Schlegel 2단계 방법)가 경로를 만들고, 매 구조의 에너지·힘은 선택한 엔진이 계산합니다. 시작 Hessian은 우리 힘의 유한차분(6N회)입니다. 끝 근처에서는 일반 최소화로 바뀌어 `opt_convergence` 기준(기울기)으로 끝점을 수렴시킵니다. 방향당 최대 `opt_max_steps`단계.
+- 끝점마다 기울기 기준을 다시 검사합니다(geomeTRIC은 한 방향이 단계 한도에 걸려도 전체 성공으로 보고할 수 있음). 기준 미달 끝점은 그 IRC 구조에서 일반 최소화(`endpoint_forward/` 등)로 마무리하고, 최소화 전 IRC 끝점과 이동 거리(RMSD)·에너지 변화를 함께 기록합니다. 선형 끝점(예: HNC) 근처에서 geomeTRIC IRC가 아주 작은 스텝으로 정체할 때 이 경로가 쓰입니다.
+- 시작 구조의 Hessian에 허수 진동이 없거나 2개 이상이면 오류로 멈춥니다. `transition_state`로 정밀화하고 진동수로 허수 1개를 먼저 확인하세요. 제약과 함께 쓸 수 없습니다.
+- 결과: `irc_path.xyz`(forward 끝 → TS → backward 끝), `irc.csv`(질량가중 경로 길이 s [bohr·amu^½], TS 기준 상대 에너지 kJ/mol, 원자별 기울기), `irc_forward_end.xyz`·`irc_backward_end.xyz`, `steps/step_NNN`(모든 기울기 계산). 상단 폴더는 TS를 요청한 출력 설정으로 다시 계산한 결과입니다.
+- 결과 `irc` 블록: 끝점별 에너지·TS까지 장벽·기울기 기준 충족, 경로가 TS에서 내리막인지(`max_uphill_hartree`), 두 끝점의 최적 겹침 RMSD(거울상 허용 포함), 시작 Hessian을 우리 진동 해석으로 다시 본 허수 진동.
+- forward/backward 이름은 허수 모드 고유벡터 부호에 따른 임의 구분입니다. s는 geomeTRIC이 경로를 정의할 때 쓴 표준 원자량으로 계산합니다.
+- **IRC 끝점은 최소점 후보입니다.** 끝점 구조로 진동수 계산(허수 없음)을 하고, 따로 최적화한 반응물·생성물과 구조·에너지를 비교해 연결을 확인하세요. 두 끝점이 같은 구조(또는 거울상)이면 경고합니다(NH₃ 반전처럼 대칭 재배열이면 정상).
+- 검증 예: NH₃ 반전(`examples/nh3_inversion_ts.xyz`, 양 끝 거울상), HCN⇌HNC(두 끝이 독립 최적화한 HCN·HNC와 RMSD ≤1.3e-4 Å·ΔE ≤6e-8 Ha, 끝점 진동수 허수 없음). [검증 기록](docs/VALIDATION_KO.md) 0.9.4 절, 재현 `wsl --exec .venv-dft/bin/python scripts/validate_irc.py`.
+- RRHO 열역학(0.9.4)은 PySCF 외에 독립 구현 ASE IdealGasThermo와도 298~3000 K에서 H·S가 상대 4e-7 이내로 일치합니다(상수 CODATA 판 차이 수준).
+
 ## 자체 2차 SCF와 주기계 밴드·DOS (0.9.1)
 
 - **자체 엔진 `scf_solver=newton`**: 궤도 회전 신뢰영역 Newton과 전처리 Steihaug CG. 0.9.1부터 자체 J/K/XC 선형응답과 Libxc 2차 미분으로 해석적 Hessian-벡터 곱을 계산합니다. 점유는 궤도 번호로 유지하며, 실수 내부 불안정 방향을 따라 더 낮은 해를 찾습니다(안정성 허용오차 −1e-4 Ha, 전역 바닥상태 보장 아님). aufbau 위반이면 경고합니다. 기록된 Cr·Co 원자(PBE/STO-3G, grid3, 2S=6/3) 미수렴이 해결됐으며 다른 조건의 수렴은 별도 확인해야 합니다. 물의 같은 궤도에서 응답 계산은 이전 FD 대비 약3.74배 빠릅니다(전체 SCF 배속 아님).
@@ -115,13 +129,13 @@ UKS와 2S=0을 함께 선택할 수 있지만 깨진 대칭 초기 추정과 여
 
 - geomeTRIC CI-NEB(climbing image)가 사슬을 최적화하고, 이미지마다 에너지·힘은 선택한 엔진이 계산합니다. 양 끝은 고정되므로 **먼저 각각 최적화한 구조**를 넣으세요.
 - 초기 경로는 반응물→생성물 직교좌표 선형 보간이며 자동 정렬·원자 재배열을 하지 않습니다. 두 구조의 방향과 원자 순서를 맞춰 주세요.
-- 결과: `neb.csv`(이미지별 상대 에너지 kJ/mol), `neb_path.xyz`, `neb/calc_NNNN`(모든 기울기 계산), 상단 폴더에는 최고 에너지 이미지(전이상태 추정)의 전체 결과. `transition_state`로 정밀화하고 진동수로 허수 1개를 확인하는 순서를 권장합니다. IRC는 아직 없습니다.
+- 결과: `neb.csv`(이미지별 상대 에너지 kJ/mol), `neb_path.xyz`, `neb/calc_NNNN`(모든 기울기 계산), 상단 폴더에는 최고 에너지 이미지(전이상태 추정)의 전체 결과. `transition_state`로 정밀화하고 진동수로 허수 1개를 확인한 뒤 `irc`로 양 끝 연결을 확인하는 순서를 권장합니다.
 
 ## 제약·이완 스캔·전이상태 (0.8.8)
 
 - **제약 최적화**: `opt_constraints`(화면 `수치 설정 > 구조 제약`, CLI `--constraints`)에 geomeTRIC 제약 문법을 씁니다. `;`로 줄을 나눌 수 있습니다. 예: `$freeze;xyz 1`(원자 1 고정), `$set;angle 2 1 3 100`(각도 100°로 고정), `$set;distance 1 2 1.5`. 원자 번호는 1부터, 단위는 Å·도입니다. 고정은 geomeTRIC 수렴 허용오차(~1e-4 Å) 안에서 지켜집니다.
 - **이완 스캔**: `calculation=scan`, `scan_spec="distance 1 2 0.6 1.0 5"`(또는 `angle i j k …`, `dihedral i j k l …`; 시작·끝·점수). 점마다 해당 좌표를 고정한 최적화를 수행하고 다음 점은 이전 점의 최적 구조에서 시작합니다. `scan/point_NNN/`, `scan.csv`(상대 에너지 kJ/mol 포함), `scan.xyz`. 이완 스캔 최대값은 장벽의 근사이며 전이상태가 아닙니다.
-- **전이상태 탐색**: `calculation=transition_state`. geomeTRIC P-RFO가 1차 안장점을 찾으며 시작 Hessian은 우리 엔진 힘의 유한차분(6N회, 결과에 `kind=hessian`으로 기록)입니다. **반드시 진동수 계산으로 허수 진동이 정확히 1개인지 확인하세요.** IRC는 아직 없습니다(NEB는 0.8.9).
+- **전이상태 탐색**: `calculation=transition_state`. geomeTRIC P-RFO가 1차 안장점을 찾으며 시작 Hessian은 우리 엔진 힘의 유한차분(6N회, 결과에 `kind=hessian`으로 기록)입니다. **반드시 진동수 계산으로 허수 진동이 정확히 1개인지 확인하세요.** 반응물·생성물 연결은 IRC(0.9.4)로 확인합니다(NEB는 0.8.9).
 
 ## 구조 최적화 (geomeTRIC, 0.8.4)
 
@@ -244,6 +258,7 @@ NPZ는 `numpy.load(path, allow_pickle=False)`로 읽을 수 있습니다.
 .\.venv\Scripts\python.exe main.py --xyz examples\water.xyz --basis def2-svp --xc pbe --dispersion d4 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\water_distorted.xyz --basis def2-svp --xc pbe --dispersion d4 --calculation optimize --no-show
 .\.venv\Scripts\python.exe main.py --xyz <최적화 결과 폴더>\optimized.xyz --basis def2-svp --xc pbe --dispersion d4 --calculation frequencies --no-show
+.\.venv\Scripts\python.exe main.py --xyz <전이상태 결과 폴더>\optimized.xyz --basis def2-svp --xc pbe --calculation irc --no-show
 .\.venv\Scripts\python.exe main.py --config molecule.json --output outputs\study --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\kcl.xyz --charge 0 --spin 0 --no-show
 .\.venv\Scripts\python.exe main.py --xyz examples\fe3plus.xyz --charge 3 --spin 5 --no-show

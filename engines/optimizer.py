@@ -28,37 +28,21 @@ def _xyz(atoms, comment):
         f'{a.element:<2} {a.position[0]:.10f} {a.position[1]:.10f} {a.position[2]:.10f}\n' for a in atoms)
 
 
-def optimize_molecule(config, directory, progress=print):
-    try:
-        import geometric
-        import geometric.engine
-        import geometric.molecule
-        import geometric.optimize
-        from geometric.errors import GeomOptNotConvergedError
-    except ImportError as exc:
-        raise RuntimeError('구조 최적화에는 geomeTRIC이 필요합니다. '
-                           'wsl --exec .venv-dft/bin/python -m pip install -r requirements-optimize.txt') from exc
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
-    if (directory / 'restart_input.npz').exists():
-        raise ValueError('구조 최적화는 밀도 체크포인트 재시작을 지원하지 않습니다. 새 실행으로 시작하세요.')
-    save_dft_config(config, directory / 'settings.json')
-    criteria = OPT_CONVERGENCE[config.opt_convergence]
-    scale = 1.0 if config.unit == 'angstrom' else BOHR_ANGSTROM
-    initial = tuple(Atom(a.element, tuple(x * scale for x in a.position)) for a in config.atoms)
-    # Intermediate steps need energy and forces only; keep their density cubes small.
-    # Constraints belong to geomeTRIC; each geometry is a plain energy+gradient run.
-    step_config = replace(config, atoms=initial, unit='angstrom', calculation='gradient', cube_points=12,
-                          opt_constraints='')
+def _recording_engine(base, molecule, step_config, directory, progress, label):
+    """geomeTRIC engine whose energy and gradient come from this project's engines.
+
+    Every call is a full recorded run in steps/step_NNN, started from the previous
+    call's density. Returns (engine, trajectory rows, state: last density/atoms, gradient per step)."""
+    initial = step_config.atoms
     steps_dir = directory / 'steps'
-    trajectory, state = [], {'density': None, 'atoms': initial}
+    trajectory, state = [], {'density': None, 'atoms': initial, 'gradients': {}}
 
     def forward(message):
         check_cancelled(directory)  # The GUI writes cancel.request into the run directory.
         if message.startswith(('계산 오류', 'SCF 미수렴')):
             progress(message)
 
-    class Engine(geometric.engine.Engine):
+    class Engine(base):
         def calc_new(self, coords, dirname):
             check_cancelled(directory)
             step = len(trajectory) + 1
@@ -67,12 +51,13 @@ def optimize_molecule(config, directory, progress=print):
             step_dir = steps_dir / f'step_{step:03d}'
             summary = calculate_molecule(replace(step_config, atoms=atoms), step_dir, forward, state['density'])
             if not summary['converged'] or summary['gradient'] is None:
-                raise StepNotConverged(f'{step}단계 SCF가 수렴하지 않아 구조 최적화를 중단합니다. '
+                raise StepNotConverged(f'{step}단계 SCF가 수렴하지 않아 {label} 계산을 중단합니다. '
                                        f'{step_dir}의 진단 결과를 확인하세요.')
             with np.load(step_dir / 'electronic_structure.npz', allow_pickle=False) as data:
                 state['density'] = np.asarray(data['density_matrix'])
             state['atoms'] = atoms
             gradient = np.asarray(summary['gradient']['gradient_hartree_per_bohr'])
+            state['gradients'][step] = gradient.ravel()
             energy = summary['total_energy_hartree']
             row = {'step': step, 'energy_hartree': energy,
                    'energy_change_hartree': energy - trajectory[-1]['energy_hartree'] if trajectory else None,
@@ -85,14 +70,52 @@ def optimize_molecule(config, directory, progress=print):
                    'coordinates_angstrom': positions.tolist()}
             trajectory.append(row)
             change = '—' if row['energy_change_hartree'] is None else f'{row["energy_change_hartree"]:+.3e}'
-            progress(f'구조 최적화 {step:3d}단계 · E = {energy:.10f} Ha · ΔE {change} · '
+            progress(f'{label} {step:3d}단계 · E = {energy:.10f} Ha · ΔE {change} · '
                      f'최대 힘 {row["max_atomic_force_ev_per_angstrom"]:.5f} eV/Å · SCF {row["scf_cycles"]}회')
             progress('OPT_JSON ' + json.dumps({k: v for k, v in row.items() if k != 'coordinates_angstrom'}))
             return {'energy': energy, 'gradient': gradient.ravel()}
 
+    return Engine(molecule), trajectory, state
+
+
+def _start(config, directory, purpose):
+    """Shared start of geomeTRIC jobs: run folder, request record, Å geometry, per-step settings."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    if (directory / 'restart_input.npz').exists():
+        raise ValueError(f'{purpose} 계산은 밀도 체크포인트 재시작을 지원하지 않습니다. 새 실행으로 시작하세요.')
+    save_dft_config(config, directory / 'settings.json')
+    scale = 1.0 if config.unit == 'angstrom' else BOHR_ANGSTROM
+    initial = tuple(Atom(a.element, tuple(x * scale for x in a.position)) for a in config.atoms)
+    # Intermediate steps need energy and forces only; keep their density cubes small.
+    # Constraints belong to geomeTRIC; each geometry is a plain energy+gradient run.
+    step_config = replace(config, atoms=initial, unit='angstrom', calculation='gradient', cube_points=12,
+                          opt_constraints='')
+    return directory, initial, step_config
+
+
+def _geometric_molecule(geometric, atoms):
     molecule = geometric.molecule.Molecule()
-    molecule.elem = [a.element for a in initial]
-    molecule.xyzs = [np.array([a.position for a in initial])]
+    molecule.elem = [a.element for a in atoms]
+    molecule.xyzs = [np.array([a.position for a in atoms])]
+    return molecule
+
+
+def optimize_molecule(config, directory, progress=print):
+    try:
+        import geometric
+        import geometric.engine
+        import geometric.molecule
+        import geometric.optimize
+        from geometric.errors import GeomOptNotConvergedError
+    except ImportError as exc:
+        raise RuntimeError('구조 최적화에는 geomeTRIC이 필요합니다. '
+                           'wsl --exec .venv-dft/bin/python -m pip install -r requirements-optimize.txt') from exc
+    directory, initial, step_config = _start(config, directory, '구조 최적화')
+    criteria = OPT_CONVERGENCE[config.opt_convergence]
+    molecule = _geometric_molecule(geometric, initial)
+    engine, trajectory, state = _recording_engine(geometric.engine.Engine, molecule, step_config, directory,
+                                                  progress, '구조 최적화')
     transition = config.calculation == 'transition_state'
     extra = {}
     constraints = config.opt_constraints.replace(';', '\n').strip()
@@ -114,7 +137,7 @@ def optimize_molecule(config, directory, progress=print):
     converged = True
     try:
         geometric.optimize.run_optimizer(
-            customengine=Engine(molecule), input=str(directory / 'geometric'), maxiter=config.opt_max_steps,
+            customengine=engine, input=str(directory / 'geometric'), maxiter=config.opt_max_steps,
             logIni=str(Path(__file__).with_name('geometric_log.ini')),
             convergence_energy=criteria['energy'], convergence_grms=criteria['grms'],
             convergence_gmax=criteria['gmax'], convergence_drms=criteria['drms'], convergence_dmax=criteria['dmax'],
