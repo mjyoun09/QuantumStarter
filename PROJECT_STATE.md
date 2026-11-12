@@ -1,6 +1,6 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신: 2026-11-01 / Claude (단계 13: 분자 IRC·열역학 독립 교차검증, 0.9.4). 이전: ChatGPT Codex (단계 12). 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
+최종 갱신: 2026-11-12 / Claude (QS-20261112-HE-LDA: 중성 He 방사 격자 LDA-SCF, 0.9.5). 이전: Claude 단계 13(0.9.4), ChatGPT Codex 단계 12. 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 목표와 연구 목적
 
@@ -26,8 +26,9 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 | engines/periodic_optimizer.py / periodic_convergence.py | FFTDF bulk 원자·셀 완화, 고정 구조 FFT mesh 수렴 검사 |
 | dft_workflow.py / dft_worker.py / engines/__init__.py | Windows→WSL 또는 로컬 실행, 엔진 분기, 실패 기록 |
 | surface_workflow.py / benchmark_mace.py | MLIP 표면 후보 생성·완화·선정·DFT 비교 및 가속 검증 |
-| main.py | 분자·주기계 CLI; --hydrogen-check로 기존 검증기 |
-| solver.py / workflow.py / plotting.py | 수소형 한 전자 방사방정식 검증기; DFT 아님 |
+| main.py | 분자·주기계 CLI; --hydrogen-check로 기존 검증기; --model he-lda로 방사 격자 He LDA |
+| solver.py / workflow.py / plotting.py | 수소형 한 전자 방사방정식 검증기; DFT 아님. solver.radial_grid·lowest_radial_states는 atomic_dft와 공유 |
+| atomic_dft.py / atomic_plotting.py | 중성 He 구대칭 Kohn–Sham LDA-SCF(균일 방사 격자, Slater+VWN5 닫힌 식, 하트리·SCF·에너지 자체 구현, PySCF·Libxc 런타임 미사용) |
 | molecular_plotting.py / periodic_plotting.py | 저장 결과 시각화 |
 | scripts/build_element_catalog.py | 설치된 PySCF의 실제 데이터로 지원표 재생성 |
 | examples/ / docs/ | 재현 입력과 방법·검증 문서 |
@@ -68,6 +69,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **단계 11 / 0.9.2 (Claude, 2026-10-30):** bulk FFTDF 주기계 힘·응력 제품 API(`integral_scheme=fftdf`, `calculation=gradient`). Γ·일반 k점·UKS·smearing(F 미분)을 유한차분으로 확인. slab은 GDF만이라 힘·응력 없음. 셀 최적화는 다음 후보.
 - **단계 12 / 0.9.3 (ChatGPT Codex, 2026-10-30):** `cell_optimize` — bulk FFTDF 원자·셀 동시 완화(ASE BFGS/FrechetCellFilter), full/isotropic, 고정 FFT 정수 mesh·상대 k점, E 또는 smearing F 최소화. 힘·응력·ΔE/F 개별 판정과 최종 독립 SCF 재검사. FFT mesh 수렴 도구(연속 두 구간 에너지·힘·응력 비교), GUI/CLI와 주기계 취소 지원. Si 2³ k점 예제 등방7/전단 포함 full10단계 수렴, 초기·최종 mesh 검사 통과. 물성 정확도 검증은 아님. 사용법: docs/PERIODIC_CELL_KO.md.
 - **단계 13 / 0.9.4 (Claude, 2026-11-01, 사용자 "해볼래"로 직전 제안 승인):** 분자 `calculation=irc` — geomeTRIC 1.1.1 내장 IRC + 자체/PySCF 힘. 끝점별 기울기 판정, 기준 미달 끝점은 일반 최소화로 마무리, 마지막 방향 단계 한도 시 geometric_irc.xyz로 경로 복구. NH₃ 반전(거울상 끝점)·HCN⇌HNC(끝점 = 독립 최적화 이성질체, 진동수 최소점) 검증. RRHO 열역학을 ASE IdealGasThermo와 교차검증(H·S ≤4.1e-7 상대, 298~3000 K). 상세는 docs/VALIDATION_KO.md 0.9.4.
+- **QS-20261112-HE-LDA / 0.9.5 (Claude, 2026-11-12, 사용자 지시 "중성 He LDA-SCF 직접 구현·검증"):** atomic_dft.py 방사 격자 LDA-SCF(`main.py --model he-lda`). 기본(dr 0.001, r_max 30) E = −2.834832195 Ha, ε₁ₛ = −0.570423731 Ha, PySCF RKS 기준(−2.834835624, 짝수 템퍼드 s 39개)과 +3.4e-6 Ha. 격자 2차 수렴, Richardson은 PySCF와 2e-11 Ha, NIST LDA 표(−2.834836)와 6자리 일치. 상세 docs/VALIDATION_KO.md 0.9.5.
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계
@@ -87,6 +89,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - bulk 셀 최적화는 외부압력0, 원자 제약 없음, 초기 정수 FFT mesh 고정. smearing F를 미분하는 힘·응력에 맞춰 F를 최소화한다. 등방 완화는 평균 응력만 판정한다. 중간 SCF 실패를 거부하며 최종 재계산은 `final/`에 두어 루트에 잘못된 수렴 상태를 남기지 않는다. 요청 설정과 최종 구조 설정을 구분한다. 최적화 재시작·포논 안정성·자동 k점/기저 수렴은 미지원.
 - 2026-10-29 발견·수정: 자체 DIIS 계수 상한 30이 수렴 정체를 일으킴 → 의사역행렬로 수정(0.8.4). 근축퇴 열린 껍질(OH)은 다중 UKS 해가 있고 수렴한 해가 불안정(안장점)일 수 있음 → 0.8.6 자체 안정성 분석(check/follow)으로 검출·추적 가능. Fe 원자는 0.8.6에서 수렴, 기록된 **Cr·Co 정수 점유 미수렴은 0.9.1 Newton에서 해결**. 모든 기저/스핀/격자 및 전이금속 화합물의 수렴·바닥상태 보증은 아니다.
 - IRC(0.9.4) 구동기는 Sella(미설치, jax 추가 의존) 대신 이미 쓰는 geomeTRIC 내장 IRC를 택했다. geomeTRIC은 한 방향이 단계 한도에 걸려도 전체 성공을 보고하고(HCN⇌HNC의 선형 HNC 끝에서 실측), customengine 분자에는 IRC 전 토폴로지가 없어 실패하므로, 성공 판정은 우리 끝점별 기울기 검사로 하고 토폴로지는 미리 만든다. 경로 s의 질량은 geomeTRIC 표준 원자량(진동 해석의 최빈 동위원소와 다름). IRC 끝점은 연결의 필요조건이며 의도한 반응물·생성물과의 대조는 사용자 몫이다.
+- 방사 격자 He LDA(0.9.5): 분자 엔진(가우스 기저, PySCF 적분)과 별개인 실공간 경로로, Windows `.venv`만으로 실행된다. XC는 Libxc와 같은 정의의 닫힌 식(Libxc 7.0.0과 1e-14 일치를 시험)이라 런타임 의존성이 없다. 1s 고윳값은 고유벡터의 Rayleigh 몫으로 계산한다: eigh_tridiagonal 고유값의 절대 정밀도가 eps·2/dr²(dr 0.001에서 4e-10 Ha)여서 SCF ΔE가 요동했기 때문이다. 같은 이유로 밀도 잔차 하한이 ~0.4·eps·2/dr²이며 grid_points 상한은 1,000,000. 현재 중성 He 1s²·스핀 비분극·LDA·선형 혼합만 지원한다; 다른 원자·열린 껍질·GGA·로그 격자/고차 차분은 미구현.
 - SCF 수렴은 기저·격자·k점 수렴이나 정확도 보증이 아니다. 37원자 HEA의 정밀 DFT 기준값과 네 MLIP의 정확도·속도 비교는 아직 없음.
 
 ## 연구 데이터와 향후 방향

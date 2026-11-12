@@ -1,4 +1,6 @@
-# QuantumStarter 0.9.4 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.9.5 · 자체/외부 분자 DFT와 주기계 계산
+
+**중성 He의 Kohn–Sham LDA-SCF를 방사 격자에서 직접 구현했습니다(0.9.5).** `.\.venv\Scripts\python.exe main.py --model he-lda --no-show` 한 줄로 실행하며 PySCF·Libxc 없이 동작합니다. [사용법](#중성-he-lda-scf-방사-격자-095) · [검증](docs/VALIDATION_KO.md).
 
 **자체 SCF 엔진을 추가했습니다.** `계산 방법 → 계산 엔진 → native` 또는 **자체 DFT · 물 (LDA 검증)** 예제를 선택하세요.
 밀도·Fock/XC 행렬·DIIS·SCF·에너지 성분은 직접 구현하고, 기저/적분/격자는 PySCF, XC 함수는 Libxc를 사용합니다.
@@ -273,6 +275,41 @@ Windows에서는 `auto`가 프로젝트의 WSL `.venv-dft`를 사용합니다. L
 `--backend local|wsl|auto`로 명시할 수도 있습니다. 종료 코드는 수렴 **0**, 실행/입력 실패 **1**, SCF 미수렴 **2**입니다.
 `--output`은 실행 폴더들을 저장할 상위 경로입니다. GUI와 CLI는 같은 엔진·입력 검증·출력 형식을 사용합니다.
 
+## 중성 He LDA-SCF (방사 격자, 0.9.5)
+
+```powershell
+.\.venv\Scripts\python.exe main.py --model he-lda --no-show
+.\.venv\Scripts\python.exe main.py --model he-lda --grid-points 59999 --mixing 0.7 --no-show
+.\.venv\Scripts\python.exe main.py --model he-lda --max-iterations 3 --no-show
+.\.venv\Scripts\python.exe main.py --model he-lda --config <이전 실행 폴더>\settings.json --no-show
+wsl --exec .venv-dft/bin/python scripts/validate_he_lda.py --compare-result <실행 폴더>/results.json
+```
+
+중성 He(Z = 2, 전자 2개, 1s 이중 점유, 스핀 비분극, 구대칭)의 Kohn–Sham 방정식을 원자 단위로 풉니다.
+교환·상관은 Slater 교환 + VWN5 상관(Libxc `LDA_X` ID 1 + `LDA_C_VWN` ID 7, PySCF 표기 `LDA_X,LDA_C_VWN`)이며,
+닫힌 식을 `atomic_dft.py`에 직접 구현하고 Libxc 7.0.0과 상대오차 2e-14 이내로 대조했습니다.
+밀도 n = 2|u|²/(4πr²), 하트리 퍼텐셜(구 안쪽 전하 Q(r)/r + 바깥 구껍질 ∫ρ/r′dr′), SCF·선형 혼합, 총에너지는 프로젝트 코드입니다.
+SciPy는 수소형 검증기와 같은 균일 격자·2차 차분 삼중대각 고유값 계산에만 쓰고, PySCF는 독립 비교 스크립트에서만 씁니다.
+
+| 옵션 | 뜻 | 기본값 |
+| --- | --- | --- |
+| `--r-max` | 계산영역 반지름 [bohr] | 30 |
+| `--grid-points` | 경계를 뺀 격자점 수 N, dr = r_max/(N+1) | 29999 (dr = 0.001) |
+| `--mixing` | 선형 혼합 n_in ← (1−a)n_in + a·n_out | 0.5 |
+| `--max-iterations` | SCF 반복 상한 | 100 |
+| `--energy-tol` | 연속 반복 총에너지 변화 \|ΔE\| [Ha] | 1e-10 |
+| `--density-tol` | 혼합 **전** ∫\|n_out − n_in\| 4πr² dr [전자] | 1e-7 |
+
+\|ΔE\|와 밀도 잔차가 **모두** 기준 아래일 때만 수렴입니다. 반복 상한에 도달하면 `status = not_converged`와 마지막 ΔE·잔차를 저장하고 종료 코드 **2**를 돌려줍니다(수렴 0, 입력·실행 오류 1).
+결과는 `outputs/he_lda/<시각>/`에 저장됩니다: `results.json`(총에너지·1s 고윳값[Ha, eV], 적분 전자 수, dr·r_max, XC 식별자, 에너지 성분, 반복별 이력, 수렴 상태),
+`scf_history.csv`, `radial.csv`(r, u, n, 4πr²n, v_ext, v_H, v_xc, v_eff), `settings.json`(`--config`로 재실행), `he_lda.png`.
+총에너지는 고윳값 합에서 이중 계산을 보정한 E = 2ε₁ₛ − ∫(v_H + v_xc)n + E_H + E_xc로 구하며, 운동에너지를 직접 더한 식과 1e-14 Ha 내에서 같습니다.
+
+기본 설정 실측: 22회 수렴, **E = −2.834832195 Ha, ε₁ₛ = −0.570423731 Ha**, N = 2.000000000000, 약 0.4초.
+독립 기준 PySCF RKS(같은 XC, 짝수 템퍼드 s 기저 39개) **−2.834835624 Ha**와의 차이는 **+3.4e-6 Ha**이며 대부분 격자 이산화 오차(≈ 3.4·dr² Ha)입니다.
+격자를 줄이면 2차로 수렴하고 Richardson 외삽값은 PySCF와 2e-11 Ha 차이입니다. 조건과 수열은 [검증 기록](docs/VALIDATION_KO.md) 0.9.5 절에 있습니다.
+LDA의 ε₁ₛ는 자기 상호작용 오차 때문에 실험 이온화 에너지(약 0.904 Ha)보다 크게 얕습니다. 이것은 구현 오류가 아니라 모델의 한계입니다. 현재는 중성 He 1s²만 지원합니다.
+
 ## 수소 검증기 보존
 
 ```powershell
@@ -281,7 +318,8 @@ Windows에서는 `auto`가 프로젝트의 WSL `.venv-dft`를 사용합니다. L
 ```
 
 `solver.py`, `config.json`, 기존 방사방정식·해석해 비교와 테스트를 유지했습니다.
-수소 검증기는 DFT가 아니며, 중성 He 계산은 새 분자 엔진에서 합니다.
+수소 검증기는 DFT가 아닙니다. 중성 He는 방사 격자 LDA-SCF(`--model he-lda`, 위 절)나 분자 엔진(가우스 기저)으로 계산합니다.
+0.9.5에서 `solver.py`의 격자·삼중대각 고유값 부분을 `radial_grid`·`lowest_radial_states`로 분리했으며 수소 결과는 비트 단위로 같습니다.
 이전 화면과 해석은 [수소 검증기 설명](docs/HYDROGEN_REFERENCE_KO.md),
 [방사방정식 참고](MODEL_REFERENCE_KO.md)를 보세요.
 
@@ -292,7 +330,9 @@ Windows에서는 `auto`가 프로젝트의 WSL `.venv-dft`를 사용합니다. L
 `molecular_plotting.py`: 저장된 결과의 시각화.
 
 ```powershell
+$env:QUANTUMSTARTER_TK_HIDDEN='1'   # 창을 띄우지 않는 GUI 시험
 .\.venv\Scripts\python.exe -m unittest -v
+wsl --exec .venv-dft/bin/python -m unittest test_atomic_dft -v
 wsl --exec .venv-dft/bin/python -m unittest test_molecular -v
 $env:QUANTUMSTARTER_GUI_DFT_TEST='1'
 .\.venv\Scripts\python.exe -m unittest test_molecular_gui -v

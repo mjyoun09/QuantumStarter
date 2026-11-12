@@ -79,29 +79,46 @@ def exact_reduced_radial(r_bohr, n, ell, z):
     return np.asarray(r_bohr) * radial_r
 
 
+def radial_grid(r_max_bohr, grid_points):
+    """균일 방사 격자: dr = r_max/(N+1), 내부 점 r_i = i*dr (i=1..N).
+
+    r=0과 r=r_max는 u=0인 Dirichlet 경계로만 쓰므로 내부 점 배열에 넣지 않는다.
+    수소형 검증기(solve)와 원자 DFT(atomic_dft.py)가 같은 격자 정의를 공유한다.
+    """
+    dr = r_max_bohr / (grid_points + 1)
+    return dr, dr * np.arange(1, grid_points + 1)
+
+
+def lowest_radial_states(potential, dr, num_states):
+    """내부 점의 [-1/2 d^2/dr^2 + potential] u = E u에서 낮은 고유상태를 구한다.
+
+    2차 중앙 유한차분 삼중대각 행렬. SciPy에는 이 고유값 문제만 맡긴다.
+    반환 u는 두 경계 0을 포함한 (N+2, num_states) 배열이며 sum(|u|^2)*dr = 1로 정규화한다.
+    """
+    diagonal = 1.0 / dr ** 2 + potential
+    off_diagonal = np.full(potential.size - 1, -0.5 / dr ** 2)
+    energies, vectors = eigh_tridiagonal(
+        diagonal, off_diagonal,
+        select="i", select_range=(0, num_states - 1),
+    )
+    # SciPy 정규화 sum(v^2)=1 -> 물리적 정규화 sum(|u|^2)*dr=1.
+    return energies, np.pad(vectors / np.sqrt(dr), ((1, 1), (0, 0)))
+
+
 def solve(config: Config) -> Result:
     """2차 중앙 유한차분으로 해밀토니안을 만들고 낮은 고유상태를 구한다.
 
     [-1/2 d^2/dr^2 + l(l+1)/(2r^2) - Z/r] u = E*u
     해석적 에너지 공식은 이 고유값 계산에 사용하지 않는다.
     """
-    dr = config.r_max_bohr / (config.grid_points + 1)
-    r_inner = dr * np.arange(1, config.grid_points + 1)
+    dr, r_inner = radial_grid(config.r_max_bohr, config.grid_points)
     ell = config.angular_momentum_l
     z = config.nuclear_charge
 
     # r=0은 경계로만 취급하므로 -Z/r의 0 나눗셈이 생기지 않는다.
     potential = -z / r_inner + ell * (ell + 1) / (2.0 * r_inner ** 2)
-    diagonal = 1.0 / dr ** 2 + potential
-    off_diagonal = np.full(config.grid_points - 1, -0.5 / dr ** 2)
-
-    # SciPy에는 삼중대각 행렬의 고유값 문제만 맡긴다. DFT 엔진은 사용하지 않는다.
-    energies, vectors = eigh_tridiagonal(
-        diagonal, off_diagonal,
-        select="i", select_range=(0, config.num_states - 1),
-    )
-    # SciPy 정규화 sum(v^2)=1 -> 물리적 정규화 sum(|u|^2)*dr=1.
-    u = np.pad(vectors / np.sqrt(dr), ((1, 1), (0, 0)))
+    # DFT 엔진은 사용하지 않는다.
+    energies, u = lowest_radial_states(potential, dr, config.num_states)
     r = dr * np.arange(config.grid_points + 2)
     principal_n = np.arange(ell + 1, ell + config.num_states + 1)
     u_exact = np.column_stack([

@@ -3,6 +3,15 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261112-HE-LDA (중성 He 방사 격자 Kohn–Sham LDA-SCF) 완료 2026-11-12 · 0.9.5 · Claude
+
+- 신규 atomic_dft.py: 중성 He(Z=2, 1s², 스핀 비분극, 구대칭) LDA-SCF. 밀도 n = 2|u|²/(4πr²), 하트리(안쪽 전하 Q/r + 바깥 구껍질 ∫ρ/r′), Slater 교환 + VWN5 상관 닫힌 식(Libxc LDA_X ID 1 + LDA_C_VWN ID 7과 같은 정의), 선형 혼합 SCF(혼합 전 잔차 ∫|n_out−n_in|4πr²dr, |ΔE|·잔차 모두 충족 시 수렴), 이중 계산 보정 총에너지를 직접 구현. SciPy는 solver.py와 공유하는 삼중대각 고유값 계산에만, PySCF는 검증에만 사용. 1s 고윳값은 Rayleigh 몫(고유값 해법 정밀도 eps·2/dr² 문제 발견·해결).
+- CLI `main.py --model he-lda` + `--mixing --max-iterations --energy-tol --density-tol --r-max --grid-points`, `--config settings.json` 재실행. 종료 코드 수렴 0·미수렴 2·오류 1. 결과 outputs/he_lda/<시각>/: results.json(총에너지·1s 고윳값 Ha/eV, 전자 수, dr·r_max, XC 식별자, 성분, 반복별 ΔE·잔차, 상태), scf_history.csv, radial.csv, settings.json, he_lda.png(신규 atomic_plotting.py).
+- solver.py: 격자·삼중대각 고유값을 `radial_grid`·`lowest_radial_states`로 분리(수소 결과 비트 단위 동일). test_gui.py: `QUANTUMSTARTER_TK_HIDDEN=1` 숨김 모드 추가.
+- 주요 파일: 신규 atomic_dft.py·atomic_plotting.py·test_atomic_dft.py·scripts/validate_he_lda.py, solver.py, main.py, test_gui.py, 버전(workflow.py, engines/pyscf_engine.py, engines/periodic.py, periodic_app.py), README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md, PROJECT_STATE.md.
+- 검증: 기본(dr 0.001, r_max 30) 22회 수렴, E = −2.834832194587 Ha, ε₁ₛ = −0.570423731059 Ha, N = 2.000000000000. PySCF 2.14 RKS(LDA_X,LDA_C_VWN, 짝수 템퍼드 s 39개, 기저·격자 변화 ≤2.6e-9) −2.834835624033 Ha와 차이 +3.43e-6 Ha(목표 1e-4 충족). 격자 수열 2차(비 4.000), Richardson −2.834835624055(PySCF와 −2.2e-11), 계산영역 r_max ≥ 15에서 1e-12 내 수렴, 반복 상한 3 → not_converged. Libxc 7.0.0과 XC 1.6e-14 일치, NIST LDA 표(−2.834836, ε −0.570425)와 6자리 일치. test_atomic_dft 18개 Windows·WSL 통과. Windows 전체 숨김 174 OK(skip 84), WSL 전체 151 통과 + tkinter 없는 WSL의 GUI 모듈 import 오류 3(기존 환경 제약, Windows에서 통과). 보고 outputs/he_lda_validation/20261112_he_lda/report.json.
+- 한계: 중성 He 1s²·LDA·선형 혼합만. 다른 원소·열린 껍질·스핀 분극·GGA·로그 격자/고차 차분 미구현. 균일 격자 이산화 오차 ≈3.4·dr² Ha. LDA ε₁ₛ는 자기 상호작용 오차로 이온화 에너지와 다름(모델 한계).
+
 ## QS-20261029-NATIVE-DFT · 단계 13 (분자 IRC·열역학 독립 교차검증) 완료 2026-11-01 · 0.9.4 · Claude
 
 - `calculation=irc`: geomeTRIC 1.1.1 내장 IRC(Gonzalez–Schlegel 질량가중, 양방향, 끝 근처 최소화) + 자체/PySCF 해석적 힘. 경로 `irc_path.xyz`/`irc.csv`(질량가중 s, TS 기준 kJ/mol, 원자별 기울기), 양 끝점 xyz, 끝점별 장벽·기울기 판정, TS에서 오르막 검사, 끝점 RMSD(거울상 허용 포함), 시작 Hessian 허수 진동 재해석. 상단 폴더는 TS 재계산.

@@ -26,7 +26,7 @@ class PeriodicApp:
         self.screen_path = None
         self.control = None
         self.summary, self.current_dir = None, None
-        root.title('QuantumStarter 0.9.4 | 고체·표면 · DFT / 힘 / 셀 최적화')
+        root.title('QuantumStarter 0.9.5 | 고체·표면 · DFT / 힘 / 셀 최적화')
         root.geometry('1320x900')
         root.minsize(1100, 760)
         self.status = tk.StringVar(value='주기계 단일점 PBE · 격자와 k점을 확인하세요.')

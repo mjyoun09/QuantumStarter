@@ -6,6 +6,7 @@
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude — 2026-11-01 사용자 "codex가 12단계 완료하고 커밋 했다는데 해볼래"(직전 대화에서 Claude가 제안한 IRC·열역학 독립 검증 진행 승인)에 따라 단계 13 인수. 시작 HEAD 2dd6c8f, 작업 트리 깨끗함. 이전: ChatGPT Codex(단계 10·12).
 - 상태: HANDOFF_READY — 단계 13 COMPLETED(2026-11-01, CHANGELOG 0.9.4). 전체 장기 요구의 미완료 항목(quasi-RRHO·용매, 삼중항·복소 안정성, 항공우주 구체 주제)이 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 별도 작업 QS-20261112-HE-LDA(중성 He 방사 격자 LDA-SCF, 0.9.5, Claude)는 2026-11-12 완료 — CHANGELOG 참조. 작업 메모 TASK_HE_LDA_SCF.md는 사용자 지시에 따라 완료 후 삭제했다.
 
 ### 단계 14 재개 후보 (미착수, 다음 AI는 이 절 우선)
 

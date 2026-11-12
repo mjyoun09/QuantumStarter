@@ -14,6 +14,10 @@ import zipfile
 from app import QuantumApp
 from solver import Config
 
+# QUANTUMSTARTER_TK_HIDDEN=1: 창을 매핑 전에 숨겨 사용자 화면에 아무것도 띄우지 않는다
+# (사용자 요청 2026-10-29, test_molecular_gui와 같은 방식). 화면 픽셀이 필요한 검사만 생략한다.
+HIDDEN = os.environ.get('QUANTUMSTARTER_TK_HIDDEN') == '1'
+
 
 class GuiValidation(unittest.TestCase):
     def setUp(self):
@@ -21,6 +25,16 @@ class GuiValidation(unittest.TestCase):
             self.root = tk.Tk()
         except tk.TclError:
             self.skipTest('GUI 검증에는 그래픽 화면이 필요합니다.')
+        if HIDDEN:
+            self.root.withdraw()  # 첫 이벤트 처리 전에 숨겨 한 번도 매핑되지 않게 한다.
+            create_toplevel = tk.Toplevel.__init__
+
+            def hidden_toplevel(window, *args, **kwargs):
+                create_toplevel(window, *args, **kwargs)
+                window.withdraw()
+            patcher = patch.object(tk.Toplevel, '__init__', hidden_toplevel)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.callback_errors = []
@@ -58,9 +72,10 @@ class GuiValidation(unittest.TestCase):
         self.wait_finished()
         self.assertEqual(app.result.config, Config())
         self.assertEqual(len(app.table.get_children()), 3)
-        # 화면 픽셀보다 도표가 크게 그려져 축/범례가 잘리는 DPI 회귀 방지.
-        self.assertAlmostEqual(app.figure.bbox.width, app.canvas._tkphoto.width(), delta=1)
-        self.assertAlmostEqual(app.figure.bbox.height, app.canvas._tkphoto.height(), delta=1)
+        # 화면 픽셀보다 도표가 크게 그려져 축/범례가 잘리는 DPI 회귀 방지(화면 배치가 필요해 숨김 모드에서는 생략).
+        if not HIDDEN:
+            self.assertAlmostEqual(app.figure.bbox.width, app.canvas._tkphoto.width(), delta=1)
+            self.assertAlmostEqual(app.figure.bbox.height, app.canvas._tkphoto.height(), delta=1)
         first = app.current_dir
         self.assertTrue((first/'wavefunctions.png').is_file())
         self.assertTrue((first/'execution.log').is_file())
