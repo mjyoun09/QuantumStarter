@@ -3,6 +3,16 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261117-ATOM-LSDA (원자 LDA/LSDA, 로그 방사 격자, H–Kr) 완료 2026-11-17 · 0.9.6 · Claude
+
+- 신규 radial_atom.py: H–Kr 구대칭 원자 Kohn–Sham LDA/LSDA. 격자 r = a(eˣ−1)와 u = J^½φ 변환으로 대칭 삼중대각(SciPy eigh_tridiagonal stebz, tol = 4·tiny, ε는 Rayleigh 몫), 여러 껍질·사용자 배치([Ne] 코어 표기, 양이온·들뜬·소수 점유), 구면 평균, LSDA는 껍질별 다수 스핀 우선(Hund), VWN5 스핀 보간 자체 구현, 하트리·SCF(스핀 밀도 선형 혼합)·이중 계산 보정 총에너지·성분. 런타임 PySCF/Libxc 없음.
+- CLI `main.py --model atom --element X [--configuration ...] [--spin-polarized] [--grid-step --grid-scale --r-max --mixing ...]`, 결과 outputs/atom/<시각>/(results.json, orbitals.csv, scf_history.csv, radial.csv, settings.json, atom.png; atomic_plotting.create_atom_figure). he-lda·수소·분자 경로는 동작 불변.
+- 신규 data/nist_atomic_reference.json + scripts/build_nist_atomic_reference.py: NIST Atomic Reference Data(Z=1–36, LDA·LSD) 원 페이지를 내려받아 파싱(페이지 SHA-256 기록, 수작업 전사 없음). 신규 scripts/validate_atoms.py, test_radial_atom.py.
+- 발견: 로그 격자 행렬은 기본 허용오차로 고윳값이 Hartree 단위까지 틀림 → 최소 허용오차 이분법. 에너지가 numpy.float64로 남아 results.json 저장 실패(bool_) → 수정. Libxc 7은 1e-15 bohr⁻³ 미만 스핀 밀도를 1e-15로 바꿔 계산함을 확인(Cr LSD 꼬리의 소수 스핀 퍼텐셜 차이 원인, 에너지 영향 ~1e-15 Ha); ζ 문턱값이라는 첫 추정은 정정.
+- 검증: H–Kr 72건(LDA·LSD) 기본 격자 h = 0.001 모두 수렴(36–57회, 마디 수 정상). NIST 대비 기본 H–Ar |ΔE| ≤ 2.4e-5, K–Kr 상대 ≤ 5.7e-8(Kr 1.6e-4). Richardson(h 0.002·0.001) 총에너지·네 성분·모든 고윳값 ≤ 8.0e-7 Ha(NIST 6자리 반올림 폭), 관측 차수 2.000(N·Ar·Kr). 닫힌 껍질 He·Be·Ne·Mg·Ar PySCF RKS(짝수 템퍼드 s+p, β 1.6)와 Richardson ≤ 4.3e-8 Ha. Libxc LSDA 대조 통과. test_radial_atom 18개, Windows 전체 숨김 192 OK(skip 85), WSL 172 중 169(오류 3 = tkinter 없는 GUI import, 기존), 수정 후 관련 48개 양쪽 재통과. 보고 outputs/atom_validation/20261117_h_kr_v3/report.json.
+- 주요 파일: 신규 radial_atom.py·test_radial_atom.py·scripts/validate_atoms.py·scripts/build_nist_atomic_reference.py·data/nist_atomic_reference.json, main.py, atomic_plotting.py, 버전(workflow.py, engines/pyscf_engine.py, engines/periodic.py, periodic_app.py), README_KO.md, docs/VALIDATION_KO.md·REQUIREMENTS_STATUS_KO.md, PROJECT_STATE.md.
+- 한계: 비상대론·점핵·구면 평균·LDA/LSDA·선형 혼합만. GGA·상대론·비구면·다중항·음이온 미구현. 기본 격자 오차는 |E|에 비례(상대 ~5e-8).
+
 ## QS-20261112-HE-LDA (중성 He 방사 격자 Kohn–Sham LDA-SCF) 완료 2026-11-12 · 0.9.5 · Claude
 
 - 신규 atomic_dft.py: 중성 He(Z=2, 1s², 스핀 비분극, 구대칭) LDA-SCF. 밀도 n = 2|u|²/(4πr²), 하트리(안쪽 전하 Q/r + 바깥 구껍질 ∫ρ/r′), Slater 교환 + VWN5 상관 닫힌 식(Libxc LDA_X ID 1 + LDA_C_VWN ID 7과 같은 정의), 선형 혼합 SCF(혼합 전 잔차 ∫|n_out−n_in|4πr²dr, |ΔE|·잔차 모두 충족 시 수렴), 이중 계산 보정 총에너지를 직접 구현. SciPy는 solver.py와 공유하는 삼중대각 고유값 계산에만, PySCF는 검증에만 사용. 1s 고윳값은 Rayleigh 몫(고유값 해법 정밀도 eps·2/dr² 문제 발견·해결).

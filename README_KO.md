@@ -1,4 +1,6 @@
-# QuantumStarter 0.9.5 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.9.6 · 자체/외부 분자 DFT와 주기계 계산
+
+**원자 LDA/LSDA를 H–Kr로 넓혔습니다(0.9.6).** `.\.venv\Scripts\python.exe main.py --model atom --element Fe --spin-polarized --no-show`처럼 실행합니다. 로그 방사 격자를 쓰고 PySCF·Libxc 없이 동작하며, 72개 경우를 NIST 원자 기준 데이터와 대조했습니다. [사용법](#원자-ldalsda-로그-방사-격자-hkr-096).
 
 **중성 He의 Kohn–Sham LDA-SCF를 방사 격자에서 직접 구현했습니다(0.9.5).** `.\.venv\Scripts\python.exe main.py --model he-lda --no-show` 한 줄로 실행하며 PySCF·Libxc 없이 동작합니다. [사용법](#중성-he-lda-scf-방사-격자-095) · [검증](docs/VALIDATION_KO.md).
 
@@ -308,7 +310,53 @@ SciPy는 수소형 검증기와 같은 균일 격자·2차 차분 삼중대각 �
 기본 설정 실측: 22회 수렴, **E = −2.834832195 Ha, ε₁ₛ = −0.570423731 Ha**, N = 2.000000000000, 약 0.4초.
 독립 기준 PySCF RKS(같은 XC, 짝수 템퍼드 s 기저 39개) **−2.834835624 Ha**와의 차이는 **+3.4e-6 Ha**이며 대부분 격자 이산화 오차(≈ 3.4·dr² Ha)입니다.
 격자를 줄이면 2차로 수렴하고 Richardson 외삽값은 PySCF와 2e-11 Ha 차이입니다. 조건과 수열은 [검증 기록](docs/VALIDATION_KO.md) 0.9.5 절에 있습니다.
-LDA의 ε₁ₛ는 자기 상호작용 오차 때문에 실험 이온화 에너지(약 0.904 Ha)보다 크게 얕습니다. 이것은 구현 오류가 아니라 모델의 한계입니다. 현재는 중성 He 1s²만 지원합니다.
+LDA의 ε₁ₛ는 자기 상호작용 오차 때문에 실험 이온화 에너지(약 0.904 Ha)보다 크게 얕습니다. 이것은 구현 오류가 아니라 모델의 한계입니다. 이 경로는 중성 He 1s²만 지원하며, 다른 원자는 아래 `--model atom`을 쓰세요.
+
+## 원자 LDA/LSDA (로그 방사 격자, H–Kr, 0.9.6)
+
+```powershell
+.\.venv\Scripts\python.exe main.py --model atom --element Ar --no-show
+.\.venv\Scripts\python.exe main.py --model atom --element N --spin-polarized --no-show
+.\.venv\Scripts\python.exe main.py --model atom --element C --configuration "[He] 2s1 2p3" --spin-polarized --no-show
+.\.venv\Scripts\python.exe main.py --model atom --element Fe --spin-polarized --grid-step 0.0005 --no-show
+.\.venv\Scripts\python.exe main.py --model atom --config <이전 실행 폴더>\settings.json --no-show
+wsl --exec .venv-dft/bin/python scripts/validate_atoms.py
+```
+
+H–Kr(Z = 1–36) 원자의 구대칭 Kohn–Sham을 원자 단위로 풉니다. 밀도는 구면 평균이며, 부분 껍질은 m 성분을 균등하게 채운다고 봅니다.
+`--spin-polarized`이면 LSDA이고, 각 껍질을 다수 스핀부터 2l+1개까지 채웁니다(Hund 최대 스핀). 생략하면 스핀 비분극 LDA입니다.
+배치를 생략하면 NIST Atomic Reference Data의 바닥 배치를 씁니다(Cr `[Ar] 3d5 4s1`, Cu `[Ar] 3d10 4s1` 포함).
+`--configuration`으로 양이온이나 들뜬 배치, 소수 점유(`2p0.5`)도 줄 수 있습니다. 음이온은 받지 않습니다.
+XC는 Slater 교환 + VWN5 상관(Libxc `LDA_X` 1 + `LDA_C_VWN` 7)입니다. LSDA는 VWN 스핀 보간식을 직접 구현했고, Libxc 7.0.0과 상대 10⁻¹¹ 이내로 맞췄습니다. 단 Libxc는 10⁻¹⁵ bohr⁻³ 미만인 스핀 밀도를 10⁻¹⁵로 바꿔 계산하므로 그런 꼬리 영역에서는 값이 다릅니다(에너지 영향 ~10⁻¹⁵ Ha, 검증 기록 참조).
+
+격자는 r = a(eˣ − 1)이고 x 간격은 h, a = 10⁻⁴/Z bohr입니다. u = J^½φ(J = r + a)로 바꾸면 정확한 변환으로 대칭 삼중대각 고유값 문제가 되어, 수소형 검증기와 같은 SciPy `eigh_tridiagonal`을 씁니다.
+이 행렬은 원점 근처 성분이 매우 큰 계단형이어서 기본 허용오차로는 고윳값이 Hartree 단위로 틀립니다. 그래서 이분법에 최소 허용오차를 주고, 고윳값은 Rayleigh 몫으로 다시 계산합니다.
+
+| 옵션 | 뜻 | 기본값 |
+| --- | --- | --- |
+| `--element` | 원소 기호 H–Kr (`--config`가 없으면 필수) | — |
+| `--configuration` | 전자 배치, 예 `"[Ne] 3s2 3p6"` | NIST 바닥 배치 |
+| `--spin-polarized` | LSDA (생략 시 LDA) | LDA |
+| `--grid-step` | 로그 격자 간격 h | 0.001 |
+| `--grid-scale` | a·Z [bohr] | 1e-4 |
+| `--r-max` | 바깥 경계 [bohr] | 50 |
+| `--mixing` / `--max-iterations` | 선형 혼합 비율 / 반복 상한 | 0.3 / 300 |
+| `--energy-tol` / `--density-tol` | \|ΔE\| [Ha] / 혼합 전 스핀별 ∫\|ρ_out − ρ_in\| 합 [전자] | 1e-10 / 1e-7 |
+
+종료 코드는 수렴 0, 미수렴 2, 오류 1입니다. 결과는 `outputs/atom/<시각>/`에 저장됩니다.
+- `results.json`: 총에너지와 네 성분(운동·전자-핵·하트리·교환상관), 스핀별 오비탈 고윳값·점유·마디 수, 전자 수와 스핀 모멘트, 격자, XC 식별자, 반복 이력, 수렴 상태
+- 그 밖에 `orbitals.csv`, `scf_history.csv`, `radial.csv`(스핀별 밀도·퍼텐셜·u_nl), `settings.json`, `atom.png`
+
+**검증(H–Kr, LDA·LSD 72건).** 기본 격자에서 모두 수렴했습니다(36~57회, 원자당 0.5~10초).
+- **NIST 대조, 기본 격자:** 총에너지 차이는 H–Ar에서 2.4×10⁻⁵ Ha 이하입니다. K–Kr은 상대 오차 약 5.7×10⁻⁸로, Kr에서 1.6×10⁻⁴ Ha입니다.
+- **NIST 대조, Richardson 외삽(h = 0.002·0.001):** 총에너지·네 성분·모든 고윳값이 Z = 1–36 전부에서 NIST와 8×10⁻⁷ Ha 이내입니다. NIST 표의 6자리 반올림 폭과 같은 크기입니다.
+- **PySCF RKS 대조:** 닫힌 껍질 He·Be·Ne·Mg·Ar에서 Richardson 값과 4×10⁻⁸ Ha 이내입니다.
+
+NIST 값은 원 페이지를 내려받아 파싱해 `data/nist_atomic_reference.json`에 저장했습니다(`scripts/build_nist_atomic_reference.py`, 페이지 SHA-256 포함). 상세 조건은 [검증 기록](docs/VALIDATION_KO.md) 0.9.6 절에 있습니다.
+**한계:**
+- 비상대론·점핵·구면 평균만 지원합니다. 다중항 구분, 비구면 밀도, GGA·혼성, 상대론, 음이온은 아직 없습니다.
+- 혼합은 선형뿐입니다.
+- 기본 격자의 오차는 |E|에 비례합니다(상대 약 5×10⁻⁸). 무거운 원자를 10⁻⁶ Ha까지 맞추려면 `--grid-step`을 줄이거나 두 격자로 외삽하세요.
 
 ## 수소 검증기 보존
 
@@ -332,7 +380,7 @@ LDA의 ε₁ₛ는 자기 상호작용 오차 때문에 실험 이온화 에너�
 ```powershell
 $env:QUANTUMSTARTER_TK_HIDDEN='1'   # 창을 띄우지 않는 GUI 시험
 .\.venv\Scripts\python.exe -m unittest -v
-wsl --exec .venv-dft/bin/python -m unittest test_atomic_dft -v
+wsl --exec .venv-dft/bin/python -m unittest test_atomic_dft test_radial_atom -v
 wsl --exec .venv-dft/bin/python -m unittest test_molecular -v
 $env:QUANTUMSTARTER_GUI_DFT_TEST='1'
 .\.venv\Scripts\python.exe -m unittest test_molecular_gui -v

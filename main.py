@@ -1,6 +1,7 @@
 """명령행 실행 유지: python main.py --no-show. 사용 화면: python app.py.
 
 중성 He 방사 격자 LDA-SCF: python main.py --model he-lda --no-show
+원자 LDA/LSDA (로그 방사 격자, H–Kr): python main.py --model atom --element Ar [--spin-polarized] --no-show
 """
 import argparse
 from pathlib import Path
@@ -15,7 +16,13 @@ ROOT = Path(__file__).resolve().parent
 # CLI 옵션 이름 -> atomic_dft.AtomicDFTConfig 필드.
 ATOMIC_OPTIONS = {'mixing': 'mixing', 'max_iterations': 'max_iterations', 'energy_tol': 'energy_tol_hartree',
                   'density_tol': 'density_tol_electrons', 'r_max': 'r_max_bohr', 'grid_points': 'grid_points'}
-# --model he-lda와 함께 쓸 수 없는 분자·주기계 옵션.
+# CLI 옵션 이름 -> radial_atom.AtomConfig 필드 (--model atom).
+ATOM_OPTIONS = {'element': 'element', 'configuration': 'configuration', 'spin_polarized': 'spin_polarized',
+                'mixing': 'mixing', 'max_iterations': 'max_iterations', 'energy_tol': 'energy_tol_hartree',
+                'density_tol': 'density_tol_electrons', 'r_max': 'r_max_bohr', 'grid_step': 'grid_step',
+                'grid_scale': 'grid_scale'}
+ATOM_ONLY_OPTIONS = ('element', 'configuration', 'spin_polarized', 'grid_step', 'grid_scale')
+# --model he-lda / atom과 함께 쓸 수 없는 분자·주기계 옵션.
 DFT_ONLY_OPTIONS = ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps',
                     'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number',
                     'native_stability', 'opt_constraints', 'scan_spec', 'neb_images', 'scf_solver', 'ecp',
@@ -65,6 +72,66 @@ def run_he_lda(config, output_root: Path, show: bool):
         print('확인:', warning)
     figure = create_atomic_figure(result)
     plot_path = directory / 'he_lda.png'
+    figure.savefig(plot_path, dpi=150)
+    print(f"상태: {summary['status']} | 결과 폴더: {directory}")
+    if show:
+        import matplotlib.pyplot as plt
+        import matplotlib.image as mpimg
+        plt.figure(figsize=figure.get_size_inches())
+        plt.imshow(mpimg.imread(plot_path))
+        plt.axis('off')
+        plt.show()
+    return 0 if result.converged else 2
+
+
+def run_atom_cli(config, output_root: Path, show: bool):
+    """원자 LDA/LSDA 실행·저장·출력. 종료 코드: 수렴 0, 미수렴 2."""
+    from radial_atom import XC_FUNCTIONALS, log_grid, run_atom, save_atom_result
+    from atomic_plotting import create_atom_figure
+    directory = new_run_dir(output_root)
+    grid = log_grid(config)
+    xc = XC_FUNCTIONALS
+    kind = 'LSDA (스핀 분극)' if config.spin_polarized else 'LDA (스핀 비분극)'
+    print(f"QuantumStarter {VERSION} | 원자 Kohn–Sham {kind}, 구면 평균 밀도, 로그 방사 격자 (자체 구현)")
+    print(f"원소 {config.element} (Z = {config.nuclear_charge}) | 배치 {config.configuration_text} | "
+          f"XC: {xc['exchange']['libxc_name']} (Libxc ID {xc['exchange']['libxc_id']}) + "
+          f"{xc['correlation']['libxc_name']} (Libxc ID {xc['correlation']['libxc_id']}, VWN5)")
+    print(f"격자: r = a(e^x − 1), h = {grid.h:g}, a = {grid.a:.3g} bohr, 점 {grid.r.size}, r_end = {grid.r_end:.4g} bohr | "
+          f"혼합 {config.mixing:g}, 반복 상한 {config.max_iterations}, |ΔE| < {config.energy_tol_hartree:.1e} Ha, "
+          f"밀도 잔차 < {config.density_tol_electrons:.1e} e")
+    print(" 반복    E_total [Ha]            ΔE [Ha]     밀도 잔차 [e]")
+
+    def report(record):
+        delta = record['delta_energy_hartree']
+        print(f"{record['iteration']:5d}  {record['total_energy_hartree']:20.12f}  "
+              f"{'-' if delta is None else f'{delta:.3e}':>10s}  {record['density_residual_electrons']:12.3e}")
+
+    started = time.perf_counter()
+    result = run_atom(config, progress=report)
+    summary = save_atom_result(result, directory, time.perf_counter() - started)
+    conv = summary['convergence']
+    delta = conv['final_delta_energy_hartree']
+    detail = (f"|ΔE| = {'-' if delta is None else f'{abs(delta):.2e}'} Ha, "
+              f"밀도 잔차 = {conv['final_density_residual_electrons']:.2e} e")
+    label = '' if result.converged else ' [미수렴 마지막 값]'
+    if result.converged:
+        print(f"SCF 수렴: {summary['iterations']}회 ({detail})")
+    else:
+        print(f"SCF 미수렴: 반복 상한 {config.max_iterations}회 도달 (마지막 {detail}; "
+              f"기준 {config.energy_tol_hartree:.1e} Ha / {config.density_tol_electrons:.1e} e)")
+    print(f"{'오비탈':6s} {'스핀':12s} {'점유':>6s}  {'고윳값 [Ha]':>18s}  {'고윳값 [eV]':>14s}")
+    for orbital in summary['orbitals']:
+        print(f"{orbital['label']:6s} {orbital['spin']:12s} {orbital['occupation']:6.3g}  "
+              f"{orbital['eigenvalue_hartree']:18.9f}  {orbital['eigenvalue_hartree'] * HARTREE_TO_EV:14.6f}")
+    print(f"총에너지 E_total = {summary['total_energy_hartree']:.10f} Ha ({summary['total_energy_ev']:.6f} eV){label}")
+    parts = summary['energy_components_hartree']
+    print(f"  운동 {parts['kinetic']:.8f}, 전자-핵 {parts['electron_nuclear']:.8f}, 하트리 {parts['hartree']:.8f}, "
+          f"교환·상관 {parts['exchange_correlation']:.8f} Ha")
+    print(f"적분 전자 수 N = {summary['electron_count']:.12f}")
+    for warning in summary['warnings']:
+        print('확인:', warning)
+    figure = create_atom_figure(result)
+    plot_path = directory / 'atom.png'
     figure.savefig(plot_path, dpi=150)
     print(f"상태: {summary['status']} | 결과 폴더: {directory}")
     if show:
@@ -148,14 +215,20 @@ def main():
     parser.add_argument('--restart', type=Path, help='기존 실행 폴더 또는 checkpoint.npz')
     parser.add_argument("--backend", choices=['auto', 'local', 'wsl'], default='auto')
     parser.add_argument("--hydrogen-check", action='store_true', help="기존 수소형 한 전자 검증 계산")
-    parser.add_argument('--model', choices=['he-lda'],
-                        help='he-lda: 중성 He 구대칭 Kohn–Sham LDA-SCF (Slater+VWN5, 방사 격자, 자체 구현). '
-                             '--config는 이 모델의 settings.json')
-    parser.add_argument('--mixing', type=float, help='[he-lda] 선형 밀도 혼합 비율 0<a≤1 (기본 0.5)')
-    parser.add_argument('--max-iterations', type=int, help='[he-lda] SCF 반복 상한 (기본 100)')
-    parser.add_argument('--energy-tol', type=float, help='[he-lda] |ΔE| 수렴 기준 [Ha] (기본 1e-10)')
-    parser.add_argument('--density-tol', type=float, help='[he-lda] 혼합 전 밀도 잔차 기준 [전자] (기본 1e-7)')
-    parser.add_argument('--r-max', type=float, help='[he-lda] 계산영역 반지름 [bohr] (기본 30)')
+    parser.add_argument('--model', choices=['he-lda', 'atom'],
+                        help='he-lda: 중성 He LDA-SCF (균일 방사 격자, 0.9.5). atom: H–Kr 원자 LDA/LSDA '
+                             '(로그 방사 격자, 구면 평균). 둘 다 Slater+VWN5 자체 구현. --config는 그 모델의 settings.json')
+    parser.add_argument('--element', help='[atom] 원소 기호 H–Kr')
+    parser.add_argument('--configuration', help='[atom] 전자 배치, 예: "[Ne] 3s2 3p6" (생략 시 NIST 바닥 배치)')
+    parser.add_argument('--spin-polarized', action='store_const', const=True,
+                        help='[atom] LSDA(껍질별 다수 스핀 우선 점유). 생략 시 LDA')
+    parser.add_argument('--grid-step', type=float, help='[atom] 로그 격자 x 간격 h (기본 0.001)')
+    parser.add_argument('--grid-scale', type=float, help='[atom] 격자 척도 a·Z [bohr] (기본 1e-4)')
+    parser.add_argument('--mixing', type=float, help='[he-lda/atom] 선형 밀도 혼합 비율 0<a≤1 (기본 0.5 / 0.3)')
+    parser.add_argument('--max-iterations', type=int, help='[he-lda/atom] SCF 반복 상한 (기본 100 / 300)')
+    parser.add_argument('--energy-tol', type=float, help='[he-lda/atom] |ΔE| 수렴 기준 [Ha] (기본 1e-10)')
+    parser.add_argument('--density-tol', type=float, help='[he-lda/atom] 혼합 전 밀도 잔차 기준 [전자] (기본 1e-7)')
+    parser.add_argument('--r-max', type=float, help='[he-lda/atom] 계산영역 반지름 [bohr] (기본 30 / 50)')
     parser.add_argument('--grid-points', type=int, help='[he-lda] 경계 제외 방사 격자점 수 (기본 29999, dr=0.001)')
     parser.add_argument("--output", type=Path, help="실행 폴더들을 저장할 상위 경로")
     parser.add_argument("--no-show", action="store_true", help="그래프 창 없이 파일만 저장")
@@ -164,20 +237,36 @@ def main():
                      'cell_relaxation', 'cell_max_steps', 'cell_force_tol', 'cell_stress_tol_gpa', 'cell_energy_tol_ev')
     has_periodic_options = any(getattr(args, key) is not None for key in periodic_keys)
     try:
-        if args.model == 'he-lda':
+        if args.model in ('he-lda', 'atom'):
             from dataclasses import replace
-            from atomic_dft import AtomicDFTConfig, load_atomic_config
             used = [key for key in DFT_ONLY_OPTIONS + periodic_keys if getattr(args, key) not in (None, False)]
             if args.hydrogen_check or used or args.backend != 'auto':
-                parser.error('--model he-lda에는 --hydrogen-check·분자·주기계·--backend 옵션을 함께 사용할 수 없습니다: '
+                parser.error(f'--model {args.model}에는 --hydrogen-check·분자·주기계·--backend 옵션을 함께 사용할 수 없습니다: '
                              + ', '.join(used or ['hydrogen_check' if args.hydrogen_check else 'backend']))
-            config = load_atomic_config(args.config) if args.config else AtomicDFTConfig()
-            config = replace(config, **{field: getattr(args, key) for key, field in ATOMIC_OPTIONS.items()
+            if args.model == 'he-lda':
+                from atomic_dft import AtomicDFTConfig, load_atomic_config
+                wrong = [key for key in ATOM_ONLY_OPTIONS if getattr(args, key) is not None]
+                if wrong:
+                    parser.error('--model he-lda에서는 쓸 수 없는 원자 옵션: ' + ', '.join(wrong)
+                                 + ' (임의 원자는 --model atom)')
+                config = load_atomic_config(args.config) if args.config else AtomicDFTConfig()
+                config = replace(config, **{field: getattr(args, key) for key, field in ATOMIC_OPTIONS.items()
+                                            if getattr(args, key) is not None})
+                return run_he_lda(config, args.output or ROOT / 'outputs' / 'he_lda', show=not args.no_show)
+            from radial_atom import AtomConfig, load_atom_config
+            if args.grid_points is not None:
+                parser.error('--model atom은 --grid-points 대신 --grid-step(로그 격자 간격)을 씁니다.')
+            if not args.config and args.element is None:
+                parser.error('--model atom에는 --element 또는 --config가 필요합니다.')
+            config = load_atom_config(args.config) if args.config else AtomConfig(element=args.element)
+            config = replace(config, **{field: getattr(args, key) for key, field in ATOM_OPTIONS.items()
                                         if getattr(args, key) is not None})
-            return run_he_lda(config, args.output or ROOT / 'outputs' / 'he_lda', show=not args.no_show)
-        if any(getattr(args, key) is not None for key in ATOMIC_OPTIONS):
-            parser.error('--mixing·--max-iterations·--energy-tol·--density-tol·--r-max·--grid-points는 '
-                         '--model he-lda 전용입니다.')
+            return run_atom_cli(config, args.output or ROOT / 'outputs' / 'atom', show=not args.no_show)
+        if any(getattr(args, key) is not None for key in ATOMIC_OPTIONS) or \
+                any(getattr(args, key) is not None for key in ATOM_ONLY_OPTIONS):
+            parser.error('--mixing·--max-iterations·--energy-tol·--density-tol·--r-max·--grid-points와 '
+                         '--element·--configuration·--spin-polarized·--grid-step·--grid-scale은 '
+                         '--model he-lda / atom 전용입니다.')
         if args.hydrogen_check:
             if has_periodic_options:
                 parser.error('--hydrogen-check에는 주기계 옵션을 함께 사용할 수 없습니다.')

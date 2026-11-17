@@ -1,0 +1,1849 @@
+{
+ "source": {
+  "title": "Atomic Reference Data for Electronic Structure Calculations",
+  "authors": "S. Kotochigova, Z. H. Levine, E. L. Shirley, M. D. Stiles, C. W. Clark",
+  "publisher": "National Institute of Standards and Technology (NIST)",
+  "index": "https://math.nist.gov/DFTdata/atomdata/tables/ptable.html",
+  "accessed": "2026-11-17",
+  "units": "hartree",
+  "columns": {
+   "LDA": "nonrelativistic spin-unpolarized LDA (Vosko-Wilk-Nusair correlation)",
+   "LSD": "nonrelativistic local spin density"
+  },
+  "lsd_eigenvalue_order": "majority spin first (NIST \"down\"), minority spin second",
+  "energy_terms": {
+   "Etot": "total",
+   "Ekin": "kinetic",
+   "Ecoul": "Hartree electron-electron",
+   "Eenuc": "electron-nucleus",
+   "Exc": "exchange-correlation"
+  },
+  "parser": "scripts/build_nist_atomic_reference.py (numbers parsed from the page text)"
+ },
+ "elements": {
+  "H": {
+   "Z": 1,
+   "configuration": "1s",
+   "LDA": {
+    "Etot": -0.445671,
+    "Ekin": 0.425027,
+    "Ecoul": 0.282827,
+    "Eenuc": -0.920999,
+    "Exc": -0.232525,
+    "eigenvalues": {
+     "1s": -0.233471
+    }
+   },
+   "LSD": {
+    "Etot": -0.478671,
+    "Ekin": 0.466643,
+    "Ecoul": 0.298377,
+    "Eenuc": -0.965619,
+    "Exc": -0.278072,
+    "eigenvalues": {
+     "1s": {
+      "majority": -0.268975,
+      "minority": -0.100175
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/01H.html",
+   "page_sha256": "7f6fba84e60941cecaee3ba2d8b2876214e51bb42508e76e23fada692d4b43aa"
+  },
+  "He": {
+   "Z": 2,
+   "configuration": "1s2",
+   "LDA": {
+    "Etot": -2.834836,
+    "Ekin": 2.767922,
+    "Ecoul": 1.99612,
+    "Eenuc": -6.625564,
+    "Exc": -0.973314,
+    "eigenvalues": {
+     "1s": -0.570425
+    }
+   },
+   "LSD": {
+    "Etot": -2.834836,
+    "Ekin": 2.767922,
+    "Ecoul": 1.99612,
+    "Eenuc": -6.625564,
+    "Exc": -0.973314,
+    "eigenvalues": {
+     "1s": {
+      "majority": -0.570425,
+      "minority": -0.570425
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/02He.html",
+   "page_sha256": "e51299c001aaba6f11d6f5d11297e3d4faf7abda4bc12c5b9bf0342dc53c33df"
+  },
+  "Li": {
+   "Z": 3,
+   "configuration": "[He] 2s1",
+   "LDA": {
+    "Etot": -7.335195,
+    "Ekin": 7.237484,
+    "Ecoul": 3.990755,
+    "Eenuc": -16.911041,
+    "Exc": -1.652393,
+    "eigenvalues": {
+     "1s": -1.878564,
+     "2s": -0.10554
+    }
+   },
+   "LSD": {
+    "Etot": -7.343957,
+    "Ekin": 7.249892,
+    "Ecoul": 4.009258,
+    "Eenuc": -16.937918,
+    "Exc": -1.665189,
+    "eigenvalues": {
+     "1s": {
+      "majority": -1.874926,
+      "minority": -1.867175
+     },
+     "2s": {
+      "majority": -0.116305,
+      "minority": -0.076855
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/03Li.html",
+   "page_sha256": "83baa381cbee0414bfb1ab7c38708b309fdc9067df7da82d433097a744f61bbb"
+  },
+  "Be": {
+   "Z": 4,
+   "configuration": "[He] 2s2",
+   "LDA": {
+    "Etot": -14.447209,
+    "Ekin": 14.309424,
+    "Ecoul": 7.115257,
+    "Eenuc": -33.357034,
+    "Exc": -2.514856,
+    "eigenvalues": {
+     "1s": -3.856411,
+     "2s": -0.205744
+    }
+   },
+   "LSD": {
+    "Etot": -14.447209,
+    "Ekin": 14.309424,
+    "Ecoul": 7.115257,
+    "Eenuc": -33.357034,
+    "Exc": -2.514856,
+    "eigenvalues": {
+     "1s": {
+      "majority": -3.856411,
+      "minority": -3.856411
+     },
+     "2s": {
+      "majority": -0.205744,
+      "minority": -0.205744
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/04Be.html",
+   "page_sha256": "7d1e3a00aacdb5821eb6ee39374844c8956402bddf305ca6a1151be8390a786a"
+  },
+  "B": {
+   "Z": 5,
+   "configuration": "[He] 2s2 2p1",
+   "LDA": {
+    "Etot": -24.344198,
+    "Ekin": 24.161047,
+    "Ecoul": 11.503002,
+    "Eenuc": -56.484587,
+    "Exc": -3.52366,
+    "eigenvalues": {
+     "1s": -6.564347,
+     "2s": -0.344701,
+     "2p": -0.136603
+    }
+   },
+   "LSD": {
+    "Etot": -24.353614,
+    "Ekin": 24.172451,
+    "Ecoul": 11.528234,
+    "Eenuc": -56.51674,
+    "Exc": -3.537559,
+    "eigenvalues": {
+     "1s": {
+      "majority": -6.563384,
+      "minority": -6.550876
+     },
+     "2s": {
+      "majority": -0.360441,
+      "minority": -0.318624
+     },
+     "2p": {
+      "majority": -0.150853,
+      "minority": -0.113184
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/05B.html",
+   "page_sha256": "53fbbe3f5dbacd07c87226d2c0335c646414c68916192c26587cda8fd7e44ac7"
+  },
+  "C": {
+   "Z": 6,
+   "configuration": "[He] 2s2 2p2",
+   "LDA": {
+    "Etot": -37.425749,
+    "Ekin": 37.190391,
+    "Ecoul": 17.627997,
+    "Eenuc": -87.515412,
+    "Exc": -4.728724,
+    "eigenvalues": {
+     "1s": -9.947718,
+     "2s": -0.500866,
+     "2p": -0.199186
+    }
+   },
+   "LSD": {
+    "Etot": -37.470031,
+    "Ekin": 37.242662,
+    "Ecoul": 17.722784,
+    "Eenuc": -87.646436,
+    "Exc": -4.789041,
+    "eigenvalues": {
+     "1s": {
+      "majority": -9.940546,
+      "minority": -9.905802
+     },
+     "2s": {
+      "majority": -0.531276,
+      "minority": -0.435066
+     },
+     "2p": {
+      "majority": -0.227557,
+      "minority": -0.139285
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/06C.html",
+   "page_sha256": "462d288bdd86dbdd1c85b60df694b6004b0fb8f1ab6a87acf380d229ab407680"
+  },
+  "N": {
+   "Z": 7,
+   "configuration": "[He] 2s2 2p3",
+   "LDA": {
+    "Etot": -54.025016,
+    "Ekin": 53.731727,
+    "Ecoul": 25.799845,
+    "Eenuc": -127.416229,
+    "Exc": -6.140359,
+    "eigenvalues": {
+     "1s": -14.011501,
+     "2s": -0.676151,
+     "2p": -0.266297
+    }
+   },
+   "LSD": {
+    "Etot": -54.136799,
+    "Ekin": 53.861177,
+    "Ecoul": 26.005085,
+    "Eenuc": -127.71784,
+    "Exc": -6.285222,
+    "eigenvalues": {
+     "1s": {
+      "majority": -13.995697,
+      "minority": -13.930559
+     },
+     "2s": {
+      "majority": -0.72076,
+      "minority": -0.561354
+     },
+     "2p": {
+      "majority": -0.308848,
+      "minority": -0.160705
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/07N.html",
+   "page_sha256": "428d358b94badb5d4013273e8171108f11a4389ce0428ea8690594a29bdb13dd"
+  },
+  "O": {
+   "Z": 8,
+   "configuration": "[He] 2s2 2p4",
+   "LDA": {
+    "Etot": -74.473077,
+    "Ekin": 74.116881,
+    "Ecoul": 36.331102,
+    "Eenuc": -177.152578,
+    "Exc": -7.768482,
+    "eigenvalues": {
+     "1s": -18.758245,
+     "2s": -0.871362,
+     "2p": -0.338381
+    }
+   },
+   "LSD": {
+    "Etot": -74.52741,
+    "Ekin": 74.178813,
+    "Ecoul": 36.409873,
+    "Eenuc": -177.279326,
+    "Exc": -7.83677,
+    "eigenvalues": {
+     "1s": {
+      "majority": -18.766963,
+      "minority": -18.713693
+     },
+     "2s": {
+      "majority": -0.915554,
+      "minority": -0.801638
+     },
+     "2p": {
+      "majority": -0.381133,
+      "minority": -0.272349
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/08O.html",
+   "page_sha256": "a27a06f8735d17c2d2ec661fd1fd912938bf3ddaeb892a8560b30ba89a0a4f45"
+  },
+  "F": {
+   "Z": 9,
+   "configuration": "[He] 2s2 2p5",
+   "LDA": {
+    "Etot": -99.099648,
+    "Ekin": 98.676131,
+    "Ecoul": 49.535385,
+    "Eenuc": -237.688846,
+    "Exc": -9.622319,
+    "eigenvalues": {
+     "1s": -24.189391,
+     "2s": -1.086859,
+     "2p": -0.415606
+    }
+   },
+   "LSD": {
+    "Etot": -99.114192,
+    "Ekin": 98.6925,
+    "Ecoul": 49.553571,
+    "Eenuc": -237.720045,
+    "Exc": -9.640218,
+    "eigenvalues": {
+     "1s": {
+      "majority": -24.200831,
+      "minority": -24.170085
+     },
+     "2s": {
+      "majority": -1.114068,
+      "minority": -1.054122
+     },
+     "2p": {
+      "majority": -0.442152,
+      "minority": -0.383951
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/09F.html",
+   "page_sha256": "eb5cc55731070a6225c935f1f5d48df1e7e24093f4844d45ab06248fd16faf40"
+  },
+  "Ne": {
+   "Z": 10,
+   "configuration": "[He] 2s2 2p6",
+   "LDA": {
+    "Etot": -128.233481,
+    "Ekin": 127.738667,
+    "Ecoul": 65.726488,
+    "Eenuc": -309.988206,
+    "Exc": -11.71043,
+    "eigenvalues": {
+     "1s": -30.305855,
+     "2s": -1.322809,
+     "2p": -0.498034
+    }
+   },
+   "LSD": {
+    "Etot": -128.233481,
+    "Ekin": 127.738667,
+    "Ecoul": 65.726488,
+    "Eenuc": -309.988206,
+    "Exc": -11.71043,
+    "eigenvalues": {
+     "1s": {
+      "majority": -30.305855,
+      "minority": -30.305855
+     },
+     "2s": {
+      "majority": -1.322809,
+      "minority": -1.322809
+     },
+     "2p": {
+      "majority": -0.498034,
+      "minority": -0.498034
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/10Ne.html",
+   "page_sha256": "257b24a27718ff20bf0bbe30e1a8a6524fd76aa942a41c2bd42c43df2ea1317f"
+  },
+  "Na": {
+   "Z": 11,
+   "configuration": "[Ne] 3s1",
+   "LDA": {
+    "Etot": -161.44006,
+    "Ekin": 160.896571,
+    "Ecoul": 79.732497,
+    "Eenuc": -388.546372,
+    "Exc": -13.522757,
+    "eigenvalues": {
+     "1s": -37.719975,
+     "2s": -2.063401,
+     "2p": -1.060636,
+     "3s": -0.103415
+    }
+   },
+   "LSD": {
+    "Etot": -161.447625,
+    "Ekin": 160.907255,
+    "Ecoul": 79.784904,
+    "Eenuc": -388.606022,
+    "Exc": -13.533763,
+    "eigenvalues": {
+     "1s": {
+      "majority": -37.715426,
+      "minority": -37.714108
+     },
+     "2s": {
+      "majority": -2.059478,
+      "minority": -2.057467
+     },
+     "2p": {
+      "majority": -1.057062,
+      "minority": -1.054327
+     },
+     "3s": {
+      "majority": -0.113205,
+      "minority": -0.081539
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/11Na.html",
+   "page_sha256": "0caec3bb7d831b8850302b9351ad7d155e8d9158324b2b87645f3f9aa47db0fa"
+  },
+  "Mg": {
+   "Z": 12,
+   "configuration": "[Ne] 3s2",
+   "LDA": {
+    "Etot": -199.139406,
+    "Ekin": 198.541505,
+    "Ecoul": 95.67329,
+    "Eenuc": -477.899149,
+    "Exc": -15.455051,
+    "eigenvalues": {
+     "1s": -45.973167,
+     "2s": -2.903746,
+     "2p": -1.71897,
+     "3s": -0.175427
+    }
+   },
+   "LSD": {
+    "Etot": -199.139406,
+    "Ekin": 198.541505,
+    "Ecoul": 95.67329,
+    "Eenuc": -477.899149,
+    "Exc": -15.455051,
+    "eigenvalues": {
+     "1s": {
+      "majority": -45.973167,
+      "minority": -45.973167
+     },
+     "2s": {
+      "majority": -2.903746,
+      "minority": -2.903746
+     },
+     "2p": {
+      "majority": -1.71897,
+      "minority": -1.71897
+     },
+     "3s": {
+      "majority": -0.175427,
+      "minority": -0.175427
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/12Mg.html",
+   "page_sha256": "df15bc38756da8750efd8386534a524dbe7c1cbe3765f0ed90a9a10f4168baf2"
+  },
+  "Al": {
+   "Z": 13,
+   "configuration": "[Ne] 3s2 3p1",
+   "LDA": {
+    "Etot": -241.315573,
+    "Ekin": 240.663489,
+    "Ecoul": 112.670733,
+    "Eenuc": -577.205757,
+    "Exc": -17.444038,
+    "eigenvalues": {
+     "1s": -55.156044,
+     "2s": -3.934827,
+     "2p": -2.564018,
+     "3s": -0.286883,
+     "3p": -0.102545
+    }
+   },
+   "LSD": {
+    "Etot": -241.321156,
+    "Ekin": 240.670669,
+    "Ecoul": 112.705697,
+    "Eenuc": -577.245289,
+    "Exc": -17.452233,
+    "eigenvalues": {
+     "1s": {
+      "majority": -55.153974,
+      "minority": -55.151977
+     },
+     "2s": {
+      "majority": -3.933189,
+      "minority": -3.930707
+     },
+     "2p": {
+      "majority": -2.562711,
+      "minority": -2.559533
+     },
+     "3s": {
+      "majority": -0.296278,
+      "minority": -0.271934
+     },
+     "3p": {
+      "majority": -0.111247,
+      "minority": -0.088843
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/13Al.html",
+   "page_sha256": "3fb66909b44d312c92618ae8a89b910e449ba2ea90a323cc00049bf4028fbde3"
+  },
+  "Si": {
+   "Z": 14,
+   "configuration": "[Ne] 3s2 3p2",
+   "LDA": {
+    "Etot": -288.198397,
+    "Ekin": 287.48774,
+    "Ecoul": 131.767814,
+    "Eenuc": -687.900675,
+    "Exc": -19.553276,
+    "eigenvalues": {
+     "1s": -65.184426,
+     "2s": -5.075056,
+     "2p": -3.514938,
+     "3s": -0.398139,
+     "3p": -0.153293
+    }
+   },
+   "LSD": {
+    "Etot": -288.222945,
+    "Ekin": 287.518355,
+    "Ecoul": 131.881748,
+    "Eenuc": -688.036467,
+    "Exc": -19.586581,
+    "eigenvalues": {
+     "1s": {
+      "majority": -65.177684,
+      "minority": -65.171496
+     },
+     "2s": {
+      "majority": -5.069762,
+      "minority": -5.062356
+     },
+     "2p": {
+      "majority": -3.51051,
+      "minority": -3.501187
+     },
+     "3s": {
+      "majority": -0.416774,
+      "minority": -0.361598
+     },
+     "3p": {
+      "majority": -0.170217,
+      "minority": -0.120916
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/14Si.html",
+   "page_sha256": "a23c2c64e2aa2a1eb5c1fbeaed9dcd0c6285bf957b7a20694dc0644505f0e12a"
+  },
+  "P": {
+   "Z": 15,
+   "configuration": "[Ne] 3s2 3p3",
+   "LDA": {
+    "Etot": -339.946219,
+    "Ekin": 339.173459,
+    "Ecoul": 153.065007,
+    "Eenuc": -810.4001,
+    "Exc": -21.784585,
+    "eigenvalues": {
+     "1s": -76.061897,
+     "2s": -6.329346,
+     "2p": -4.576617,
+     "3s": -0.512364,
+     "3p": -0.20608
+    }
+   },
+   "LSD": {
+    "Etot": -340.005794,
+    "Ekin": 339.246155,
+    "Ecoul": 153.286547,
+    "Eenuc": -810.676999,
+    "Exc": -21.861498,
+    "eigenvalues": {
+     "1s": {
+      "majority": -76.049445,
+      "minority": -76.036841
+     },
+     "2s": {
+      "majority": -6.319803,
+      "minority": -6.305228
+     },
+     "2p": {
+      "majority": -4.568637,
+      "minority": -4.550456
+     },
+     "3s": {
+      "majority": -0.540297,
+      "minority": -0.450172
+     },
+     "3p": {
+      "majority": -0.231378,
+      "minority": -0.151493
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/15P.html",
+   "page_sha256": "95957793bfb115cb7d0e85239ba80b9311cfa43ecea3dd300af35a675def13e4"
+  },
+  "S": {
+   "Z": 16,
+   "configuration": "[Ne] 3s2 3p4",
+   "LDA": {
+    "Etot": -396.716081,
+    "Ekin": 395.878143,
+    "Ecoul": 176.68795,
+    "Eenuc": -945.141155,
+    "Exc": -24.141019,
+    "eigenvalues": {
+     "1s": -87.789937,
+     "2s": -7.69994,
+     "2p": -5.751257,
+     "3s": -0.630912,
+     "3p": -0.261676
+    }
+   },
+   "LSD": {
+    "Etot": -396.743948,
+    "Ekin": 395.911428,
+    "Ecoul": 176.770628,
+    "Eenuc": -945.250263,
+    "Exc": -24.175741,
+    "eigenvalues": {
+     "1s": {
+      "majority": -87.788427,
+      "minority": -87.777576
+     },
+     "2s": {
+      "majority": -7.6999,
+      "minority": -7.687782
+     },
+     "2p": {
+      "majority": -5.752569,
+      "minority": -5.737522
+     },
+     "3s": {
+      "majority": -0.656166,
+      "minority": -0.593057
+     },
+     "3p": {
+      "majority": -0.284309,
+      "minority": -0.228285
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/16S.html",
+   "page_sha256": "57af5ab49b200bac3cc4f64c8162bdf0eb663fdef508d5576473c95e8ab39160"
+  },
+  "Cl": {
+   "Z": 17,
+   "configuration": "[Ne] 3s2 3p5",
+   "LDA": {
+    "Etot": -458.664179,
+    "Ekin": 457.758293,
+    "Ecoul": 202.772337,
+    "Eenuc": -1092.568993,
+    "Exc": -26.625816,
+    "eigenvalues": {
+     "1s": -100.369229,
+     "2s": -9.187993,
+     "2p": -7.039982,
+     "3s": -0.754458,
+     "3p": -0.32038
+    }
+   },
+   "LSD": {
+    "Etot": -458.671463,
+    "Ekin": 457.766864,
+    "Ecoul": 202.790718,
+    "Eenuc": -1092.594365,
+    "Exc": -26.63468,
+    "eigenvalues": {
+     "1s": {
+      "majority": -100.371015,
+      "minority": -100.364406
+     },
+     "2s": {
+      "majority": -9.190254,
+      "minority": -9.183098
+     },
+     "2p": {
+      "majority": -7.043072,
+      "minority": -7.034202
+     },
+     "3s": {
+      "majority": -0.769469,
+      "minority": -0.736721
+     },
+     "3p": {
+      "majority": -0.333798,
+      "minority": -0.304631
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/17Cl.html",
+   "page_sha256": "b93da8ee49c14443a7157d29e0b2df80f7f001bf7b7ad341ed1a34abbfaaaafa"
+  },
+  "Ar": {
+   "Z": 18,
+   "configuration": "[Ne] 3s2 3p6",
+   "LDA": {
+    "Etot": -525.946195,
+    "Ekin": 524.969812,
+    "Ecoul": 231.458124,
+    "Eenuc": -1253.131982,
+    "Exc": -29.242149,
+    "eigenvalues": {
+     "1s": -113.800134,
+     "2s": -10.794172,
+     "2p": -8.443439,
+     "3s": -0.883384,
+     "3p": -0.38233
+    }
+   },
+   "LSD": {
+    "Etot": -525.946195,
+    "Ekin": 524.969812,
+    "Ecoul": 231.458124,
+    "Eenuc": -1253.131982,
+    "Exc": -29.242149,
+    "eigenvalues": {
+     "1s": {
+      "majority": -113.800134,
+      "minority": -113.800134
+     },
+     "2s": {
+      "majority": -10.794172,
+      "minority": -10.794172
+     },
+     "2p": {
+      "majority": -8.443439,
+      "minority": -8.443439
+     },
+     "3s": {
+      "majority": -0.883384,
+      "minority": -0.883384
+     },
+     "3p": {
+      "majority": -0.38233,
+      "minority": -0.38233
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/18Ar.html",
+   "page_sha256": "298f37d711394d9ed0f70b0d1e24959084f870e43851b85a68ade7ae2c660d42"
+  },
+  "K": {
+   "Z": 19,
+   "configuration": "[Ar] 4s1",
+   "LDA": {
+    "Etot": -598.20059,
+    "Ekin": 597.17213,
+    "Ecoul": 257.381524,
+    "Eenuc": -1421.104115,
+    "Exc": -31.650129,
+    "eigenvalues": {
+     "1s": -128.414957,
+     "2s": -12.839001,
+     "2p": -10.283851,
+     "3s": -1.281897,
+     "3p": -0.693776,
+     "4s": -0.088815
+    }
+   },
+   "LSD": {
+    "Etot": -598.206032,
+    "Ekin": 597.179968,
+    "Ecoul": 257.437,
+    "Eenuc": -1421.164934,
+    "Exc": -31.658067,
+    "eigenvalues": {
+     "1s": {
+      "majority": -128.412121,
+      "minority": -128.411524
+     },
+     "2s": {
+      "majority": -12.836233,
+      "minority": -12.835619
+     },
+     "2p": {
+      "majority": -10.281051,
+      "minority": -10.280487
+     },
+     "3s": {
+      "majority": -1.279838,
+      "minority": -1.278173
+     },
+     "3p": {
+      "majority": -0.692217,
+      "minority": -0.689575
+     },
+     "4s": {
+      "majority": -0.096201,
+      "minority": -0.07438
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/19K.html",
+   "page_sha256": "a2df56c9f123c1c6e1c16ef0e2635738dc9a2151ee3fb59b478cb0c8b848493b"
+  },
+  "Ca": {
+   "Z": 20,
+   "configuration": "[Ar] 4s2",
+   "LDA": {
+    "Etot": -675.742283,
+    "Ekin": 674.657334,
+    "Ecoul": 285.20613,
+    "Eenuc": -1601.463209,
+    "Exc": -34.142538,
+    "eigenvalues": {
+     "1s": -143.935181,
+     "2s": -15.046905,
+     "2p": -12.285376,
+     "3s": -1.706331,
+     "3p": -1.030572,
+     "4s": -0.141411
+    }
+   },
+   "LSD": {
+    "Etot": -675.742283,
+    "Ekin": 674.657334,
+    "Ecoul": 285.20613,
+    "Eenuc": -1601.463209,
+    "Exc": -34.142538,
+    "eigenvalues": {
+     "1s": {
+      "majority": -143.935181,
+      "minority": -143.935181
+     },
+     "2s": {
+      "majority": -15.046905,
+      "minority": -15.046905
+     },
+     "2p": {
+      "majority": -12.285376,
+      "minority": -12.285376
+     },
+     "3s": {
+      "majority": -1.706331,
+      "minority": -1.706331
+     },
+     "3p": {
+      "majority": -1.030572,
+      "minority": -1.030572
+     },
+     "4s": {
+      "majority": -0.141411,
+      "minority": -0.141411
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/20Ca.html",
+   "page_sha256": "687fd6871907f73b5a8fb5334c8607c0151e1530efe81f7da2acd12863f052b7"
+  },
+  "Sc": {
+   "Z": 21,
+   "configuration": "[Ar] 3d1 4s2",
+   "LDA": {
+    "Etot": -758.679275,
+    "Ekin": 757.5252,
+    "Ecoul": 318.555762,
+    "Eenuc": -1797.853811,
+    "Exc": -36.906426,
+    "eigenvalues": {
+     "1s": -160.184109,
+     "2s": -17.206464,
+     "2p": -14.240006,
+     "3s": -1.988378,
+     "3p": -1.233165,
+     "3d": -0.13108,
+     "4s": -0.156478
+    }
+   },
+   "LSD": {
+    "Etot": -758.685248,
+    "Ekin": 757.532115,
+    "Ecoul": 318.60574,
+    "Eenuc": -1797.907745,
+    "Exc": -36.915357,
+    "eigenvalues": {
+     "1s": {
+      "majority": -160.181357,
+      "minority": -160.181459
+     },
+     "2s": {
+      "majority": -17.20784,
+      "minority": -17.199024
+     },
+     "2p": {
+      "majority": -14.240439,
+      "minority": -14.233577
+     },
+     "3s": {
+      "majority": -1.999553,
+      "minority": -1.972003
+     },
+     "3p": {
+      "majority": -1.244357,
+      "minority": -1.21697
+     },
+     "3d": {
+      "majority": -0.141137,
+      "minority": -0.11727
+     },
+     "4s": {
+      "majority": -0.160962,
+      "minority": -0.150882
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/21Sc.html",
+   "page_sha256": "1b73b6458b951cbe9d3f269b2f720f1b8c25c03e2d86ae0c3092ef08cc94fb85"
+  },
+  "Ti": {
+   "Z": 22,
+   "configuration": "[Ar] 3d2 4s2",
+   "LDA": {
+    "Etot": -847.277216,
+    "Ekin": 846.050533,
+    "Ecoul": 355.232355,
+    "Eenuc": -2008.740849,
+    "Exc": -39.819256,
+    "eigenvalues": {
+     "1s": -177.276643,
+     "2s": -19.457901,
+     "2p": -16.285339,
+     "3s": -2.258007,
+     "3p": -1.422947,
+     "3d": -0.17001,
+     "4s": -0.167106
+    }
+   },
+   "LSD": {
+    "Etot": -847.303463,
+    "Ekin": 846.080558,
+    "Ecoul": 355.394778,
+    "Eenuc": -2008.923404,
+    "Exc": -39.855395,
+    "eigenvalues": {
+     "1s": {
+      "majority": -177.267886,
+      "minority": -177.267959
+     },
+     "2s": {
+      "majority": -19.459217,
+      "minority": -19.436951
+     },
+     "2p": {
+      "majority": -16.284261,
+      "minority": -16.267021
+     },
+     "3s": {
+      "majority": -2.280397,
+      "minority": -2.218929
+     },
+     "3p": {
+      "majority": -1.445186,
+      "minority": -1.384658
+     },
+     "3d": {
+      "majority": -0.190033,
+      "minority": -0.137659
+     },
+     "4s": {
+      "majority": -0.174774,
+      "minority": -0.156623
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/22Ti.html",
+   "page_sha256": "380fdd5aedbe055e0aaf0085fd7ad41277384928492edc7898c6edb7eba3111e"
+  },
+  "V": {
+   "Z": 23,
+   "configuration": "[Ar] 3d3 4s2",
+   "LDA": {
+    "Etot": -941.678904,
+    "Ekin": 940.377057,
+    "Ecoul": 395.162964,
+    "Eenuc": -2234.347114,
+    "Exc": -42.871811,
+    "eigenvalues": {
+     "1s": -195.224014,
+     "2s": -21.815346,
+     "2p": -18.435189,
+     "3s": -2.526904,
+     "3p": -1.610516,
+     "3d": -0.204634,
+     "4s": -0.175968
+    }
+   },
+   "LSD": {
+    "Etot": -941.742204,
+    "Ekin": 940.448753,
+    "Ecoul": 395.485129,
+    "Eenuc": -2234.721054,
+    "Exc": -42.955032,
+    "eigenvalues": {
+     "1s": {
+      "majority": -195.206982,
+      "minority": -195.206912
+     },
+     "2s": {
+      "majority": -21.815866,
+      "minority": -21.776288
+     },
+     "2p": {
+      "majority": -18.431423,
+      "minority": -18.400931
+     },
+     "3s": {
+      "majority": -2.560189,
+      "minority": -2.461068
+     },
+     "3p": {
+      "majority": -1.643439,
+      "minority": -1.546264
+     },
+     "3d": {
+      "majority": -0.234462,
+      "minority": -0.150389
+     },
+     "4s": {
+      "majority": -0.18628,
+      "minority": -0.161125
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/23V.html",
+   "page_sha256": "94c2b728c6192c5ff88026092aa890d5a0df1988c587b89a53ff98db0be93303"
+  },
+  "Cr": {
+   "Z": 24,
+   "configuration": "[Ar] 3d5 4s1",
+   "LDA": {
+    "Etot": -1042.030238,
+    "Ekin": 1040.642716,
+    "Ecoul": 441.867987,
+    "Eenuc": -2478.305541,
+    "Exc": -46.2354,
+    "eigenvalues": {
+     "1s": -213.881191,
+     "2s": -24.113457,
+     "2p": -20.526273,
+     "3s": -2.649085,
+     "3p": -1.65423,
+     "3d": -0.118123,
+     "4s": -0.150445
+    }
+   },
+   "LSD": {
+    "Etot": -1042.218348,
+    "Ekin": 1040.859934,
+    "Ecoul": 442.88611,
+    "Eenuc": -2479.487016,
+    "Exc": -46.477376,
+    "eigenvalues": {
+     "1s": {
+      "majority": -213.83216,
+      "minority": -213.831065
+     },
+     "2s": {
+      "majority": -24.093755,
+      "minority": -24.028398
+     },
+     "2p": {
+      "majority": -20.499415,
+      "minority": -20.449201
+     },
+     "3s": {
+      "majority": -2.678532,
+      "minority": -2.522901
+     },
+     "3p": {
+      "majority": -1.683565,
+      "minority": -1.530054
+     },
+     "3d": {
+      "majority": -0.146363,
+      "minority": -0.011316
+     },
+     "4s": {
+      "majority": -0.166559,
+      "minority": -0.094148
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/24Cr.html",
+   "page_sha256": "54c2509923cb05d4ed026db39f72d5c8843489425a1d3d1904f0d1d55fe87b15"
+  },
+  "Mn": {
+   "Z": 25,
+   "configuration": "[Ar] 3d5 4s2",
+   "LDA": {
+    "Etot": -1148.449372,
+    "Ekin": 1146.990867,
+    "Ecoul": 485.085158,
+    "Eenuc": -2731.133992,
+    "Exc": -49.391406,
+    "eigenvalues": {
+     "1s": -233.696912,
+     "2s": -26.866646,
+     "2p": -23.066297,
+     "3s": -3.076637,
+     "3p": -1.99145,
+     "3d": -0.26654,
+     "4s": -0.191136
+    }
+   },
+   "LSD": {
+    "Etot": -1148.644093,
+    "Ekin": 1147.208134,
+    "Ecoul": 485.852669,
+    "Eenuc": -2732.070736,
+    "Exc": -49.63416,
+    "eigenvalues": {
+     "1s": {
+      "majority": -233.658011,
+      "minority": -233.657348
+     },
+     "2s": {
+      "majority": -26.864191,
+      "minority": -26.780065
+     },
+     "2p": {
+      "majority": -23.054637,
+      "minority": -22.990345
+     },
+     "3s": {
+      "majority": -3.13032,
+      "minority": -2.948447
+     },
+     "3p": {
+      "majority": -2.044419,
+      "minority": -1.866588
+     },
+     "3d": {
+      "majority": -0.315317,
+      "minority": -0.160655
+     },
+     "4s": {
+      "majority": -0.205962,
+      "minority": -0.168594
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/25Mn.html",
+   "page_sha256": "d227c5f03f2eca46f5113c9e6afcca1204e5dec0dcd0a9d52fdc1a70a38406b5"
+  },
+  "Fe": {
+   "Z": 26,
+   "configuration": "[Ar] 3d6 4s2",
+   "LDA": {
+    "Etot": -1261.093056,
+    "Ekin": 1259.553429,
+    "Ecoul": 535.295832,
+    "Eenuc": -3003.082484,
+    "Exc": -52.859833,
+    "eigenvalues": {
+     "1s": -254.225505,
+     "2s": -29.56486,
+     "2p": -25.551766,
+     "3s": -3.360621,
+     "3p": -2.187523,
+     "3d": -0.295049,
+     "4s": -0.197978
+    }
+   },
+   "LSD": {
+    "Etot": -1261.223291,
+    "Ekin": 1259.697871,
+    "Ecoul": 535.733366,
+    "Eenuc": -3003.635009,
+    "Exc": -53.019519,
+    "eigenvalues": {
+     "1s": {
+      "majority": -254.203661,
+      "minority": -254.202872
+     },
+     "2s": {
+      "majority": -29.577122,
+      "minority": -29.501754
+     },
+     "2p": {
+      "majority": -25.555535,
+      "minority": -25.498083
+     },
+     "3s": {
+      "majority": -3.415446,
+      "minority": -3.26381
+     },
+     "3p": {
+      "majority": -2.241326,
+      "minority": -2.093198
+     },
+     "3d": {
+      "majority": -0.343804,
+      "minority": -0.213912
+     },
+     "4s": {
+      "majority": -0.209988,
+      "minority": -0.182613
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/26Fe.html",
+   "page_sha256": "236574381ca121915782de0ba74a7f387e27eb057248708fc11ef06d095403c7"
+  },
+  "Co": {
+   "Z": 27,
+   "configuration": "[Ar] 3d7 4s2",
+   "LDA": {
+    "Etot": -1380.091264,
+    "Ekin": 1378.468819,
+    "Ecoul": 589.169216,
+    "Eenuc": -3291.260194,
+    "Exc": -56.469106,
+    "eigenvalues": {
+     "1s": -275.616639,
+     "2s": -32.379758,
+     "2p": -28.152095,
+     "3s": -3.651812,
+     "3p": -2.388285,
+     "3d": -0.322368,
+     "4s": -0.204497
+    }
+   },
+   "LSD": {
+    "Etot": -1380.167299,
+    "Ekin": 1378.552711,
+    "Ecoul": 589.39503,
+    "Eenuc": -3291.553847,
+    "Exc": -56.561193,
+    "eigenvalues": {
+     "1s": {
+      "majority": -275.605654,
+      "minority": -275.60488
+     },
+     "2s": {
+      "majority": -32.397669,
+      "minority": -32.33569
+     },
+     "2p": {
+      "majority": -28.162856,
+      "minority": -28.115711
+     },
+     "3s": {
+      "majority": -3.699797,
+      "minority": -3.582479
+     },
+     "3p": {
+      "majority": -2.435284,
+      "minority": -2.320662
+     },
+     "3d": {
+      "majority": -0.36472,
+      "minority": -0.263433
+     },
+     "4s": {
+      "majority": -0.213378,
+      "minority": -0.194252
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/27Co.html",
+   "page_sha256": "a8a24dea762d092e193538f163eaa6d310d84bfa5c23f54da9c2a8363a513f87"
+  },
+  "Ni": {
+   "Z": 28,
+   "configuration": "[Ar] 3d8 4s2",
+   "LDA": {
+    "Etot": -1505.580197,
+    "Ekin": 1503.873332,
+    "Ecoul": 646.833302,
+    "Eenuc": -3596.066045,
+    "Exc": -60.220786,
+    "eigenvalues": {
+     "1s": -297.870824,
+     "2s": -35.312112,
+     "2p": -30.868027,
+     "3s": -3.950717,
+     "3p": -2.594158,
+     "3d": -0.348699,
+     "4s": -0.210764
+    }
+   },
+   "LSD": {
+    "Etot": -1505.615106,
+    "Ekin": 1503.911671,
+    "Ecoul": 646.926967,
+    "Eenuc": -3596.191094,
+    "Exc": -60.26265,
+    "eigenvalues": {
+     "1s": {
+      "majority": -297.866475,
+      "minority": -297.865844
+     },
+     "2s": {
+      "majority": -35.32905,
+      "minority": -35.284388
+     },
+     "2p": {
+      "majority": -30.879713,
+      "minority": -30.845799
+     },
+     "3s": {
+      "majority": -3.986475,
+      "minority": -3.90625
+     },
+     "3p": {
+      "majority": -2.629164,
+      "minority": -2.550724
+     },
+     "3d": {
+      "majority": -0.38019,
+      "minority": -0.31039
+     },
+     "4s": {
+      "majority": -0.216552,
+      "minority": -0.204523
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/28Ni.html",
+   "page_sha256": "6a791cee2fe298f2d338bcc16ae73ce67f0a4d7bfe0be1464f75a1e56d21fdbf"
+  },
+  "Cu": {
+   "Z": 29,
+   "configuration": "[Ar] 3d10 4s1",
+   "LDA": {
+    "Etot": -1637.785861,
+    "Ekin": 1635.9828,
+    "Ecoul": 713.928477,
+    "Eenuc": -3923.329381,
+    "Exc": -64.367756,
+    "eigenvalues": {
+     "1s": -320.78852,
+     "2s": -38.14131,
+     "2p": -33.481247,
+     "3s": -4.057453,
+     "3p": -2.609244,
+     "3d": -0.202272,
+     "4s": -0.172056
+    }
+   },
+   "LSD": {
+    "Etot": -1637.793358,
+    "Ekin": 1635.992614,
+    "Ecoul": 713.999508,
+    "Eenuc": -3923.406957,
+    "Exc": -64.378522,
+    "eigenvalues": {
+     "1s": {
+      "majority": -320.786477,
+      "minority": -320.78525
+     },
+     "2s": {
+      "majority": -38.138141,
+      "minority": -38.139169
+     },
+     "2p": {
+      "majority": -33.47831,
+      "minority": -33.478871
+     },
+     "3s": {
+      "majority": -4.054493,
+      "minority": -4.055457
+     },
+     "3p": {
+      "majority": -2.606569,
+      "minority": -2.606982
+     },
+     "3d": {
+      "majority": -0.202474,
+      "minority": -0.197109
+     },
+     "4s": {
+      "majority": -0.184013,
+      "minority": -0.153905
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/29Cu.html",
+   "page_sha256": "a96025c392b315f9d7376134553ddc54edff7e0db13c92dbb4ddc87099e613f0"
+  },
+  "Zn": {
+   "Z": 30,
+   "configuration": "[Ar] 3d10 4s2",
+   "LDA": {
+    "Etot": -1776.57385,
+    "Ekin": 1774.693645,
+    "Ecoul": 774.056522,
+    "Eenuc": -4257.166094,
+    "Exc": -68.157922,
+    "eigenvalues": {
+     "1s": -344.969756,
+     "2s": -41.531323,
+     "2p": -36.648765,
+     "3s": -4.573041,
+     "3p": -3.022363,
+     "3d": -0.398944,
+     "4s": -0.222725
+    }
+   },
+   "LSD": {
+    "Etot": -1776.57385,
+    "Ekin": 1774.693645,
+    "Ecoul": 774.056522,
+    "Eenuc": -4257.166094,
+    "Exc": -68.157922,
+    "eigenvalues": {
+     "1s": {
+      "majority": -344.969756,
+      "minority": -344.969756
+     },
+     "2s": {
+      "majority": -41.531323,
+      "minority": -41.531323
+     },
+     "2p": {
+      "majority": -36.648765,
+      "minority": -36.648765
+     },
+     "3s": {
+      "majority": -4.573041,
+      "minority": -4.573041
+     },
+     "3p": {
+      "majority": -3.022363,
+      "minority": -3.022363
+     },
+     "3d": {
+      "majority": -0.398944,
+      "minority": -0.398944
+     },
+     "4s": {
+      "majority": -0.222725,
+      "minority": -0.222725
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/30Zn.html",
+   "page_sha256": "e9c52bbc542b32d4e4e0c45ef57040e54612aa3f5bd04eff5ac58207166814fa"
+  },
+  "Ga": {
+   "Z": 31,
+   "configuration": "[Ar] 3d10 4s2 4p1",
+   "LDA": {
+    "Etot": -1921.846456,
+    "Ekin": 1919.894783,
+    "Ecoul": 833.754978,
+    "Eenuc": -4603.576824,
+    "Exc": -71.919393,
+    "eigenvalues": {
+     "1s": -370.170639,
+     "2s": -45.200869,
+     "2p": -40.093339,
+     "3s": -5.241645,
+     "3p": -3.584666,
+     "3d": -0.736204,
+     "4s": -0.328019,
+     "4p": -0.101634
+    }
+   },
+   "LSD": {
+    "Etot": -1921.851924,
+    "Ekin": 1919.901853,
+    "Ecoul": 833.82778,
+    "Eenuc": -4603.654197,
+    "Exc": -71.92736,
+    "eigenvalues": {
+     "1s": {
+      "majority": -370.168538,
+      "minority": -370.167766
+     },
+     "2s": {
+      "majority": -45.198492,
+      "minority": -45.198361
+     },
+     "2p": {
+      "majority": -40.091119,
+      "minority": -40.090664
+     },
+     "3s": {
+      "majority": -5.23957,
+      "minority": -5.238913
+     },
+     "3p": {
+      "majority": -3.582704,
+      "minority": -3.581826
+     },
+     "3d": {
+      "majority": -0.73503,
+      "minority": -0.732588
+     },
+     "4s": {
+      "majority": -0.336369,
+      "minority": -0.314666
+     },
+     "4p": {
+      "majority": -0.1102,
+      "minority": -0.088291
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/31Ga.html",
+   "page_sha256": "9af640211d3746741d1b04888082b1cd18e0f5aa8a8b3f13dd2b8970b204122f"
+  },
+  "Ge": {
+   "Z": 32,
+   "configuration": "[Ar] 3d10 4s2 4p2",
+   "LDA": {
+    "Etot": -2073.807332,
+    "Ekin": 2071.782093,
+    "Ecoul": 895.945638,
+    "Eenuc": -4965.789424,
+    "Exc": -75.74564,
+    "eigenvalues": {
+     "1s": -396.292991,
+     "2s": -49.055282,
+     "2p": -43.720129,
+     "3s": -5.961472,
+     "3p": -4.194822,
+     "3d": -1.117316,
+     "4s": -0.426523,
+     "4p": -0.149882
+    }
+   },
+   "LSD": {
+    "Etot": -2073.82986,
+    "Ekin": 2071.810411,
+    "Ecoul": 896.161607,
+    "Eenuc": -4966.025799,
+    "Exc": -75.776078,
+    "eigenvalues": {
+     "1s": {
+      "majority": -396.286773,
+      "minority": -396.284458
+     },
+     "2s": {
+      "majority": -49.048574,
+      "minority": -49.047574
+     },
+     "2p": {
+      "majority": -43.713794,
+      "minority": -43.711998
+     },
+     "3s": {
+      "majority": -5.955859,
+      "minority": -5.953137
+     },
+     "3p": {
+      "majority": -4.189493,
+      "minority": -4.186209
+     },
+     "3d": {
+      "majority": -1.113417,
+      "minority": -1.107268
+     },
+     "4s": {
+      "majority": -0.442567,
+      "minority": -0.395513
+     },
+     "4p": {
+      "majority": -0.165716,
+      "minority": -0.120492
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/32Ge.html",
+   "page_sha256": "0d3476a4772064877f47e9d33dd1d2cc02ff9beafebd22cb4350239c2e4391c0"
+  },
+  "As": {
+   "Z": 33,
+   "configuration": "[Ar] 3d10 4s2 4p3",
+   "LDA": {
+    "Etot": -2232.534978,
+    "Ekin": 2230.434545,
+    "Ecoul": 960.716547,
+    "Eenuc": -5344.04275,
+    "Exc": -79.643321,
+    "eigenvalues": {
+     "1s": -423.336658,
+     "2s": -53.093086,
+     "2p": -47.527869,
+     "3s": -6.730755,
+     "3p": -4.851725,
+     "3d": -1.542767,
+     "4s": -0.52367,
+     "4p": -0.197497
+    }
+   },
+   "LSD": {
+    "Etot": -2232.587154,
+    "Ekin": 2230.498886,
+    "Ecoul": 961.107904,
+    "Eenuc": -5344.483402,
+    "Exc": -79.710543,
+    "eigenvalues": {
+     "1s": {
+      "majority": -423.325636,
+      "minority": -423.320985
+     },
+     "2s": {
+      "majority": -53.081392,
+      "minority": -53.078839
+     },
+     "2p": {
+      "majority": -47.516835,
+      "minority": -47.512845
+     },
+     "3s": {
+      "majority": -6.721389,
+      "minority": -6.715386
+     },
+     "3p": {
+      "majority": -4.84285,
+      "minority": -4.835858
+     },
+     "3d": {
+      "majority": -1.53575,
+      "minority": -1.524956
+     },
+     "4s": {
+      "majority": -0.547213,
+      "minority": -0.472809
+     },
+     "4p": {
+      "majority": -0.220331,
+      "minority": -0.15032
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/33As.html",
+   "page_sha256": "b0c6cdd48e4fc3c00c2ce4164cc93146ccec5a062ffd381ccdc2f7d07b6758f4"
+  },
+  "Se": {
+   "Z": 34,
+   "configuration": "[Ar] 3d10 4s2 4p4",
+   "LDA": {
+    "Etot": -2398.11144,
+    "Ekin": 2395.934307,
+    "Ecoul": 1028.192719,
+    "Eenuc": -5738.619928,
+    "Exc": -83.618538,
+    "eigenvalues": {
+     "1s": -451.300258,
+     "2s": -57.311948,
+     "2p": -51.514388,
+     "3s": -7.547186,
+     "3p": -5.553517,
+     "3d": -2.011392,
+     "4s": -0.621248,
+     "4p": -0.245806
+    }
+   },
+   "LSD": {
+    "Etot": -2398.13493,
+    "Ekin": 2395.962682,
+    "Ecoul": 1028.331555,
+    "Eenuc": -5738.781414,
+    "Exc": -83.647752,
+    "eigenvalues": {
+     "1s": {
+      "majority": -451.297486,
+      "minority": -451.29353
+     },
+     "2s": {
+      "majority": -57.308578,
+      "minority": -57.306154
+     },
+     "2p": {
+      "majority": -51.511562,
+      "minority": -51.507995
+     },
+     "3s": {
+      "majority": -7.545513,
+      "minority": -7.54025
+     },
+     "3p": {
+      "majority": -5.55221,
+      "minority": -5.546204
+     },
+     "3d": {
+      "majority": -2.011154,
+      "minority": -2.002955
+     },
+     "4s": {
+      "majority": -0.641747,
+      "minority": -0.590984
+     },
+     "4p": {
+      "majority": -0.265108,
+      "minority": -0.217851
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/34Se.html",
+   "page_sha256": "9b155043a1d46bf61319cb14d26eb467e33d63d025510e90be2ee7904aa2f7bf"
+  },
+  "Br": {
+   "Z": 35,
+   "configuration": "[Ar] 3d10 4s2 4p5",
+   "LDA": {
+    "Etot": -2570.6207,
+    "Ekin": 2568.365427,
+    "Ecoul": 1098.492305,
+    "Eenuc": -6149.802515,
+    "Exc": -87.675917,
+    "eigenvalues": {
+     "1s": -480.182643,
+     "2s": -61.710022,
+     "2p": -55.67796,
+     "3s": -8.409057,
+     "3p": -6.298805,
+     "3d": -2.52211,
+     "4s": -0.720066,
+     "4p": -0.295334
+    }
+   },
+   "LSD": {
+    "Etot": -2570.626651,
+    "Ekin": 2568.37252,
+    "Ecoul": 1098.52183,
+    "Eenuc": -6149.837853,
+    "Exc": -87.683149,
+    "eigenvalues": {
+     "1s": {
+      "majority": -480.182834,
+      "minority": -480.180431
+     },
+     "2s": {
+      "majority": -61.709832,
+      "minority": -61.708277
+     },
+     "2p": {
+      "majority": -55.678096,
+      "minority": -55.675875
+     },
+     "3s": {
+      "majority": -8.409763,
+      "minority": -8.406555
+     },
+     "3p": {
+      "majority": -6.299711,
+      "minority": -6.296097
+     },
+     "3d": {
+      "majority": -2.523476,
+      "minority": -2.518928
+     },
+     "4s": {
+      "majority": -0.731934,
+      "minority": -0.706135
+     },
+     "4p": {
+      "majority": -0.306343,
+      "minority": -0.282508
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/35Br.html",
+   "page_sha256": "340261332867241141440a4b020653b415d8bd2faea3871fd1aaebc29a61f4d1"
+  },
+  "Kr": {
+   "Z": 36,
+   "configuration": "[Ar] 3d10 4s2 4p6",
+   "LDA": {
+    "Etot": -2750.14794,
+    "Ekin": 2747.813142,
+    "Ecoul": 1171.723688,
+    "Eenuc": -6577.865761,
+    "Exc": -91.819009,
+    "eigenvalues": {
+     "1s": -509.982989,
+     "2s": -66.285953,
+     "2p": -60.017328,
+     "3s": -9.315192,
+     "3p": -7.086634,
+     "3d": -3.074109,
+     "4s": -0.820574,
+     "4p": -0.34634
+    }
+   },
+   "LSD": {
+    "Etot": -2750.14794,
+    "Ekin": 2747.813142,
+    "Ecoul": 1171.723688,
+    "Eenuc": -6577.865761,
+    "Exc": -91.819009,
+    "eigenvalues": {
+     "1s": {
+      "majority": -509.982989,
+      "minority": -509.982989
+     },
+     "2s": {
+      "majority": -66.285953,
+      "minority": -66.285953
+     },
+     "2p": {
+      "majority": -60.017328,
+      "minority": -60.017328
+     },
+     "3s": {
+      "majority": -9.315192,
+      "minority": -9.315192
+     },
+     "3p": {
+      "majority": -7.086634,
+      "minority": -7.086634
+     },
+     "3d": {
+      "majority": -3.074109,
+      "minority": -3.074109
+     },
+     "4s": {
+      "majority": -0.820574,
+      "minority": -0.820574
+     },
+     "4p": {
+      "majority": -0.34634,
+      "minority": -0.34634
+     }
+    }
+   },
+   "page": "https://math.nist.gov/DFTdata/atomdata/tables/36Kr.html",
+   "page_sha256": "862f910570962f537313cd74fc9efe2ad9ac103dded407ceaee232f77e87d9e9"
+  }
+ }
+}
