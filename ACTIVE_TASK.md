@@ -7,7 +7,27 @@
 - 담당 AI: Claude — 2026-11-01 사용자 "codex가 12단계 완료하고 커밋 했다는데 해볼래"(직전 대화에서 Claude가 제안한 IRC·열역학 독립 검증 진행 승인)에 따라 단계 13 인수. 시작 HEAD 2dd6c8f, 작업 트리 깨끗함. 이전: ChatGPT Codex(단계 10·12).
 - 상태: HANDOFF_READY — 단계 13 COMPLETED(2026-11-01, CHANGELOG 0.9.4). 전체 장기 요구의 미완료 항목(quasi-RRHO·용매, 삼중항·복소 안정성, 항공우주 구체 주제)이 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 - 별도 작업 QS-20261112-HE-LDA(중성 He 방사 격자 LDA-SCF, 0.9.5, Claude)는 2026-11-12 완료 — CHANGELOG 참조. 작업 메모 TASK_HE_LDA_SCF.md는 사용자 지시에 따라 완료 후 삭제했다.
-- 별도 작업 QS-20261117-ATOM-LSDA(원자 LDA/LSDA H–Kr, 로그 방사 격자, 0.9.6, Claude)는 2026-11-17 완료 — CHANGELOG 참조. 작업 메모 TASK_ATOM_LSDA.md는 완료 후 삭제했다. 이 방향의 다음 후보: 원자 GGA(PBE).
+- 별도 작업 QS-20261117-ATOM-LSDA(원자 LDA/LSDA H–Kr, 로그 방사 격자, 0.9.6, Claude)는 2026-11-17 완료 — CHANGELOG 참조. 작업 메모 TASK_ATOM_LSDA.md는 완료 후 삭제했다. 이 방향의 다음 후보는 아래 "방사 격자 원자 DFT 다음 단계" 절.
+
+### 방사 격자 원자 DFT 다음 단계: 원자 GGA(PBE) (미착수, 2026-11-17 Claude 제안·사용자 기록 요청)
+
+사용자가 0.9.6 완료 보고 뒤 "md에 남겨놔"라고 해 기록한다. 착수 지시는 아직 없다. 시작하면 별도 메모(예: TASK_ATOM_GGA.md)를 만들고 이 줄에 안내를 단다.
+
+- 출발점: HEAD `1bec0db`(0.9.6). 엔진 radial_atom.py, 검증 scripts/validate_atoms.py, 시험 test_radial_atom.py. he-lda(atomic_dft.py)는 0.9.5 기록 보존을 위해 건드리지 않는다.
+- 목표: 같은 로그 격자 엔진에 PBE(Libxc `GGA_X_PBE` 101 + `GGA_C_PBE` 130, PySCF 문자열 `PBE` = (101, 130) — 2026-11-17 parse_xc로 확인)를 LDA/LSDA와 나란히 추가. 스핀 비분극·분극 모두. 런타임 Libxc 없이 닫힌 식으로 구현하는 원칙 유지.
+- 구현 요점
+  1. 교환: F_x(s) = 1 + κ − κ/(1 + μs²/κ), κ = 0.804, μ ≈ 0.2195, s = |∇n|/(2k_F n). 스핀 분극은 E_x[n↑, n↓] = ½(E_x[2n↑] + E_x[2n↓]).
+  2. 상관: PW92 LDA 상관 + H(rs, ζ, t). GGA_C_PBE가 내부에서 쓰는 PW92 변형(`LDA_C_PW` 12 또는 `LDA_C_PW_MOD` 13)과 β·γ 상수 자릿수는 구현 전에 Libxc 값 대조로 확정한다(기억으로 정하지 않는다).
+  3. 구대칭 밀도에서 ∇n = n′(r)r̂, σ = n′². 퍼텐셜 v = ∂e/∂n − (1/r²) d/dr[r²·2(∂e/∂σ)n′](스핀은 σ↑↑, σ↑↓, σ↓↓). 로그 격자에서 d/dr = (1/J)d/dx. 이산 E_xc의 정확한 미분이 되도록 차분을 고르지 않으면 이중 계산 식과 직접 식이 어긋나므로, 두 식의 차이를 반드시 기록한다(현재 LDA/LSDA는 ≤1e-14).
+  4. 주의: 원점(첨점, n′ ≠ 0)과 바깥 꼬리(n → 0에서 s 발산, F_x는 1 + κ로 포화)의 수치 잡음, Libxc 밀도 문턱값(1e-15)과의 꼬리 차이(0.9.6 발견). LDA/LSDA 경로의 결과는 비트 단위로 바뀌면 안 된다(72건 회귀).
+  5. CLI: `--xc`는 분자 옵션과 겹치므로 원자용은 별도 이름(예: `--functional lda|pbe`)으로 하고 설정 JSON에 저장한다.
+- 검증 계획(NIST 표에는 GGA가 없다)
+  1. 점별: e_xc, vrho, vsigma를 Libxc(PBE, spin 0/1)와 상대 ~1e-12, 퍼텐셜은 ∂E/∂n 수치 미분과 대조.
+  2. 닫힌 껍질 He·Be·Ne·Mg·Ar·(Zn·Kr): PySCF RKS `PBE`, 0.9.6과 같은 짝수 템퍼드 s(+p, +d는 Zn·Kr) 기저 수열, 기준 |ΔE| ≤ 1e-6 Ha(Richardson).
+  3. 열린 껍질: 구면 평균을 맞추려면 PySCF `scf.addons.frac_occ`(존재 확인됨) 같은 분수 점유가 필요하다. 쓸 수 있는지·같은 밀도를 주는지 먼저 확인하고, 안 되면 열린 껍질은 Libxc 점별 대조와 격자 수렴만으로 검증하고 한계를 적는다.
+  4. 문헌 PBE 원자 에너지표는 출처를 원문에서 확인한 경우에만 쓴다.
+  5. 격자 수렴 차수 2, 전자 수, 미수렴 처리, 기존 LDA/LSDA 72건 NIST 대조 재통과.
+- 그다음 후보(순서 미정, 사용자 결정): 비구면·다중항 구분, 스칼라 상대론(ZORA/Koelling–Harmon), 원자 결과를 이용한 노름 보존 의사퍼텐셜 생성, Anderson 혼합(현재 선형 혼합 36–57회).
 
 ### 단계 14 재개 후보 (미착수, 다음 AI는 이 절 우선)
 
