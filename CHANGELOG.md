@@ -3,6 +3,13 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261117-ATOM-GGA · 원자 PBE 완료 · 2026-11-18 · 0.9.7
+
+- ChatGPT Codex. `atomic_pbe.py`의 자체 PBE 교환·상관과 이산 에너지 미분을 `radial_atom.py`의 비분극·분극 SCF에 연결했다. `main.py --model atom --functional pbe`에서 실행하며 설정·결과 JSON 및 그림에 함수가 기록된다.
+- H–Kr 72건 모두 수렴했고, 6개 대표 사례에서 격자 수렴 차수 2를 확인했다. 닫힌 껍질 He·Be·Ne·Mg·Ar은 PySCF RKS, Zn·Kr은 독립 구대칭 Gaussian RKS, 열린 껍질 B는 등분 점유 PySCF UKS로 대조해 모두 |ΔE|≤10⁻⁶ Ha였다. 최대 차이는 Ar의 9.68×10⁻⁷ Ha였다. 범위는 비상대론 점핵·구면 평균 고정 배치이다.
+- `test_atomic_pbe.py`, `scripts/validate_atomic_pbe.py`, `scripts/validate_spherical_gaussians.py`에 Libxc 비교, 극단 스핀의 고정밀 미분, 방사 변분 검사, 독립 SCF 및 회귀를 추가했다. WSL 고유 시험 59개 통과. Windows 55개 통과·4개 skip.
+- 기존 LDA/LSDA 72건의 원본 에너지·밀도·파동함수·SCF 이력이 동일했다. 두 격자로 NIST 72건을 다시 확인했고 외삽 에너지·성분·고윳값 최대 차이는 7.87×10⁻⁷ Ha였다. 사용법과 원시 데이터 위치는 [원자 PBE](docs/ATOMIC_PBE_KO.md)와 [검증 기록](docs/VALIDATION_KO.md)에 보존했다.
+
 ## QS-20261117-ATOM-LSDA (원자 LDA/LSDA, 로그 방사 격자, H–Kr) 완료 2026-11-17 · 0.9.6 · Claude
 
 - 신규 radial_atom.py: H–Kr 구대칭 원자 Kohn–Sham LDA/LSDA. 격자 r = a(eˣ−1)와 u = J^½φ 변환으로 대칭 삼중대각(SciPy eigh_tridiagonal stebz, tol = 4·tiny, ε는 Rayleigh 몫), 여러 껍질·사용자 배치([Ne] 코어 표기, 양이온·들뜬·소수 점유), 구면 평균, LSDA는 껍질별 다수 스핀 우선(Hund), VWN5 스핀 보간 자체 구현, 하트리·SCF(스핀 밀도 선형 혼합)·이중 계산 보정 총에너지·성분. 런타임 PySCF/Libxc 없음.

@@ -1,4 +1,4 @@
-"""구대칭 원자 Kohn–Sham LDA/LSDA (로그 방사 격자). QuantumStarter 자체 구현.
+"""구대칭 원자 Kohn–Sham LDA/LSDA 및 PBE (로그 방사 격자). QuantumStarter 자체 구현.
 
 원자 단위(에너지 Hartree, 거리 bohr). 고정 점핵, 비상대론. 밀도는 구면 평균이다: 부분 껍질은
 2l+1개 m 성분을 균등하게 점유한다고 본다(NIST Atomic Reference Data와 같은 관례).
@@ -170,8 +170,11 @@ class AtomConfig:
     max_iterations: int = 300
     energy_tol_hartree: float = 1e-10
     density_tol_electrons: float = 1e-7
+    functional: str = 'lda'
 
     def __post_init__(self):
+        if self.functional not in ('lda', 'pbe'):
+            raise ValueError('functional: lda 또는 pbe를 입력하세요.')
         z = element_number(self.element)
         object.__setattr__(self, 'element', SYMBOLS[z - 1])
         if not isinstance(self.configuration, str):
@@ -362,9 +365,12 @@ def lsda_xc(n_up, n_down):
     return terms
 
 
-def xc_terms(spin_radial, grid: LogGrid):
-    """스핀별 방사 밀도 (nspin, N) → XC 성분. 비분극은 atomic_dft.lda_xc를 그대로 쓴다."""
+def xc_terms(spin_radial, grid: LogGrid, functional='lda'):
+    """스핀별 방사 밀도 (nspin, N) → XC 성분. 비분극 LDA는 atomic_dft.lda_xc를 쓴다."""
     densities = spin_radial / (4.0 * np.pi * grid.r ** 2)
+    if functional == 'pbe':
+        from atomic_pbe import pbe_radial
+        return pbe_radial(densities, grid)
     if densities.shape[0] == 1:
         terms = lda_xc(densities[0])
         return {**terms, 'v_xc': terms['v_xc'][None, :]}
@@ -434,7 +440,7 @@ def run_atom(config: AtomConfig = AtomConfig(), progress=None) -> AtomResult:
     for iteration in range(1, config.max_iterations + 1):
         total_in = radial_in.sum(axis=0)
         v_hartree = hartree_potential(total_in, grid)
-        xc_in = xc_terms(radial_in, grid)
+        xc_in = xc_terms(radial_in, grid, config.functional)
         potentials = v_ext + v_hartree + xc_in['v_xc']
         solutions = {(spin, ell): solve_channel(grid, potentials[spin], ell, count)
                      for (spin, ell), count in channels.items()}
@@ -455,7 +461,7 @@ def run_atom(config: AtomConfig = AtomConfig(), progress=None) -> AtomResult:
                                  'expected_nodes': subshell.n - subshell.l - 1})
         residual = float(np.sum(np.abs(radial_out - radial_in) * grid.weights))
         total_out = radial_out.sum(axis=0)
-        xc_out = xc_terms(radial_out, grid)
+        xc_out = xc_terms(radial_out, grid, config.functional)
         hartree_out = 0.5 * float(np.sum(hartree_potential(total_out, grid) * total_out * grid.weights))
         exchange = float(np.sum(xc_out['eps_x'] * total_out * grid.weights))
         correlation = float(np.sum(xc_out['eps_c'] * total_out * grid.weights))
@@ -510,11 +516,24 @@ def quality_warnings(result: AtomResult) -> list:
     if unbound:
         warnings.append('점유된 오비탈의 고윳값이 0 이상입니다(속박 안 됨): ' + ', '.join(unbound))
     if cfg.grid_step > 0.005:
-        warnings.append('격자가 거칩니다(grid_step > 0.005). 상대 이산화 오차 ~0.05·h²를 확인하세요.')
+        warnings.append('격자가 거칩니다(grid_step > 0.005). 간격을 절반으로 줄여 에너지 수렴을 확인하세요.')
     electrons = sum(s.occupation for s in cfg.subshells)
     if abs(result.electron_count - electrons) > 1e-8 * max(electrons, 1):
         warnings.append(f'적분 전자 수 {result.electron_count:.12f}가 배치의 {electrons:g}와 다릅니다.')
     return warnings
+
+
+def functional_metadata(config):
+    if config.functional == 'pbe':
+        from atomic_pbe import PBE_FUNCTIONALS
+        return PBE_FUNCTIONALS
+    return XC_FUNCTIONALS
+
+
+def functional_label(config):
+    if config.functional == 'pbe':
+        return 'PBE (spin-polarized)' if config.spin_polarized else 'PBE'
+    return 'LSDA' if config.spin_polarized else 'LDA'
 
 
 def build_atom_summary(result: AtomResult, elapsed_seconds=None) -> dict:
@@ -523,7 +542,7 @@ def build_atom_summary(result: AtomResult, elapsed_seconds=None) -> dict:
     return {
         'program': 'QuantumStarter', 'version': VERSION, 'model': MODEL,
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
-        'description': 'spherical Kohn-Sham ' + ('LSDA' if cfg.spin_polarized else 'LDA')
+        'description': 'spherical Kohn-Sham ' + functional_label(cfg)
                        + ' SCF of an atom on a logarithmic radial grid',
         'system': {'element': cfg.element, 'nuclear_charge': cfg.nuclear_charge, 'electrons': electrons,
                    'charge': cfg.nuclear_charge - electrons, 'configuration': cfg.configuration_text,
@@ -541,7 +560,7 @@ def build_atom_summary(result: AtomResult, elapsed_seconds=None) -> dict:
             'hartree': 'inner charge Q(r)/r + outer shells ∫ rho/r dr (trapezoid in x)',
             'mixing': 'linear mixing of spin radial densities',
             'total_energy': 'E = sum f eps - sum_s ∫(v_H + v_xc,s)[in] rho_out,s + E_H[out] + E_xc[out]'},
-        'xc': {**XC_FUNCTIONALS, 'spin': 'polarized' if cfg.spin_polarized else 'unpolarized'},
+        'xc': {**functional_metadata(cfg), 'spin': 'polarized' if cfg.spin_polarized else 'unpolarized'},
         'config': asdict(cfg),
         'grid': {'grid_step_h': grid.h, 'scale_a_bohr': grid.a, 'interior_points': int(grid.r.size),
                  'r_first_bohr': float(grid.r[0]), 'r_last_bohr': float(grid.r[-1]), 'r_end_bohr': grid.r_end,

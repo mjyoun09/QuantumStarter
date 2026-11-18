@@ -1,7 +1,7 @@
 """명령행 실행 유지: python main.py --no-show. 사용 화면: python app.py.
 
 중성 He 방사 격자 LDA-SCF: python main.py --model he-lda --no-show
-원자 LDA/LSDA (로그 방사 격자, H–Kr): python main.py --model atom --element Ar [--spin-polarized] --no-show
+원자 LDA/LSDA 및 PBE: python main.py --model atom --element Ar --functional pbe --no-show
 """
 import argparse
 from pathlib import Path
@@ -20,8 +20,8 @@ ATOMIC_OPTIONS = {'mixing': 'mixing', 'max_iterations': 'max_iterations', 'energ
 ATOM_OPTIONS = {'element': 'element', 'configuration': 'configuration', 'spin_polarized': 'spin_polarized',
                 'mixing': 'mixing', 'max_iterations': 'max_iterations', 'energy_tol': 'energy_tol_hartree',
                 'density_tol': 'density_tol_electrons', 'r_max': 'r_max_bohr', 'grid_step': 'grid_step',
-                'grid_scale': 'grid_scale'}
-ATOM_ONLY_OPTIONS = ('element', 'configuration', 'spin_polarized', 'grid_step', 'grid_scale')
+                'grid_scale': 'grid_scale', 'functional': 'functional'}
+ATOM_ONLY_OPTIONS = ('element', 'configuration', 'spin_polarized', 'grid_step', 'grid_scale', 'functional')
 # --model he-lda / atom과 함께 쓸 수 없는 분자·주기계 옵션.
 DFT_ONLY_OPTIONS = ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps',
                     'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number',
@@ -85,17 +85,17 @@ def run_he_lda(config, output_root: Path, show: bool):
 
 
 def run_atom_cli(config, output_root: Path, show: bool):
-    """원자 LDA/LSDA 실행·저장·출력. 종료 코드: 수렴 0, 미수렴 2."""
-    from radial_atom import XC_FUNCTIONALS, log_grid, run_atom, save_atom_result
+    """구면 평균 원자 SCF를 실행하고 저장한다. 수렴 시 0, 미수렴 시 2를 반환한다."""
+    from radial_atom import functional_label, functional_metadata, log_grid, run_atom, save_atom_result
     from atomic_plotting import create_atom_figure
     directory = new_run_dir(output_root)
     grid = log_grid(config)
-    xc = XC_FUNCTIONALS
-    kind = 'LSDA (스핀 분극)' if config.spin_polarized else 'LDA (스핀 비분극)'
+    xc = functional_metadata(config)
+    kind = functional_label(config)
     print(f"QuantumStarter {VERSION} | 원자 Kohn–Sham {kind}, 구면 평균 밀도, 로그 방사 격자 (자체 구현)")
     print(f"원소 {config.element} (Z = {config.nuclear_charge}) | 배치 {config.configuration_text} | "
           f"XC: {xc['exchange']['libxc_name']} (Libxc ID {xc['exchange']['libxc_id']}) + "
-          f"{xc['correlation']['libxc_name']} (Libxc ID {xc['correlation']['libxc_id']}, VWN5)")
+          f"{xc['correlation']['libxc_name']} (Libxc ID {xc['correlation']['libxc_id']})")
     print(f"격자: r = a(e^x − 1), h = {grid.h:g}, a = {grid.a:.3g} bohr, 점 {grid.r.size}, r_end = {grid.r_end:.4g} bohr | "
           f"혼합 {config.mixing:g}, 반복 상한 {config.max_iterations}, |ΔE| < {config.energy_tol_hartree:.1e} Ha, "
           f"밀도 잔차 < {config.density_tol_electrons:.1e} e")
@@ -217,11 +217,12 @@ def main():
     parser.add_argument("--hydrogen-check", action='store_true', help="기존 수소형 한 전자 검증 계산")
     parser.add_argument('--model', choices=['he-lda', 'atom'],
                         help='he-lda: 중성 He LDA-SCF (균일 방사 격자, 0.9.5). atom: H–Kr 원자 LDA/LSDA '
-                             '(로그 방사 격자, 구면 평균). 둘 다 Slater+VWN5 자체 구현. --config는 그 모델의 settings.json')
+                             '또는 PBE (로그 방사 격자, 구면 평균). 자체 XC 구현. --config는 그 모델의 settings.json')
     parser.add_argument('--element', help='[atom] 원소 기호 H–Kr')
+    parser.add_argument('--functional', choices=['lda', 'pbe'], help='[atom] XC 함수 (기본 lda: Slater+VWN5)')
     parser.add_argument('--configuration', help='[atom] 전자 배치, 예: "[Ne] 3s2 3p6" (생략 시 NIST 바닥 배치)')
     parser.add_argument('--spin-polarized', action='store_const', const=True,
-                        help='[atom] LSDA(껍질별 다수 스핀 우선 점유). 생략 시 LDA')
+                        help='[atom] 스핀 분극(껍질별 다수 스핀 우선 점유). 생략 시 스핀 비분극')
     parser.add_argument('--grid-step', type=float, help='[atom] 로그 격자 x 간격 h (기본 0.001)')
     parser.add_argument('--grid-scale', type=float, help='[atom] 격자 척도 a·Z [bohr] (기본 1e-4)')
     parser.add_argument('--mixing', type=float, help='[he-lda/atom] 선형 밀도 혼합 비율 0<a≤1 (기본 0.5 / 0.3)')
@@ -265,7 +266,7 @@ def main():
         if any(getattr(args, key) is not None for key in ATOMIC_OPTIONS) or \
                 any(getattr(args, key) is not None for key in ATOM_ONLY_OPTIONS):
             parser.error('--mixing·--max-iterations·--energy-tol·--density-tol·--r-max·--grid-points와 '
-                         '--element·--configuration·--spin-polarized·--grid-step·--grid-scale은 '
+                         '--element·--configuration·--spin-polarized·--grid-step·--grid-scale·--functional은 '
                          '--model he-lda / atom 전용입니다.')
         if args.hydrogen_check:
             if has_periodic_options:

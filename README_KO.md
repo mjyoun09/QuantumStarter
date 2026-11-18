@@ -1,6 +1,6 @@
-# QuantumStarter 0.9.6 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.9.7 · 자체/외부 분자 DFT와 주기계 계산
 
-**원자 LDA/LSDA를 H–Kr로 넓혔습니다(0.9.6).** `.\.venv\Scripts\python.exe main.py --model atom --element Fe --spin-polarized --no-show`처럼 실행합니다. 로그 방사 격자를 쓰고 PySCF·Libxc 없이 동작하며, 72개 경우를 NIST 원자 기준 데이터와 대조했습니다. [사용법](#원자-ldalsda-로그-방사-격자-hkr-096).
+**원자 PBE를 추가했습니다(0.9.7).** `.\.venv\Scripts\python.exe main.py --model atom --element Fe --functional pbe --spin-polarized --no-show`처럼 실행합니다. 비분극·스핀 분극 PBE를 자체 수식으로 계산하며 PySCF·Libxc가 필요하지 않습니다. 기존 LDA/LSDA는 기본값으로 유지합니다. [PBE 방법·검증](docs/ATOMIC_PBE_KO.md).
 
 **중성 He의 Kohn–Sham LDA-SCF를 방사 격자에서 직접 구현했습니다(0.9.5).** `.\.venv\Scripts\python.exe main.py --model he-lda --no-show` 한 줄로 실행하며 PySCF·Libxc 없이 동작합니다. [사용법](#중성-he-lda-scf-방사-격자-095) · [검증](docs/VALIDATION_KO.md).
 
@@ -312,11 +312,12 @@ SciPy는 수소형 검증기와 같은 균일 격자·2차 차분 삼중대각 �
 격자를 줄이면 2차로 수렴하고 Richardson 외삽값은 PySCF와 2e-11 Ha 차이입니다. 조건과 수열은 [검증 기록](docs/VALIDATION_KO.md) 0.9.5 절에 있습니다.
 LDA의 ε₁ₛ는 자기 상호작용 오차 때문에 실험 이온화 에너지(약 0.904 Ha)보다 크게 얕습니다. 이것은 구현 오류가 아니라 모델의 한계입니다. 이 경로는 중성 He 1s²만 지원하며, 다른 원자는 아래 `--model atom`을 쓰세요.
 
-## 원자 LDA/LSDA (로그 방사 격자, H–Kr, 0.9.6)
+## 원자 LDA/LSDA 및 PBE (로그 방사 격자, H–Kr)
 
 ```powershell
 .\.venv\Scripts\python.exe main.py --model atom --element Ar --no-show
 .\.venv\Scripts\python.exe main.py --model atom --element N --spin-polarized --no-show
+.\.venv\Scripts\python.exe main.py --model atom --element N --functional pbe --spin-polarized --no-show
 .\.venv\Scripts\python.exe main.py --model atom --element C --configuration "[He] 2s1 2p3" --spin-polarized --no-show
 .\.venv\Scripts\python.exe main.py --model atom --element Fe --spin-polarized --grid-step 0.0005 --no-show
 .\.venv\Scripts\python.exe main.py --model atom --config <이전 실행 폴더>\settings.json --no-show
@@ -324,10 +325,12 @@ wsl --exec .venv-dft/bin/python scripts/validate_atoms.py
 ```
 
 H–Kr(Z = 1–36) 원자의 구대칭 Kohn–Sham을 원자 단위로 풉니다. 밀도는 구면 평균이며, 부분 껍질은 m 성분을 균등하게 채운다고 봅니다.
-`--spin-polarized`이면 LSDA이고, 각 껍질을 다수 스핀부터 2l+1개까지 채웁니다(Hund 최대 스핀). 생략하면 스핀 비분극 LDA입니다.
+`--functional lda`(기본값)는 LDA/LSDA, `--functional pbe`는 PBE입니다. `--spin-polarized`이면 각 껍질을 다수 스핀부터 2l+1개까지 채웁니다(Hund 최대 스핀). 생략하면 스핀 비분극입니다.
 배치를 생략하면 NIST Atomic Reference Data의 바닥 배치를 씁니다(Cr `[Ar] 3d5 4s1`, Cu `[Ar] 3d10 4s1` 포함).
 `--configuration`으로 양이온이나 들뜬 배치, 소수 점유(`2p0.5`)도 줄 수 있습니다. 음이온은 받지 않습니다.
-XC는 Slater 교환 + VWN5 상관(Libxc `LDA_X` 1 + `LDA_C_VWN` 7)입니다. LSDA는 VWN 스핀 보간식을 직접 구현했고, Libxc 7.0.0과 상대 10⁻¹¹ 이내로 맞췄습니다. 단 Libxc는 10⁻¹⁵ bohr⁻³ 미만인 스핀 밀도를 10⁻¹⁵로 바꿔 계산하므로 그런 꼬리 영역에서는 값이 다릅니다(에너지 영향 ~10⁻¹⁵ Ha, 검증 기록 참조).
+LDA의 XC는 Slater 교환 + VWN5 상관(Libxc `LDA_X` 1 + `LDA_C_VWN` 7)입니다. LSDA는 VWN 스핀 보간식을 직접 구현했고, Libxc 7.0.0과 상대 10⁻¹¹ 이내로 맞췄습니다. 단 Libxc는 10⁻¹⁵ bohr⁻³ 미만인 스핀 밀도를 10⁻¹⁵로 바꿔 계산하므로 그런 꼬리 영역에서는 값이 다릅니다(에너지 영향 ~10⁻¹⁵ Ha, 검증 기록 참조).
+
+PBE는 밀도와 밀도 기울기로 교환·상관 에너지(ID 101+130)를 계산하고, 같은 이산 에너지를 미분해 퍼텐셜을 구합니다. H–Kr의 비분극·분극 72건이 모두 수렴했습니다. 닫힌 껍질 원자 7종과 구면 평균 2p¹ 배치의 붕소에서 외삽 총에너지가 독립 계산과 10⁻⁶ Ha 이내로 일치했습니다. [상세 조건과 독립 기준](docs/ATOMIC_PBE_KO.md)
 
 격자는 r = a(eˣ − 1)이고 x 간격은 h, a = 10⁻⁴/Z bohr입니다. u = J^½φ(J = r + a)로 바꾸면 정확한 변환으로 대칭 삼중대각 고유값 문제가 되어, 수소형 검증기와 같은 SciPy `eigh_tridiagonal`을 씁니다.
 이 행렬은 원점 근처 성분이 매우 큰 계단형이어서 기본 허용오차로는 고윳값이 Hartree 단위로 틀립니다. 그래서 이분법에 최소 허용오차를 주고, 고윳값은 Rayleigh 몫으로 다시 계산합니다.
@@ -336,7 +339,8 @@ XC는 Slater 교환 + VWN5 상관(Libxc `LDA_X` 1 + `LDA_C_VWN` 7)입니다. LSD
 | --- | --- | --- |
 | `--element` | 원소 기호 H–Kr (`--config`가 없으면 필수) | — |
 | `--configuration` | 전자 배치, 예 `"[Ne] 3s2 3p6"` | NIST 바닥 배치 |
-| `--spin-polarized` | LSDA (생략 시 LDA) | LDA |
+| `--functional` | 원자 XC: `lda` 또는 `pbe` (분자용 `--xc`와 별도) | lda |
+| `--spin-polarized` | 스핀 분극 (선택한 XC에 적용) | 스핀 비분극 |
 | `--grid-step` | 로그 격자 간격 h | 0.001 |
 | `--grid-scale` | a·Z [bohr] | 1e-4 |
 | `--r-max` | 바깥 경계 [bohr] | 50 |
@@ -354,7 +358,7 @@ XC는 Slater 교환 + VWN5 상관(Libxc `LDA_X` 1 + `LDA_C_VWN` 7)입니다. LSD
 
 NIST 값은 원 페이지를 내려받아 파싱해 `data/nist_atomic_reference.json`에 저장했습니다(`scripts/build_nist_atomic_reference.py`, 페이지 SHA-256 포함). 상세 조건은 [검증 기록](docs/VALIDATION_KO.md) 0.9.6 절에 있습니다.
 **한계:**
-- 비상대론·점핵·구면 평균만 지원합니다. 다중항 구분, 비구면 밀도, GGA·혼성, 상대론, 음이온은 아직 없습니다.
+- 비상대론·점핵·구면 평균만 지원합니다. 다중항 구분, 비구면 밀도, PBE 외 GGA·혼성, 상대론, 음이온은 아직 없습니다.
 - 혼합은 선형뿐입니다.
 - 기본 격자의 오차는 |E|에 비례합니다(상대 약 5×10⁻⁸). 무거운 원자를 10⁻⁶ Ha까지 맞추려면 `--grid-step`을 줄이거나 두 격자로 외삽하세요.
 

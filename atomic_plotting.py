@@ -94,8 +94,10 @@ def create_atom_figure(result) -> Figure:
         ax.grid(alpha=0.15)
         ax.legend(frameon=False, fontsize=7)
         ax.spines[['top', 'right']].set_visible(False)
-    kind = 'LSDA' if cfg.spin_polarized else 'LDA'
-    fig.suptitle(f'{cfg.element} Kohn-Sham {kind} (Slater + VWN5) | {cfg.configuration_text} | '
+    from radial_atom import functional_label
+    kind = functional_label(cfg)
+    xc = 'PBE exchange + PBE correlation' if cfg.functional == 'pbe' else 'Slater + VWN5'
+    fig.suptitle(f'{cfg.element} Kohn-Sham {kind} ({xc}) | {cfg.configuration_text} | '
                  f'E_total = {result.total_energy:.8f} Ha | log grid h = {result.grid.h:g}',
                  fontsize=10, color='#475569')
     return fig

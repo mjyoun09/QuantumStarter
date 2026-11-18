@@ -1,5 +1,7 @@
 # 현재 작업
 
+최신 별도 작업 **QS-20261117-ATOM-GGA / ChatGPT Codex / COMPLETED (2026-11-18, 0.9.7)**. H–Kr 비분극·분극 PBE 72건, 닫힌 껍질 7종과 붕소의 독립 에너지 대조, 기존 LDA/LSDA 72건 원본 및 NIST 회귀를 완료했다. [방법과 재현 명령](docs/ATOMIC_PBE_KO.md) · [검증 수치](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
+
 ## 작업 식별 정보
 
 - 작업 ID: QS-20261029-NATIVE-DFT
@@ -9,9 +11,9 @@
 - 별도 작업 QS-20261112-HE-LDA(중성 He 방사 격자 LDA-SCF, 0.9.5, Claude)는 2026-11-12 완료 — CHANGELOG 참조. 작업 메모 TASK_HE_LDA_SCF.md는 사용자 지시에 따라 완료 후 삭제했다.
 - 별도 작업 QS-20261117-ATOM-LSDA(원자 LDA/LSDA H–Kr, 로그 방사 격자, 0.9.6, Claude)는 2026-11-17 완료 — CHANGELOG 참조. 작업 메모 TASK_ATOM_LSDA.md는 완료 후 삭제했다. 이 방향의 다음 후보는 아래 "방사 격자 원자 DFT 다음 단계" 절.
 
-### 방사 격자 원자 DFT 다음 단계: 원자 GGA(PBE) (미착수, 2026-11-17 Claude 제안·사용자 기록 요청)
+### 원자 GGA(PBE) 최초 계획 (2026-11-17 제안, 2026-11-18 완료)
 
-사용자가 0.9.6 완료 보고 뒤 "md에 남겨놔"라고 해 기록한다. 착수 지시는 아직 없다. 시작하면 별도 메모(예: TASK_ATOM_GGA.md)를 만들고 이 줄에 안내를 단다.
+사용자가 0.9.6 완료 후 기록을 요청한 최초 계획을 보존한다. 완료 근거는 이 문서 첫 줄 및 CHANGELOG 0.9.7에 있다.
 
 - 출발점: HEAD `1bec0db`(0.9.6). 엔진 radial_atom.py, 검증 scripts/validate_atoms.py, 시험 test_radial_atom.py. he-lda(atomic_dft.py)는 0.9.5 기록 보존을 위해 건드리지 않는다.
 - 목표: 같은 로그 격자 엔진에 PBE(Libxc `GGA_X_PBE` 101 + `GGA_C_PBE` 130, PySCF 문자열 `PBE` = (101, 130) — 2026-11-17 parse_xc로 확인)를 LDA/LSDA와 나란히 추가. 스핀 비분극·분극 모두. 런타임 Libxc 없이 닫힌 식으로 구현하는 원칙 유지.

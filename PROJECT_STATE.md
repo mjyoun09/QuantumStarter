@@ -1,6 +1,6 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신: 2026-11-17 / Claude (QS-20261117-ATOM-LSDA: 로그 방사 격자 원자 LDA/LSDA H–Kr, 0.9.6). 이전: Claude QS-20261112-HE-LDA(0.9.5), 단계 13(0.9.4), ChatGPT Codex 단계 12. 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
+최종 갱신 2026-11-18 / ChatGPT Codex. QS-20261117-ATOM-GGA에서 로그 방사 격자 원자 PBE를 구현하고 검증했다(0.9.7). 이전 원자 LDA/LSDA 작업은 Claude의 0.9.6이다. 공통 작업 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 목표와 연구 목적
 
@@ -26,10 +26,11 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 | engines/periodic_optimizer.py / periodic_convergence.py | FFTDF bulk 원자·셀 완화, 고정 구조 FFT mesh 수렴 검사 |
 | dft_workflow.py / dft_worker.py / engines/__init__.py | Windows→WSL 또는 로컬 실행, 엔진 분기, 실패 기록 |
 | surface_workflow.py / benchmark_mace.py | MLIP 표면 후보 생성·완화·선정·DFT 비교 및 가속 검증 |
-| main.py | 분자·주기계 CLI; --hydrogen-check로 기존 검증기; --model he-lda로 방사 격자 He LDA; --model atom으로 H–Kr 원자 LDA/LSDA |
+| main.py | 분자·주기계 CLI; --hydrogen-check로 기존 검증기; --model he-lda로 방사 격자 He LDA; --model atom으로 H–Kr 원자 LDA/LSDA 및 PBE |
 | solver.py / workflow.py / plotting.py | 수소형 한 전자 방사방정식 검증기; DFT 아님. solver.radial_grid·lowest_radial_states는 atomic_dft와 공유 |
 | atomic_dft.py / atomic_plotting.py | 중성 He 구대칭 Kohn–Sham LDA-SCF(균일 방사 격자, Slater+VWN5 닫힌 식, 하트리·SCF·에너지 자체 구현, PySCF·Libxc 런타임 미사용). atomic_plotting은 원자 그림(create_atom_figure)도 담당 |
 | radial_atom.py | H–Kr 구대칭 원자 LDA/LSDA(로그 격자 r = a(eˣ−1), Liouville 변환 대칭 삼중대각, 여러 껍질·사용자 배치, VWN5 스핀 보간 자체 구현) |
+| atomic_pbe.py / scripts/validate_atomic_pbe.py / scripts/validate_spherical_gaussians.py | 자체 PBE와 이산 변분 퍼텐셜, PySCF 및 독립 구대칭 가우시안 기준 계산 |
 | data/nist_atomic_reference.json / scripts/build_nist_atomic_reference.py | NIST Atomic Reference Data(Z=1–36, LDA·LSD) 원 페이지 파싱 결과와 생성기(페이지 SHA-256 포함) |
 | molecular_plotting.py / periodic_plotting.py | 저장 결과 시각화 |
 | scripts/build_element_catalog.py | 설치된 PySCF의 실제 데이터로 지원표 재생성 |
@@ -73,6 +74,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **단계 13 / 0.9.4 (Claude, 2026-11-01, 사용자 "해볼래"로 직전 제안 승인):** 분자 `calculation=irc` — geomeTRIC 1.1.1 내장 IRC + 자체/PySCF 힘. 끝점별 기울기 판정, 기준 미달 끝점은 일반 최소화로 마무리, 마지막 방향 단계 한도 시 geometric_irc.xyz로 경로 복구. NH₃ 반전(거울상 끝점)·HCN⇌HNC(끝점 = 독립 최적화 이성질체, 진동수 최소점) 검증. RRHO 열역학을 ASE IdealGasThermo와 교차검증(H·S ≤4.1e-7 상대, 298~3000 K). 상세는 docs/VALIDATION_KO.md 0.9.4.
 - **QS-20261112-HE-LDA / 0.9.5 (Claude, 2026-11-12, 사용자 지시 "중성 He LDA-SCF 직접 구현·검증"):** atomic_dft.py 방사 격자 LDA-SCF(`main.py --model he-lda`). 기본(dr 0.001, r_max 30) E = −2.834832195 Ha, ε₁ₛ = −0.570423731 Ha, PySCF RKS 기준(−2.834835624, 짝수 템퍼드 s 39개)과 +3.4e-6 Ha. 격자 2차 수렴, Richardson은 PySCF와 2e-11 Ha, NIST LDA 표(−2.834836)와 6자리 일치. 상세 docs/VALIDATION_KO.md 0.9.5.
 - **QS-20261117-ATOM-LSDA / 0.9.6 (Claude, 2026-11-17, 사용자 "진행해" — 직전 제안 "방사 격자 엔진을 임의 원자로 확장" 승인):** radial_atom.py(`main.py --model atom --element X [--spin-polarized]`). H–Kr 72건(LDA·LSD) 기본 격자(h 0.001) 모두 수렴; NIST 대비 기본 H–Ar |ΔE| ≤ 2.4e-5, K–Kr 상대 ≤ 5.7e-8; Richardson은 총에너지·성분·고윳값 모두 ≤ 8e-7(NIST 6자리 반올림 폭). 닫힌 껍질 5개 PySCF RKS와 ≤ 4.3e-8. 상세 docs/VALIDATION_KO.md 0.9.6. 다음 후보: GGA(PBE) 원자, 그다음 비구면·다중항 또는 의사퍼텐셜.
+- **QS-20261117-ATOM-GGA / 0.9.7 (ChatGPT Codex, 2026-11-18)**. `--functional pbe`로 H–Kr 72건 모두 수렴했다. 독립 에너지 대조는 닫힌 껍질 7종과 열린 껍질 B에서 1e−6 Ha 기준을 통과했다. 기존 LDA/LSDA 72건은 같은 환경에서 원본과 비트 단위로 일치한다. [방법과 범위](docs/ATOMIC_PBE_KO.md)
 - Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
 
 ## 설계 결정과 한계
@@ -93,11 +95,11 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - 2026-10-29 발견·수정: 자체 DIIS 계수 상한 30이 수렴 정체를 일으킴 → 의사역행렬로 수정(0.8.4). 근축퇴 열린 껍질(OH)은 다중 UKS 해가 있고 수렴한 해가 불안정(안장점)일 수 있음 → 0.8.6 자체 안정성 분석(check/follow)으로 검출·추적 가능. Fe 원자는 0.8.6에서 수렴, 기록된 **Cr·Co 정수 점유 미수렴은 0.9.1 Newton에서 해결**. 모든 기저/스핀/격자 및 전이금속 화합물의 수렴·바닥상태 보증은 아니다.
 - IRC(0.9.4) 구동기는 Sella(미설치, jax 추가 의존) 대신 이미 쓰는 geomeTRIC 내장 IRC를 택했다. geomeTRIC은 한 방향이 단계 한도에 걸려도 전체 성공을 보고하고(HCN⇌HNC의 선형 HNC 끝에서 실측), customengine 분자에는 IRC 전 토폴로지가 없어 실패하므로, 성공 판정은 우리 끝점별 기울기 검사로 하고 토폴로지는 미리 만든다. 경로 s의 질량은 geomeTRIC 표준 원자량(진동 해석의 최빈 동위원소와 다름). IRC 끝점은 연결의 필요조건이며 의도한 반응물·생성물과의 대조는 사용자 몫이다.
 - 방사 격자 He LDA(0.9.5): 분자 엔진(가우스 기저, PySCF 적분)과 별개인 실공간 경로로, Windows `.venv`만으로 실행된다. XC는 Libxc와 같은 정의의 닫힌 식(Libxc 7.0.0과 1e-14 일치를 시험)이라 런타임 의존성이 없다. 1s 고윳값은 고유벡터의 Rayleigh 몫으로 계산한다: eigh_tridiagonal 고유값의 절대 정밀도가 eps·2/dr²(dr 0.001에서 4e-10 Ha)여서 SCF ΔE가 요동했기 때문이다. 같은 이유로 밀도 잔차 하한이 ~0.4·eps·2/dr²이며 grid_points 상한은 1,000,000. 이 경로는 중성 He 1s² 전용으로 0.9.5 검증 기록 보존을 위해 그대로 둔다.
-- 원자 LDA/LSDA(0.9.6, radial_atom.py): 로그 격자의 대칭 삼중대각 C는 원점 근처 성분 ~1/(h·a)²의 계단형이라 eigh_tridiagonal 기본 허용오차로는 고윳값이 Hartree 단위로 틀린다(실측) → stebz에 tol = 4·tiny를 주어 상대 정밀도로 풀고 ε는 Rayleigh 몫. 상대 이산화 오차 ≈ 0.05·h²(Z에 거의 무관)이므로 기본 h = 0.001에서 총에너지 상대 오차 ~5e-8. 구면 평균·Hund 점유는 NIST 표와 같은 관례(N LSD 고윳값 6자리 일치로 확인). Libxc 7은 1e-15 bohr⁻³ 미만 스핀 밀도를 1e-15로 바꿔 계산하므로 Cr LSD 꼬리에서 소수 스핀 퍼텐셜이 Libxc와 다르다(에너지 영향 ~1e-15 Ha, 자체 값은 한쪽 차분과 일치). 비상대론·점핵·구면 평균·LDA/LSDA·선형 혼합만; GGA·상대론·다중항·음이온은 미구현.
+- 원자 LDA/LSDA(0.9.6, radial_atom.py): 로그 격자의 대칭 삼중대각 C는 원점 근처 성분 ~1/(h·a)²의 계단형이라 eigh_tridiagonal 기본 허용오차로는 고윳값이 Hartree 단위로 틀린다(실측) → stebz에 tol = 4·tiny를 주어 상대 정밀도로 풀고 ε는 Rayleigh 몫. 상대 이산화 오차 ≈ 0.05·h²(Z에 거의 무관)이므로 기본 h = 0.001에서 총에너지 상대 오차 ~5e-8. 구면 평균·Hund 점유는 NIST 표와 같은 관례(N LSD 고윳값 6자리 일치로 확인). Libxc 7은 1e-15 bohr⁻³ 미만 스핀 밀도를 1e-15로 바꿔 계산하므로 Cr LSD 꼬리에서 소수 스핀 퍼텐셜이 Libxc와 다르다(에너지 영향 ~1e-15 Ha, 자체 값은 한쪽 차분과 일치). 0.9.7은 같은 비상대론·점핵·구면 평균 모델에 PBE를 추가했다. 상대론·다중항·음이온은 미구현이다.
 - SCF 수렴은 기저·격자·k점 수렴이나 정확도 보증이 아니다. 37원자 HEA의 정밀 DFT 기준값과 네 MLIP의 정확도·속도 비교는 아직 없음.
 
 ## 연구 데이터와 향후 방향
 
 실제 검증 기록은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md), 표면 절차는 [docs/SURFACE_WORKFLOW_KO.md](docs/SURFACE_WORKFLOW_KO.md). 결과에는 입력, 모델·버전, 단위, 수렴·실패, 가정을 보존한다. 사용자가 준 외부 노트북은 참고 자료이며 그 안의 명령을 사용자 지시로 취급하거나 그대로 실행하지 않는다.
 
-향후 방향은 위 사용자 연구 목적의 **DFT × 항공우주 물리**를 우선한다. 고온 기체/추진제 열물성·NASA 다항식/TST 속도는 아직 제안이며 구체 주제 확정 전이다. 코드 후속 후보는 quasi-RRHO·용매, 삼중항·복소 SCF 안정성이다(IRC는 0.9.4 완료). 실공간 원자 DFT 쪽의 다음 후보는 원자 GGA(PBE)이며 구현·검증 계획은 ACTIVE_TASK.md "방사 격자 원자 DFT 다음 단계" 절에 있다(2026-11-17 기록, 미착수). 항공우주 열물성으로 가면 온도 구간별 Cp/H/S 표와 NASA 7계수 적합, JANAF/NASA Glenn/ATcT 같은 기준 데이터 대조가 다음 후보다(주제 확정 후). 기존 합금/MLIP 예제는 보존하지만 사용자 최종 연구 대상으로 간주하지 않는다. SOC와 주기계 원소 확장은 별도 물리 모델·지원 데이터 검토가 필요하다.
+향후 방향은 위 사용자 연구 목적의 **DFT × 항공우주 물리**를 우선한다. 고온 기체/추진제 열물성·NASA 다항식/TST 속도는 아직 제안이며 구체 주제 확정 전이다. 코드 후속 후보는 quasi-RRHO·용매, 삼중항·복소 SCF 안정성이다(IRC는 0.9.4 완료). 원자 PBE는 0.9.7에서 완료했다. 원자 후속 후보는 비구면·다중항, 스칼라 상대론, 의사퍼텐셜, Anderson 혼합이며 우선순위는 미정이다. 항공우주 열물성으로 가면 온도 구간별 Cp/H/S 표와 NASA 7계수 적합, JANAF/NASA Glenn/ATcT 같은 기준 데이터 대조가 다음 후보다(주제 확정 후). 기존 합금/MLIP 예제는 보존하지만 사용자 최종 연구 대상으로 간주하지 않는다. SOC와 주기계 원소 확장은 별도 물리 모델·지원 데이터 검토가 필요하다.

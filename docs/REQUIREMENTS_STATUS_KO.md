@@ -8,7 +8,7 @@
 | 수소 검증기 보존, 입력/GUI/엔진/저장 분리 | 구현 | solver.py, molecular.py, dft_workflow.py, engines/, 별도 GUI |
 | 원소·좌표·단위·전하·스핀·격자·PBC | 구현 | 분자118원소, 주기계 기저별 지원; 원자 제약은 ML 표면 고정만 |
 | 자체 분자 DFT: 밀도/Fock/SCF/DIIS/에너지 | **구현·실계산 검증** | native_scf.py; RKS/UKS, LDA/GGA/global hybrid. 적분·XC 함수는 외부 라이브러리 |
-| 실공간 구대칭 원자 Kohn–Sham (2026-11-12·17 별도 요청) | **H–Kr LDA/LSDA 구현·검증 (0.9.5 He, 0.9.6 H–Kr)** | atomic_dft.py(`--model he-lda`), radial_atom.py(`--model atom`, 로그 격자). 밀도·하트리·SCF·에너지·Slater+VWN5(스핀 보간 포함) 자체, 런타임 PySCF/Libxc 없음. NIST 72건 Richardson ≤ 8e-7 Ha, 닫힌 껍질 PySCF ≤ 4.3e-8 Ha. GGA·상대론·비구면·다중항 미구현 |
+| 실공간 구대칭 원자 Kohn–Sham | **H–Kr LDA/LSDA 및 비분극·분극 PBE 구현·검증** | `--model atom --functional lda\|pbe`. 원자 PBE 자체 수식, 이산 에너지 미분, 72건 수렴, 닫힌 껍질 7종 독립 대조 ≤1e−6 Ha. LDA/LSDA 72건 원본과 동일. 비상대론·점핵·고정 배치·구면 평균. [상세](ATOMIC_PBE_KO.md) |
 | RKS/UKS, LDA/GGA/hybrid, ECP/X2C, 밀도/MO | 자체/외부에서 구현, 범위 다름 | 자체 ECP/X2C는 미지원. 외부 PySCF의 기존 지원 보존 |
 | 에너지 성분, 초기 추정 선택·비교 | 구현·검증 | 성분 합·전자 수·잔차·core/perturbed 검증 |
 | 중단·체크포인트·재시작 | 분자 구현·검증, 주기계 중단 구현 | 분자 물리 설정/전자 수 검사·재시작. 주기계는 SCF/셀 단계 경계 취소와 이력 보존, 최적화 재시작은 미지원 |
