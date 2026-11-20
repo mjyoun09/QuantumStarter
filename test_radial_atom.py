@@ -15,7 +15,7 @@ import unittest
 import numpy as np
 
 from atomic_dft import lda_xc
-from radial_atom import (GROUND_CONFIGURATIONS, SYMBOLS, AtomConfig, hartree_potential, load_atom_config, log_grid,
+from radial_atom import (GROUND_CONFIGURATIONS, SYMBOLS, AtomConfig, _AndersonMixer, hartree_potential, load_atom_config, log_grid,
                          lsda_xc, parse_configuration, run_atom, save_atom_config, save_atom_result, solve_channel,
                          spin_occupations)
 
@@ -71,7 +71,8 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_invalid_config(self):
         for changes in ({'element': 'Xx'}, {'element': 'H', 'configuration': '1s2'}, {'grid_step': 0},
-                        {'mixing': 1.5}, {'spin_polarized': 'yes'}, {'max_iterations': 0}, {'r_max_bohr': 0.5}):
+                        {'mixing': 1.5}, {'mixing_method': 'diis'}, {'spin_polarized': 'yes'},
+                        {'max_iterations': 0}, {'r_max_bohr': 0.5}):
             with self.subTest(**changes), self.assertRaises(ValueError):
                 AtomConfig(**changes)
         self.assertEqual(AtomConfig('ar').element, 'Ar')
@@ -155,6 +156,63 @@ class LogGridTests(unittest.TestCase):
         exact = 1.0 / grid.r - (zeta + 1.0 / grid.r) * np.exp(-2 * zeta * grid.r)
         self.assertLess(np.max(np.abs(v_h - exact)), 2e-6)
         self.assertAlmostEqual(0.5 * float(np.sum(v_h * u2 * grid.weights)), 5 * zeta / 16, delta=1e-6)
+
+
+class AndersonTests(unittest.TestCase):
+    def test_damped_weighted_step(self):
+        weights = np.array([1., 2., 4.])
+        initial = np.array([[.5, .5, .5], [0., 0., 0.]])
+        mixer = _AndersonMixer(weights, initial)
+        first = np.array([[.125, -.0625, 0.], [0., 0., 0.]])
+        second = np.array([[.03125, .03125, -.0234375], [0., 0., 0.]])
+        beta = .5
+        x1, status = mixer.step(initial, initial + first, beta)
+        self.assertEqual(status, 'linear_start')
+        np.testing.assert_array_equal(x1, initial + beta * first)
+        candidate, status = mixer.step(x1, x1 + second, beta)
+        self.assertEqual(status, 'anderson')
+        difference = second - first
+        coefficient = np.sum(difference * second * weights) / np.sum(difference**2 * weights)
+        expected = x1 + beta * second - coefficient * ((x1 - initial) + beta * difference)
+        np.testing.assert_allclose(candidate, expected, rtol=1e-14, atol=0)
+        np.testing.assert_allclose(candidate @ weights, initial @ weights)
+
+    def test_unstable_history_and_negative_charge(self):
+        initial = np.array([[.5, .5]])
+        weights = np.ones(2)
+        mixer = _AndersonMixer(weights, initial)
+        # An identical residual yields a zero least-squares column.
+        x1, _ = mixer.step(initial, initial + [[.125, -.125]], .5)
+        output = x1 + [[.125, -.125]]
+        mixed, status = mixer.step(x1, output, .5)
+        self.assertEqual(status, 'linear_unstable_history')
+        np.testing.assert_array_equal(mixed, .5 * x1 + .5 * output)
+        _, status = mixer.step(mixed, mixed + [[-.0625, .0625]], .5)
+        self.assertEqual(status, 'anderson')
+        # Targets just outside the simplex and far outside it exercise both safeguards.
+        for target, status in ((1.0000001, 'anderson'), (1.7, 'linear_invalid_density'),
+                               (2., 'linear_unstable_history')):
+            mixer = _AndersonMixer(weights, initial)
+            x1, _ = mixer.step(initial, np.array([[.7, .3]]), .3)
+            residual = .2 - .012 / (target - .5)
+            output = x1 + [[residual, -residual]]
+            candidate, actual = mixer.step(x1, output, .3)
+            self.assertEqual(actual, status)
+            if status == 'anderson':
+                np.testing.assert_array_equal(candidate, [[1., 0.]])
+            else:
+                np.testing.assert_array_equal(candidate, .7 * x1 + .3 * output)
+
+    def test_lda_and_lsda_same_fixed_point(self):
+        for element, polarized in [('He', False), ('B', True)]:
+            with self.subTest(element=element):
+                runs = [run_atom(AtomConfig(element, spin_polarized=polarized, grid_step=.004,
+                                            mixing_method=method)) for method in ('linear', 'anderson')]
+                linear, accelerated = runs
+                self.assertTrue(linear.converged and accelerated.converged)
+                self.assertLess(len(accelerated.history), len(linear.history))
+                self.assertAlmostEqual(linear.total_energy, accelerated.total_energy, delta=1e-9)
+                self.assertLess(np.sum(abs(linear.spin_radial - accelerated.spin_radial) * linear.grid.weights), 2e-7)
 
 
 class AtomScfTests(unittest.TestCase):
@@ -255,6 +313,7 @@ class AtomCommandLineTests(unittest.TestCase):
     def test_option_conflicts(self):
         for arguments in (('--model', 'atom'), ('--model', 'atom', '--element', 'He', '--grid-points', '999'),
                           ('--model', 'he-lda', '--element', 'He'), ('--element', 'He'),
+                          ('--model', 'he-lda', '--mixing-method', 'anderson'), ('--mixing-method', 'anderson'),
                           ('--model', 'atom', '--element', 'He', '--xc', 'pbe')):
             with self.subTest(arguments=arguments):
                 done = cli(*arguments, '--no-show')

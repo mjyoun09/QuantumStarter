@@ -14,6 +14,18 @@
 
 H–Kr, 비상대론, 고정 점핵, 구면 평균 밀도, 껍질별 고정 점유만 다룬다. 열린 껍질에서 각 m 성분을 균등하게 채우고 스핀 분극 시 다수 스핀 우선이다. 기본 배치는 기존 NIST 배치를 유지하며 PBE로 배치 간 바닥상태를 탐색하지 않는다. 다중항·비구면·상대론·음이온·혼성 함수는 이 원자 엔진의 범위 밖이다.
 
+### Anderson 밀도 혼합 (0.9.8)
+
+```powershell
+.\.venv\Scripts\python.exe main.py --model atom --element Fe --functional pbe --spin-polarized --mixing-method anderson --no-show
+```
+
+`--mixing-method`를 생략하면 기존 설정 파일도 선형 혼합으로 실행된다. `--mixing`은 두 방법의 감쇠 계수 β(기본 0.3)다. 초기 밀도, 고정 점유와 격자, SCF 종료 조건은 공통이다. 매번 실제 출력 밀도에 대해 |ΔE| < 10⁻¹⁰ Ha와 혼합 전 스핀별 적분 절대 잔차의 합 < 10⁻⁷ e를 함께 검사한다(기본 설정).
+
+이력 5개의 감쇠 Type-II Anderson 방법을 쓴다. 입력 방사 밀도를 x, 출력과 입력의 차이를 R, 선형 혼합 결과를 g = x + βR라 두면 새 입력은 g − Δg·γ다. Δ는 연속 반복 사이의 차이를 열로 모은 행렬이다. γ는 ∑σ∫|Rσ − (ΔR·γ)σ|² dr를 최소화하며 한 계수 벡터를 두 스핀에 공통으로 쓴다. 최소제곱에 로그 격자의 적분 가중치 J·h를 반영한다. [Walker와 Ni의 고정점 Anderson 가속 방법](https://epubs.siam.org/doi/10.1137/10078356X)
+
+첫 갱신은 선형이다. 최소제곱 풀이 실패, 열 종속(상대 특잇값 절단 10⁻¹⁰), 계수 절댓값 합 > 20, 유한하지 않은 후보 또는 어느 스핀이든 적분 음전하 크기가 그 스핀 전자 수의 10⁻⁶을 넘으면 차분 이력을 비우고 해당 갱신에 선형 혼합을 쓴다. 허용 범위 안의 음수는 0으로 자르고 각 점유 스핀을 초기 전자 수에 맞춰 정규화한다. Anderson 실행의 `scf_history.csv`와 `results.json`에서 `input_mixing_step`을 보면 각 반복의 입력을 만든 방법을 확인할 수 있다. [H–Kr 비교 및 재현 명령](VALIDATION_KO.md)
+
 ## 함수와 미분
 
 교환은 PBE의 `F_x(s)=1+κ−κ/(1+μs²/κ)`, `s²=σ/[4(3π²)^(2/3)n^(8/3)]`이다. 분극 교환은 스핀 스케일링 `E_x[↑,↓]=(E_x[2↑]+E_x[2↓])/2`를 쓴다. 상관은 PW92 수정형과 PBE H의 합이다. 근거: [PBE 원 논문](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.77.3865), [Libxc 7의 PBE 정의](https://gitlab.com/libxc/libxc/-/raw/7.0.0/maple/gga_exc/gga_c_pbe.mpl).

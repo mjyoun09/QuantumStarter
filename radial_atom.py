@@ -14,10 +14,11 @@ u(r) = J^(1/2) φ(x), J = dr/dx = r + a로 바꾸면 방사 방정식은 정확�
 형태의 Rayleigh 몫으로 다시 계산한다. 적분은 x에 대한 사다리꼴(가중 J h)이다.
 
 직접 구현: 배치 해석, 초기 밀도(Slater 차폐 수소형), 밀도, 하트리(구 안쪽·바깥쪽 전하), LDA/LSDA 식,
-SCF·선형 혼합·수렴 판정, 이중 계산을 보정한 총에너지. 비분극 XC는 0.9.5에서 Libxc와 대조한
+SCF·선형/Anderson 혼합·수렴 판정, 이중 계산을 보정한 총에너지. 비분극 XC는 0.9.5에서 Libxc와 대조한
 atomic_dft의 식을 그대로 쓴다. PySCF는 쓰지 않는다(scripts/validate_atoms.py 비교 전용).
 """
 import csv
+from collections import deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import json
@@ -171,8 +172,11 @@ class AtomConfig:
     energy_tol_hartree: float = 1e-10
     density_tol_electrons: float = 1e-7
     functional: str = 'lda'
+    mixing_method: str = 'linear'
 
     def __post_init__(self):
+        if self.mixing_method not in ('linear', 'anderson'):
+            raise ValueError('mixing_method: linear 또는 anderson을 입력하세요.')
         if self.functional not in ('lda', 'pbe'):
             raise ValueError('functional: lda 또는 pbe를 입력하세요.')
         z = element_number(self.element)
@@ -422,8 +426,53 @@ def initial_density(config: AtomConfig, grid: LogGrid, spin_labels):
                     'effective_charges': charges}
 
 
+class _AndersonMixer:
+    """Damped type-II Anderson with joint spin coefficients in the radial dr metric."""
+    depth = 5
+
+    def __init__(self, weights, initial):
+        self.weights = weights
+        self.sqrt_weights = np.sqrt(weights)
+        self.charges = np.sum(initial * weights, axis=1)
+        self.differences = deque(maxlen=self.depth)
+        self.previous = None
+
+    def step(self, density, output, beta):
+        residual = output - density
+        linear = (1.0 - beta) * density + beta * output
+        previous = self.previous
+        self.previous = (residual, linear)
+        if previous is None:
+            return linear, 'linear_start'
+
+        self.differences.append((residual - previous[0], linear - previous[1]))
+        columns = np.stack([(dr * self.sqrt_weights).ravel() for dr, _ in self.differences], axis=1)
+        try:
+            coeff, _, rank, _ = np.linalg.lstsq(columns, (residual * self.sqrt_weights).ravel(), rcond=1e-10)
+        except np.linalg.LinAlgError:
+            self.differences.clear()
+            return linear, 'linear_unstable_history'
+        if rank != len(self.differences) or not np.all(np.isfinite(coeff)) or np.linalg.norm(coeff, 1) > 20:
+            self.differences.clear()
+            return linear, 'linear_unstable_history'
+
+        candidate = linear.copy()
+        for c, (_, step_difference) in zip(coeff, self.differences):
+            candidate -= c * step_difference
+        # Allow only tiny negative tails, measured per spin in electrons.
+        negative_charge = -np.sum(np.minimum(candidate, 0.0) * self.weights, axis=1)
+        if not np.isfinite(candidate).all() or np.any(negative_charge > 1e-6 * self.charges):
+            self.differences.clear()
+            return linear, 'linear_invalid_density'
+        candidate = np.maximum(candidate, 0.0)
+        occupied = self.charges > 0
+        candidate[occupied] *= (self.charges[occupied] /
+                                np.sum(candidate[occupied] * self.weights, axis=1))[:, None]
+        return candidate, 'anderson'
+
+
 def run_atom(config: AtomConfig = AtomConfig(), progress=None) -> AtomResult:
-    """선형 스핀 밀도 혼합 SCF. progress(record)는 반복마다 호출된다.
+    """스핀 밀도 혼합 SCF. progress(record)는 반복마다 호출된다.
 
     반복 k: ρ_in,σ → v_σ = -Z/r + v_H[ρ_in] + v_xc,σ[ρ_in] → 채널(σ, l)별 최저 상태 → ρ_out,σ.
     잔차는 혼합 전 Σ_σ ∫|ρ_out,σ - ρ_in,σ| dr. 총에너지는 고윳값 합의 이중 계산 보정:
@@ -436,6 +485,8 @@ def run_atom(config: AtomConfig = AtomConfig(), progress=None) -> AtomResult:
     channels = _channels(subshells, spin_labels, config.spin_polarized)
     v_ext = -z / grid.r
     radial_in, initial = initial_density(config, grid, spin_labels)
+    mixer = _AndersonMixer(grid.weights, radial_in) if config.mixing_method == 'anderson' else None
+    input_step = 'initial'
     history, previous_energy, converged = [], None, False
     for iteration in range(1, config.max_iterations + 1):
         total_in = radial_in.sum(axis=0)
@@ -476,6 +527,8 @@ def run_atom(config: AtomConfig = AtomConfig(), progress=None) -> AtomResult:
                   'density_criterion_met': density_ok,
                   'highest_occupied_eigenvalue_hartree': max(o['eigenvalue_hartree'] for o in orbitals
                                                              if o['occupation'] > 0)}
+        if mixer is not None:
+            record['input_mixing_step'] = input_step
         history.append(record)
         if progress is not None:
             progress(record)
@@ -483,7 +536,11 @@ def run_atom(config: AtomConfig = AtomConfig(), progress=None) -> AtomResult:
         if energy_ok and density_ok:
             converged = True
             break
-        radial_in = (1.0 - config.mixing) * radial_in + config.mixing * radial_out
+        if iteration < config.max_iterations:
+            if mixer is None:
+                radial_in = (1.0 - config.mixing) * radial_in + config.mixing * radial_out
+            else:
+                radial_in, input_step = mixer.step(radial_in, radial_out, config.mixing)
 
     kinetic_total = sum(o['occupation'] * o['kinetic_hartree'] for o in orbitals)
     electron_nuclear = float(np.sum(v_ext * total_out * grid.weights))
@@ -558,7 +615,8 @@ def build_atom_summary(result: AtomResult, elapsed_seconds=None) -> dict:
             'eigensolver': 'symmetric tridiagonal C = J^-1 A J^-1, SciPy eigh_tridiagonal stebz with '
                            'tol = 4*tiny; eigenvalue = Rayleigh quotient',
             'hartree': 'inner charge Q(r)/r + outer shells ∫ rho/r dr (trapezoid in x)',
-            'mixing': 'linear mixing of spin radial densities',
+            'mixing': ('linear mixing of spin radial densities' if cfg.mixing_method == 'linear' else
+                       f'damped type-II Anderson mixing of spin radial densities, depth {_AndersonMixer.depth}, dr metric'),
             'total_energy': 'E = sum f eps - sum_s ∫(v_H + v_xc,s)[in] rho_out,s + E_H[out] + E_xc[out]'},
         'xc': {**functional_metadata(cfg), 'spin': 'polarized' if cfg.spin_polarized else 'unpolarized'},
         'config': asdict(cfg),
@@ -598,7 +656,8 @@ def save_atom_result(result: AtomResult, output_dir, elapsed_seconds=None) -> di
     for name, rows, keys in (
             ('scf_history.csv', result.history,
              ('iteration', 'total_energy_hartree', 'delta_energy_hartree', 'density_residual_electrons',
-              'highest_occupied_eigenvalue_hartree', 'energy_criterion_met', 'density_criterion_met')),
+              'highest_occupied_eigenvalue_hartree', 'energy_criterion_met', 'density_criterion_met')
+             + (('input_mixing_step',) if result.config.mixing_method == 'anderson' else ())),
             ('orbitals.csv', result.orbitals,
              ('label', 'n', 'l', 'spin', 'occupation', 'eigenvalue_hartree', 'kinetic_hartree', 'nodes',
               'eigensolver_minus_rayleigh_hartree'))):

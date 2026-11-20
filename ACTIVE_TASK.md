@@ -1,6 +1,8 @@
 # 현재 작업
 
-최신 별도 작업 **QS-20261117-ATOM-GGA / ChatGPT Codex / COMPLETED (2026-11-18, 0.9.7)**. H–Kr 비분극·분극 PBE 72건, 닫힌 껍질 7종과 붕소의 독립 에너지 대조, 기존 LDA/LSDA 72건 원본 및 NIST 회귀를 완료했다. [방법과 재현 명령](docs/ATOMIC_PBE_KO.md) · [검증 수치](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
+최신 별도 작업 **QS-20261121-ATOM-MIX / ChatGPT Codex / COMPLETED (2026-11-21, 0.9.8)**. 원자 SCF의 Anderson 혼합을 구현했다. H–Kr PBE 72쌍 및 대표 4종×3회 측정이 모두 통과했다. PySCF·Libxc 포함 WSL 회귀 62건 통과. 장기 작업은 아래 HANDOFF_READY 상태로 보존한다. [검증 수치와 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
+
+이전 별도 작업 **QS-20261117-ATOM-GGA / ChatGPT Codex / COMPLETED (2026-11-18, 0.9.7)**. H–Kr 비분극·분극 PBE 72건, 닫힌 껍질 7종과 붕소의 독립 에너지 대조, 기존 LDA/LSDA 72건 원본 및 NIST 회귀를 완료했다. [방법과 재현 명령](docs/ATOMIC_PBE_KO.md) · [검증 수치](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
 
 ## 작업 식별 정보
 
@@ -29,7 +31,7 @@
   3. 열린 껍질: 구면 평균을 맞추려면 PySCF `scf.addons.frac_occ`(존재 확인됨) 같은 분수 점유가 필요하다. 쓸 수 있는지·같은 밀도를 주는지 먼저 확인하고, 안 되면 열린 껍질은 Libxc 점별 대조와 격자 수렴만으로 검증하고 한계를 적는다.
   4. 문헌 PBE 원자 에너지표는 출처를 원문에서 확인한 경우에만 쓴다.
   5. 격자 수렴 차수 2, 전자 수, 미수렴 처리, 기존 LDA/LSDA 72건 NIST 대조 재통과.
-- 그다음 후보(순서 미정, 사용자 결정): 비구면·다중항 구분, 스칼라 상대론(ZORA/Koelling–Harmon), 원자 결과를 이용한 노름 보존 의사퍼텐셜 생성, Anderson 혼합(현재 선형 혼합 36–57회).
+- 당시 후보 중 Anderson 혼합은 0.9.8에서 완료했다. 남은 후보는 비구면·다중항 구분, 스칼라 상대론(ZORA/Koelling–Harmon), 원자 결과를 이용한 노름 보존 의사퍼텐셜 생성이다. 순서는 미정이다.
 
 ### 단계 14 재개 후보 (미착수, 다음 AI는 이 절 우선)
 

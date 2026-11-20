@@ -1,4 +1,6 @@
-# QuantumStarter 0.9.7 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.9.8 · 자체/외부 분자 DFT와 주기계 계산
+
+원자 SCF에서 Anderson 혼합을 쓰려면 `--model atom` 명령에 `--mixing-method anderson`을 추가합니다. 기본 혼합은 `linear`이며 원자 LDA·LSDA·PBE 모두 같은 옵션을 씁니다. [원자별 수렴과 계산 시간](docs/VALIDATION_KO.md)
 
 **원자 PBE를 추가했습니다(0.9.7).** `.\.venv\Scripts\python.exe main.py --model atom --element Fe --functional pbe --spin-polarized --no-show`처럼 실행합니다. 비분극·스핀 분극 PBE를 자체 수식으로 계산하며 PySCF·Libxc가 필요하지 않습니다. 기존 LDA/LSDA는 기본값으로 유지합니다. [PBE 방법·검증](docs/ATOMIC_PBE_KO.md).
 
@@ -344,7 +346,8 @@ PBE는 밀도와 밀도 기울기로 교환·상관 에너지(ID 101+130)를 계
 | `--grid-step` | 로그 격자 간격 h | 0.001 |
 | `--grid-scale` | a·Z [bohr] | 1e-4 |
 | `--r-max` | 바깥 경계 [bohr] | 50 |
-| `--mixing` / `--max-iterations` | 선형 혼합 비율 / 반복 상한 | 0.3 / 300 |
+| `--mixing-method` | 원자 SCF 밀도 혼합 방법(`linear`, `anderson`) | `linear` |
+| `--mixing` / `--max-iterations` | 밀도 혼합 감쇠 계수 / 반복 상한 | 0.3 / 300 |
 | `--energy-tol` / `--density-tol` | \|ΔE\| [Ha] / 혼합 전 스핀별 ∫\|ρ_out − ρ_in\| 합 [전자] | 1e-10 / 1e-7 |
 
 종료 코드는 수렴 0, 미수렴 2, 오류 1입니다. 결과는 `outputs/atom/<시각>/`에 저장됩니다.

@@ -20,8 +20,8 @@ ATOMIC_OPTIONS = {'mixing': 'mixing', 'max_iterations': 'max_iterations', 'energ
 ATOM_OPTIONS = {'element': 'element', 'configuration': 'configuration', 'spin_polarized': 'spin_polarized',
                 'mixing': 'mixing', 'max_iterations': 'max_iterations', 'energy_tol': 'energy_tol_hartree',
                 'density_tol': 'density_tol_electrons', 'r_max': 'r_max_bohr', 'grid_step': 'grid_step',
-                'grid_scale': 'grid_scale', 'functional': 'functional'}
-ATOM_ONLY_OPTIONS = ('element', 'configuration', 'spin_polarized', 'grid_step', 'grid_scale', 'functional')
+                'grid_scale': 'grid_scale', 'functional': 'functional', 'mixing_method': 'mixing_method'}
+ATOM_ONLY_OPTIONS = ('element', 'configuration', 'spin_polarized', 'grid_step', 'grid_scale', 'functional', 'mixing_method')
 # --model he-lda / atom과 함께 쓸 수 없는 분자·주기계 옵션.
 DFT_ONLY_OPTIONS = ('charge', 'spin', 'basis', 'xc', 'dispersion', 'calculation', 'opt_convergence', 'opt_max_steps',
                     'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number',
@@ -97,7 +97,7 @@ def run_atom_cli(config, output_root: Path, show: bool):
           f"XC: {xc['exchange']['libxc_name']} (Libxc ID {xc['exchange']['libxc_id']}) + "
           f"{xc['correlation']['libxc_name']} (Libxc ID {xc['correlation']['libxc_id']})")
     print(f"격자: r = a(e^x − 1), h = {grid.h:g}, a = {grid.a:.3g} bohr, 점 {grid.r.size}, r_end = {grid.r_end:.4g} bohr | "
-          f"혼합 {config.mixing:g}, 반복 상한 {config.max_iterations}, |ΔE| < {config.energy_tol_hartree:.1e} Ha, "
+          f"혼합 {config.mixing_method} {config.mixing:g}, 반복 상한 {config.max_iterations}, |ΔE| < {config.energy_tol_hartree:.1e} Ha, "
           f"밀도 잔차 < {config.density_tol_electrons:.1e} e")
     print(" 반복    E_total [Ha]            ΔE [Ha]     밀도 잔차 [e]")
 
@@ -225,7 +225,8 @@ def main():
                         help='[atom] 스핀 분극(껍질별 다수 스핀 우선 점유). 생략 시 스핀 비분극')
     parser.add_argument('--grid-step', type=float, help='[atom] 로그 격자 x 간격 h (기본 0.001)')
     parser.add_argument('--grid-scale', type=float, help='[atom] 격자 척도 a·Z [bohr] (기본 1e-4)')
-    parser.add_argument('--mixing', type=float, help='[he-lda/atom] 선형 밀도 혼합 비율 0<a≤1 (기본 0.5 / 0.3)')
+    parser.add_argument('--mixing', type=float, help='[he-lda/atom] 밀도 혼합 감쇠 계수 0<a≤1 (기본 0.5 / 0.3)')
+    parser.add_argument('--mixing-method', choices=('linear', 'anderson'), help='[atom] 밀도 혼합 방법 (기본 linear)')
     parser.add_argument('--max-iterations', type=int, help='[he-lda/atom] SCF 반복 상한 (기본 100 / 300)')
     parser.add_argument('--energy-tol', type=float, help='[he-lda/atom] |ΔE| 수렴 기준 [Ha] (기본 1e-10)')
     parser.add_argument('--density-tol', type=float, help='[he-lda/atom] 혼합 전 밀도 잔차 기준 [전자] (기본 1e-7)')
@@ -266,7 +267,7 @@ def main():
         if any(getattr(args, key) is not None for key in ATOMIC_OPTIONS) or \
                 any(getattr(args, key) is not None for key in ATOM_ONLY_OPTIONS):
             parser.error('--mixing·--max-iterations·--energy-tol·--density-tol·--r-max·--grid-points와 '
-                         '--element·--configuration·--spin-polarized·--grid-step·--grid-scale·--functional은 '
+                         '--element·--configuration·--spin-polarized·--grid-step·--grid-scale·--functional·--mixing-method는 '
                          '--model he-lda / atom 전용입니다.')
         if args.hydrogen_check:
             if has_periodic_options:

@@ -217,7 +217,8 @@ class PbeScfTests(unittest.TestCase):
     def test_nonconvergence_and_configuration(self):
         with self.assertRaises(ValueError):
             AtomConfig(functional='PBE0')
-        result = run_atom(AtomConfig('N', functional='pbe', spin_polarized=True, max_iterations=2))
+        result = run_atom(AtomConfig('N', functional='pbe', spin_polarized=True, max_iterations=2,
+                                     mixing_method='anderson'))
         self.assertFalse(result.converged)
         with tempfile.TemporaryDirectory() as temp:
             saved = save_atom_result(result, temp)
@@ -227,21 +228,28 @@ class PbeScfTests(unittest.TestCase):
             self.assertEqual(load_atom_config(legacy), AtomConfig('He'))
         self.assertEqual(saved['xc']['correlation']['libxc_id'], 130)
         self.assertEqual(saved['status'], 'not_converged')
+        self.assertEqual([h['input_mixing_step'] for h in saved['scf_history']], ['initial', 'linear_start'])
 
     def test_cli_selection_roundtrip_and_conflicts(self):
         with tempfile.TemporaryDirectory() as temp:
-            done = cli('--model', 'atom', '--element', 'He', '--functional', 'pbe', '--no-show', '--output', temp)
+            done = cli('--model', 'atom', '--element', 'He', '--functional', 'pbe', '--mixing-method', 'anderson',
+                       '--no-show', '--output', temp)
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertIn('PBE', done.stdout)
             (run,) = Path(temp).iterdir()
             summary = json.loads((run / 'results.json').read_text(encoding='utf-8'))
             self.assertEqual(summary['config']['functional'], 'pbe')
+            self.assertEqual(summary['config']['mixing_method'], 'anderson')
+            self.assertIn('anderson', [h['input_mixing_step'] for h in summary['scf_history']])
+            self.assertEqual(load_atom_config(run / 'settings.json').mixing_method, 'anderson')
+            self.assertIn('input_mixing_step', (run / 'scf_history.csv').read_text(encoding='utf-8-sig').splitlines()[0])
             self.assertEqual(summary['xc']['exchange']['libxc_id'], 101)
             self.assertGreater((run / 'atom.png').stat().st_size, 1000)
             again = cli('--model', 'atom', '--config', str(run / 'settings.json'), '--no-show', '--output', temp)
             self.assertEqual(again.returncode, 0, again.stderr)
             repeated = json.loads((sorted(Path(temp).iterdir())[-1] / 'results.json').read_text(encoding='utf-8'))
             self.assertEqual(repeated['total_energy_hartree'], summary['total_energy_hartree'])
+            self.assertEqual(repeated['scf_history'], summary['scf_history'])
             stopped = cli('--model', 'atom', '--element', 'He', '--functional', 'pbe', '--max-iterations', '1',
                           '--no-show', '--output', temp)
             self.assertEqual(stopped.returncode, 2, stopped.stderr)

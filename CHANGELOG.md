@@ -3,6 +3,12 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261121-ATOM-MIX · 원자 SCF Anderson 혼합 · 2026-11-21 · 0.9.8
+
+- `radial_atom.py`와 `main.py`에 `--model atom --mixing-method anderson`을 추가했다. 선형 혼합이 기본이다. 스핀별 전자 수를 보존하고 불안정한 외삽은 선형 혼합으로 복귀시킨다. 설정과 실제 갱신 방법을 결과에 저장한다.
+- `scripts/validate_atom_mixing.py`로 동일 조건의 H–Kr PBE 72쌍과 대표 4종×3회 비교를 통과했다. 전체 반복은 선형 3,768회, Anderson 1,060회였고, 총에너지 차이는 최대 3.64×10⁻¹² Ha였다. [실측 시간·밀도·원시 기록](docs/VALIDATION_KO.md)
+- `test_radial_atom.py`와 `test_atomic_pbe.py`에 가중 최소제곱·안전장치·LDA/LSDA·CLI 설정 재실행 검사를 반영했다. `test_atomic_pbe test_radial_atom test_atomic_dft test_solver test_workflow` 5개 모듈은 WSL에서 62건 통과, Windows에서 58건 통과 및 선택적 Libxc 대조 4건 건너뜀이다.
+
 ## QS-20261117-ATOM-GGA · 원자 PBE 완료 · 2026-11-18 · 0.9.7
 
 - ChatGPT Codex. `atomic_pbe.py`의 자체 PBE 교환·상관과 이산 에너지 미분을 `radial_atom.py`의 비분극·분극 SCF에 연결했다. `main.py --model atom --functional pbe`에서 실행하며 설정·결과 JSON 및 그림에 함수가 기록된다.
