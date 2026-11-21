@@ -4,6 +4,8 @@
 
 같은 날 QS-20261121-N2-THERMO에서 중성 질소의 평형 구조·조화 진동수로 1 bar, 298.15–2,000 K의 열물성을 계산해 NIST와 대조했다. 열용량은 36개 온도에서 모두 기준보다 작았고 최대 편차는 2,000 K에서 −0.292 J/(mol·K)였다. [질소 검증 기록](docs/VALIDATION_KO.md) · [온도별 표](docs/validation/n2_thermo.csv)
 
+QS-20261121-H2-DISS에서 고정 거리 H₂의 PBE/def2-SVP 해리 곡선을 검증했다. 19개 거리의 RKS·UKS 에너지가 독립 PySCF SCF와 일치했고 스핀 곡률이 1.6178125–1.618125 Å에서 부호를 바꿨다. 이 H₂ 연구 결과는 장기 미구현 항목인 일반 분자 RKS→UKS 안정성 진단을 개발할 때 쓸 기준이다. [계산 조건과 범위](docs/VALIDATION_KO.md) · [거리별 표](docs/validation/h2_scan.csv)
+
 ## 목표와 연구 목적
 
 **사용자 확인 목표(2026-10-29): 특정 응용(H 흡착)이 아니라 DFT 프로그램 자체를 만드는 것.** 따라서 자체 엔진(engines/native_scf.py)의 범위 확장이 중심이며,

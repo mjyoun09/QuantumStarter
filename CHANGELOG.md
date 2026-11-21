@@ -3,6 +3,11 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261121-H2-DISS · H₂ 결합 해리와 스핀 안정성 검증 · 2026-11-21
+
+- `scripts/validate_h2_dissociation.py`로 0.55–4.00 Å의 19개 거리에서 자체 및 PySCF의 PBE/def2-SVP RKS·UKS를 비교했다. 총에너지 최대 차이 5.64×10⁻¹⁴ Ha. [해리 곡선](docs/validation/h2_dissociation.png) · [표](docs/validation/h2_scan.csv)
+- 1.6178125–1.618125 Å에서 자체 해석적 스핀 곡률 및 PySCF 궤도 기울기의 유한차분 곡률이 함께 부호를 바꿨다. 조밀 격자 확인, 고립 H 에너지 대조, 안정성·응답 회귀 4건을 마쳤다. [검증 조건·한계](docs/VALIDATION_KO.md)
+
 ## QS-20261121-N2-THERMO · 질소 이상기체 열물성 검증 · 2026-11-21
 
 - `scripts/validate_n2_thermo.py`에서 자체 분자 PBE/def2-TZVP의 최적화·진동수와 RRHO를 연결해 1 bar에서 36개 온도의 Cp, ΔH, S를 계산했다. [검증 조건·NIST 대조](docs/VALIDATION_KO.md) · [표](docs/validation/n2_thermo.csv) · [그림](docs/validation/n2_errors.png)

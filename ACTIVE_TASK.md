@@ -1,6 +1,8 @@
 # 현재 작업
 
-최신 별도 작업 **QS-20261121-N2-THERMO / ChatGPT Codex / COMPLETED (2026-11-21)**. 질소 1 bar, 298.15–2,000 K의 PBE/RRHO 36점과 NIST 비교, 좌표 변위 절반 민감도 검사, 열역학 회귀 4건을 마쳤다. 원시 계산은 `outputs/n2_thermo/20261121`와 `20261121_halfstep_verified`에 있다. 앞선 `20261121_halfstep`는 중단된 계산이다. [표와 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
+최신 별도 작업 **QS-20261121-H2-DISS / ChatGPT Codex / COMPLETED (2026-11-21)**. H₂ 19개 거리의 자체 RKS·UKS와 PySCF를 대조하고 분기를 1.6178125–1.618125 Å로 좁혔다. 최종 원시 결과는 `outputs/h2_dissociation/20261121_final`, DIIS가 1.70 Å에서 대칭 해로 돌아간 첫 시도는 `20261121`에 보존했다. 기능으로 확장할 때는 일반 분자의 실수 RKS→UKS 검사를 기존 내부 안정성 옵션과 연결하는 일이 남는다. [검증과 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
+
+이전 별도 작업 **QS-20261121-N2-THERMO / ChatGPT Codex / COMPLETED (2026-11-21)**. 질소 1 bar, 298.15–2,000 K의 PBE/RRHO 36점과 NIST 비교, 좌표 변위 절반 민감도 검사, 열역학 회귀 4건을 마쳤다. 원시 계산은 `outputs/n2_thermo/20261121`와 `20261121_halfstep_verified`에 있다. 앞선 `20261121_halfstep`는 중단된 계산이다. [표와 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
 
 이전 별도 작업 **QS-20261121-ATOM-MIX / ChatGPT Codex / COMPLETED (2026-11-21, 0.9.8)**. 원자 SCF의 Anderson 혼합을 구현했다. H–Kr PBE 72쌍 및 대표 4종×3회 측정이 모두 통과했다. PySCF·Libxc 포함 WSL 회귀 62건 통과. 장기 작업은 아래 HANDOFF_READY 상태로 보존한다. [검증 수치와 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
 
