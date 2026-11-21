@@ -3,6 +3,11 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261121-N2-THERMO · 질소 이상기체 열물성 검증 · 2026-11-21
+
+- `scripts/validate_n2_thermo.py`에서 자체 분자 PBE/def2-TZVP의 최적화·진동수와 RRHO를 연결해 1 bar에서 36개 온도의 Cp, ΔH, S를 계산했다. [검증 조건·NIST 대조](docs/VALIDATION_KO.md) · [표](docs/validation/n2_thermo.csv) · [그림](docs/validation/n2_errors.png)
+- 최대 Cp 편차는 2,000 K에서 −0.292 J/(mol·K)였다. 진동수 차분 변위를 절반으로 줄였을 때 Cp의 최대 변화는 0.000106 J/(mol·K)였다. ASE·PySCF 대조를 포함한 열역학 회귀 4건이 통과했다.
+
 ## QS-20261121-ATOM-MIX · 원자 SCF Anderson 혼합 · 2026-11-21 · 0.9.8
 
 - `radial_atom.py`와 `main.py`에 `--model atom --mixing-method anderson`을 추가했다. 선형 혼합이 기본이다. 스핀별 전자 수를 보존하고 불안정한 외삽은 선형 혼합으로 복귀시킨다. 설정과 실제 갱신 방법을 결과에 저장한다.

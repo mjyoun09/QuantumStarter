@@ -1,5 +1,32 @@
 # DFT 검증 기록 · 최근 정리 2026-11-21
 
+## 질소 기체의 열용량·엔탈피·엔트로피 (1 bar)
+
+QS-20261121-N2-THERMO. 중성 질소 분자의 전자 바닥상태에서 자체 RKS PBE/def2-TZVP로 구조를 최적화하고 조화 진동수를 구했다. 이 구조와 진동수를 고정해 이상기체·강체 회전자·조화 진동자(RRHO)로 298.15 K와 300–2,000 K의 50 K 간격, 총 36개 온도를 계산했다. [전체 표 CSV](validation/n2_thermo.csv) · [온도별 편차 그림](validation/n2_errors.png)
+
+표의 괄호는 계산값에서 NIST Shomate 기준을 뺀 편차다. ΔH는 같은 기체의 H(T)−H(298.15 K)이다. NIST의 100–500 K 계수를 500 K 미만에, 500–2,000 K 계수를 양 끝점 포함 구간에 적용했다. 계수 반올림으로 298.15 K에서 남는 0.0000276 kJ/mol을 모든 NIST 엔탈피에서 빼 두 표의 영점을 맞췄다. [NIST 질소 기체 열물성](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7727379&Mask=1#Thermo-Gas)
+
+| T (K) | Cp J/(mol·K) | ΔH kJ/mol | S J/(mol·K) |
+| ---: | ---: | ---: | ---: |
+| 298.15 | 29.113 (−0.011) | 0.000 (0.000) | 191.640 (+0.031) |
+| 500 | 29.538 (−0.043) | 5.906 (−0.006) | 206.758 (+0.018) |
+| 1,000 | 32.556 (−0.136) | 21.410 (−0.053) | 228.127 (−0.044) |
+| 1,500 | 34.629 (−0.218) | 38.263 (−0.142) | 241.766 (−0.114) |
+| 2,000 | 35.684 (−0.292) | 55.870 (−0.266) | 251.889 (−0.185) |
+
+계산한 Cp는 36개 온도 모두에서 기준보다 작았다. 2,000 K에서 차이가 0.81%까지 커졌고, 298.15 K부터 누적된 엔탈피 증가량을 0.47% 작게 예측했다. 엔트로피 편차는 650 K에서 양수, 700 K에서 음수였다. 298.15 K에서 별도로 비교한 CODATA 검토값은 191.609 ± 0.004 J/(mol·K)이며, 계산값 191.6399와의 차이 +0.0309는 이 불확도보다 크다. 계산은 질소-14의 질량 14.003074 u, 회전 대칭수 2, 단일항 다중도 1을 사용했다. 비조화 진동, 회전·진동 결합 및 들뜬 전자 상태의 기여를 따로 추정하지 않았다. [NIST의 CODATA 기준과 Shomate 표](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7727379&Mask=1#Thermo-Gas)
+
+최적화는 geomeTRIC tight, 수치적분 격자 level 4, SCF 에너지 허용오차 10⁻¹⁰ Ha로 수행했다. 평형 결합 길이는 1.102925 Å, 최대 핵 기울기는 2.31×10⁻⁸ Ha/bohr였다. 0.005 bohr 중심차분으로 진동 모드 1개(2353.73 cm⁻¹)를 얻었다. NIST 바닥상태의 분광 상수 rₑ = 1.097685 Å, ωₑ = 2358.57 cm⁻¹와 대조하면 각각 +0.00524 Å, −4.84 cm⁻¹이다. [NIST 이원자 질소 분광 상수](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7727379&Mask=1000)
+
+선형 분자의 Cp는 7R/2 + Cv,vib로 계산했다. 일정 압력에서 독립적으로 중앙차분한 dH/dT 및 T·dS/dT와의 최대 차이는 1.14×10⁻⁸ J/(mol·K)였다. 300, 1,000, 2,000 K에서 Shomate 구현을 NIST의 반올림 표와 대조했다. 재현 시 두 명령은 각각 새 출력 폴더를 사용한다. [NIST 온도별 표](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7727379&Mask=1&Table=on&Type=JANAFG)
+
+변위를 0.0025 bohr로 줄이면 진동수는 2353.6820 cm⁻¹로 0.0444 cm⁻¹ 낮아졌다. 36개 온도에서 두 변위 간 최대 차이는 Cp 0.000106 J/(mol·K), ΔH 0.000129 kJ/mol, S 0.000125 J/(mol·K)였다. 따라서 관측된 2,000 K 편차는 이 변위 변경에 따른 차이보다 크다. WSL에서 기존 열역학 검사 4개(ASE·PySCF 대조 포함)가 통과했다.
+
+```powershell
+wsl --exec env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 .venv-dft/bin/python scripts/validate_n2_thermo.py --out outputs/n2_thermo/recheck
+wsl --exec env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 .venv-dft/bin/python scripts/validate_n2_thermo.py --freq-step-bohr 0.0025 --out outputs/n2_thermo/recheck_halfstep
+```
+
 ## 0.9.8 · 원자 SCF 혼합 방법 비교
 
 QS-20261121-ATOM-MIX. 중성 H–Kr의 구면 평균 바닥 배치 36종에 대해 스핀 비분극·분극 PBE를 각각 계산했다. 두 방법 모두 기본 격자(h = 0.001, r_max = 50 bohr), Slater 초기 밀도, 감쇠 0.3, 동일한 에너지·밀도 수렴 기준을 사용했다. 72쌍 모두 첫 반복 기록이 일치했고, 두 방법 모두 수렴했다.
