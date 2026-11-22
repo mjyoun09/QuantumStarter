@@ -3,6 +3,12 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261122-GIT-REMOTE · GitHub 원격과 커밋 후 자동 push · 2026-11-22
+
+- GitHub Private 저장소 https://github.com/mjyoun09/QuantumStarter 를 만들어 `origin`으로 연결하고 `main`의 커밋 28개(`65d19ba`까지)를 올렸다.
+- `.githooks/post-commit`이 커밋 직후 현재 브랜치를 origin으로 push한다. 리베이스 중·detached HEAD는 건너뛰고, 강제 push와 자격 증명 창은 쓰지 않는다. 실패해도 커밋은 남으며 `.git/auto-push.log`에 기록된다. WSL에서 커밋하면 Windows `git.exe`로 push한다. `.gitattributes`로 훅을 LF로 고정했다. 사용 설정은 `git config core.hooksPath .githooks`(로컬)이다.
+- 검증: WSL에서 훅 직접 실행 시 push 성공, 이 기록을 담은 커밋에서 Windows 자동 push 확인.
+
 ## QS-20261121-MOLECULAR-SUITE · 분자 스펙트럼·기체 열물성·스핀 해리 · 0.10.0 · 2026-11-22
 
 - `engines/uvvis.py`와 `native_response.py`에서 자체 단일항 TDA의 에너지·파장·진동자 세기·주요 전이를 계산한다. 물·포름알데히드·에틸렌에서 4개 조건, 24개 피크를 독립 PySCF와 비교해 최대 차이 7.58×10⁻⁹ eV와 1.55×10⁻¹⁰를 확인했다. [피크별 비교](docs/validation/uvvis_comparison.csv)

@@ -1,0 +1,2 @@
+# Git 훅은 WSL·Git Bash의 sh가 실행하므로 어느 PC에서 받아도 LF를 유지한다.
+.githooks/* text eol=lf

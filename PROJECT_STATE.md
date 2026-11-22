@@ -53,7 +53,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - `.venv`, `.venv-dft`, `.venv-mlip`을 섞지 않는다. Windows Python에서 PySCF 실계산 테스트는 건너뛰므로 WSL 검증이 필요하다.
 - **사용자 요청(2026-10-29): 검증 중 사용자 화면에 창을 띄우지 않는다.** 분자·주기계 GUI 시험은 `QUANTUMSTARTER_TK_HIDDEN=1`(루트·Toplevel을 매핑 전에 숨김, 화면 배치 검사만 생략)로 실행한다. 주기계 숨김 모드는0.9.3에 추가됐고 실계산은 `QS_PERIODIC_GUI_DFT=1`로 활성화한다. 숨김 모드가 없는 test_gui(수소 화면)는 사용자 요청 없이 실행하지 않는다. 분자 예: `$env:QUANTUMSTARTER_TK_HIDDEN='1'; $env:QUANTUMSTARTER_GUI_DFT_TEST='1'; .\.venv\Scripts\python.exe -m unittest test_molecular_gui`.
 - **줄바꿈 주의**: 저장소 파일은 LF다. Windows `.venv` Python의 `Path.write_text`는 CRLF로 바꿔 쓰므로 스크립트로 파일을 고칠 때는 bytes로 쓰거나 `newline='\n'`을 지정한다. Git Bash의 `grep -c $'\r$'`은 CRLF 검사로 믿을 수 없다(바이트 검사 사용). 예외: examples/native_water.json은 처음부터 CRLF로 커밋됨.
-- Git: 2026-10-29부터 로컬 저장소(브랜치 main, 원격 없음). 그 이전 이력은 없다. `.gitignore`가 `.venv*`, `.model_cache/`, `outputs/`, `__pycache__/`를 제외하므로 **실제 계산 산출물은 Git으로 보존되지 않는다**. 폴더가 OneDrive 동기화 경로 안에 있으므로 두 PC에서 동시에 Git을 조작하지 않는다.
+- Git: 2026-10-29부터 로컬 저장소(브랜치 main). 그 이전 이력은 없다. 2026-11-22부터 원격 `origin` = GitHub Private 저장소 https://github.com/mjyoun09/QuantumStarter (사용자 요청). **커밋하면 `.githooks/post-commit`이 현재 브랜치를 origin으로 자동 push한다**(`core.hooksPath=.githooks`는 저장소 로컬 설정이라 새로 clone하면 다시 설정). 자동 push는 강제 push를 하지 않으므로 이미 올린 커밋을 amend/rebase하지 않는다. WSL git에는 GitHub 자격 증명이 없어 훅이 Windows `git.exe`(Git Credential Manager)로 push한다. 실패해도 커밋은 남고 `.git/auto-push.log`에 원인이 기록되며, 다음 커밋이나 `git push`에서 함께 올라간다. 일시 중지: `git config quantumstarter.autopush false`. `.gitignore`가 `.venv*`, `.model_cache/`, `outputs/`, `__pycache__/`를 제외하므로 **실제 계산 산출물은 Git으로 보존되지 않는다**. 폴더가 OneDrive 동기화 경로 안에 있으므로 두 PC에서 동시에 Git을 조작하지 않는다.
 
 ## 구현 상태
 
@@ -81,7 +81,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 - **QS-20261112-HE-LDA / 0.9.5 (Claude, 2026-11-12, 사용자 지시 "중성 He LDA-SCF 직접 구현·검증"):** atomic_dft.py 방사 격자 LDA-SCF(`main.py --model he-lda`). 기본(dr 0.001, r_max 30) E = −2.834832195 Ha, ε₁ₛ = −0.570423731 Ha, PySCF RKS 기준(−2.834835624, 짝수 템퍼드 s 39개)과 +3.4e-6 Ha. 격자 2차 수렴, Richardson은 PySCF와 2e-11 Ha, NIST LDA 표(−2.834836)와 6자리 일치. 상세 docs/VALIDATION_KO.md 0.9.5.
 - **QS-20261117-ATOM-LSDA / 0.9.6 (Claude, 2026-11-17, 사용자 "진행해" — 직전 제안 "방사 격자 엔진을 임의 원자로 확장" 승인):** radial_atom.py(`main.py --model atom --element X [--spin-polarized]`). H–Kr 72건(LDA·LSD) 기본 격자(h 0.001) 모두 수렴; NIST 대비 기본 H–Ar |ΔE| ≤ 2.4e-5, K–Kr 상대 ≤ 5.7e-8; Richardson은 총에너지·성분·고윳값 모두 ≤ 8e-7(NIST 6자리 반올림 폭). 닫힌 껍질 5개 PySCF RKS와 ≤ 4.3e-8. 상세 docs/VALIDATION_KO.md 0.9.6. 다음 후보: GGA(PBE) 원자, 그다음 비구면·다중항 또는 의사퍼텐셜.
 - **QS-20261117-ATOM-GGA / 0.9.7 (ChatGPT Codex, 2026-11-18)**. `--functional pbe`로 H–Kr 72건 모두 수렴했다. 독립 에너지 대조는 닫힌 껍질 7종과 열린 껍질 B에서 1e−6 Ha 기준을 통과했다. 기존 LDA/LSDA 72건은 같은 환경에서 원본과 비트 단위로 일치한다. [방법과 범위](docs/ATOMIC_PBE_KO.md)
-- Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다.
+- Git: 2026-10-29 저장소 생성(Claude). 기준 커밋 `dd2871e`는 Codex 인계 시점 스냅샷. outputs/·가상환경·모델 캐시는 .gitignore로 제외되어 Git에 없다. **QS-20261122-GIT-REMOTE (Claude, 2026-11-22):** GitHub Private 원격 연결과 커밋 후 자동 push 훅.
 
 ## 설계 결정과 한계
 

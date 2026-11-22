@@ -1,5 +1,14 @@
 # 현재 작업
 
+## QS-20261122-GIT-REMOTE · GitHub 원격과 커밋 후 자동 push
+
+- 담당 Claude · COMPLETED (2026-11-22). 시작 HEAD `65d19ba`, 작업 트리 깨끗함. 사용자 요청: "현재까지 만들어진 것 GIT에 올리고, 편집 끝나면 GIT에 자동 반영". 사용자 선택: Private 저장소, "커밋되면 자동 push"(Claude 응답마다 자동 커밋하는 방식은 고르지 않음).
+- 수행: Git Credential Manager로 GitHub 계정 로그인(브라우저 승인), API로 Private 저장소 `mjyoun09/QuantumStarter` 생성, `origin` 연결 후 `main` 커밋 28개 push. `.githooks/post-commit`(자동 push)·`.gitattributes`(훅 LF 고정) 추가, `git config core.hooksPath .githooks`.
+- 검증: WSL에서 훅을 직접 실행해 Windows `git.exe` 경유 push 성공(로그 `ok main 65d19ba`). 이 기록의 커밋이 Windows Git Bash 경로의 첫 자동 push 시험이다.
+- 다음 AI 주의: 커밋하면 곧바로 GitHub에 올라가므로 비밀값·대용량 산출물을 커밋하지 않는다. 올린 커밋을 amend/rebase하지 않는다(강제 push 안 함). 운영 방법은 PROJECT_STATE의 Git 항목. [변경 이력](CHANGELOG.md)
+
+이전 별도 작업 **QS-20261121-MOLECULAR-SUITE / ChatGPT Codex / COMPLETED (2026-11-22)** — 아래 절.
+
 ## QS-20261121-MOLECULAR-SUITE · 분자 계산 3기능 업데이트
 
 - 담당 ChatGPT Codex · COMPLETED (2026-11-22). 시작 HEAD `24518b2`. 자체 단일항 TDA UV–Vis, N₂/O₂/CO₂의 1 bar 열물성·NASA7, 지정 결합의 실수 RKS→UKS 스캔을 분자 GUI와 CLI에 연결했다.

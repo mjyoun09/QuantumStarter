@@ -1,0 +1,52 @@
+#!/bin/sh
+# QuantumStarter 자동 push 훅: 커밋 직후 현재 브랜치를 origin(GitHub)으로 push한다.
+#
+# - 사용 설정(저장소마다 한 번): git config core.hooksPath .githooks
+# - 일시 중지: git config quantumstarter.autopush false   (다시 켜기: git config --unset quantumstarter.autopush)
+# - 강제 push는 하지 않는다. 이미 올린 커밋을 amend/rebase하면 push가 거부되고 로그에 남는다.
+# - push가 실패해도 커밋은 그대로 남는다. 다음 커밋이나 수동 `git push` 때 밀린 커밋이 함께 올라간다.
+# - 자격 증명 창은 띄우지 않는다(에이전트 세션이 멈추지 않도록). 인증이 만료되면 수동 `git push`로 다시 로그인한다.
+# - 결과 기록: .git/auto-push.log
+
+[ "$(git config --bool quantumstarter.autopush 2>/dev/null)" = "false" ] && exit 0
+
+git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0
+# 리베이스 중간 커밋은 올리지 않는다(끝난 뒤 다음 커밋에서 함께 올라간다).
+[ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ] && exit 0
+branch=$(git symbolic-ref -q --short HEAD) || exit 0   # detached HEAD
+git remote get-url origin >/dev/null 2>&1 || exit 0
+
+# WSL의 git에는 GitHub 자격 증명이 없으므로 Windows Git(Git Credential Manager)으로 push한다.
+push_git=git
+if grep -qi microsoft /proc/version 2>/dev/null && command -v git.exe >/dev/null 2>&1; then
+  push_git=git.exe
+  WSLENV="GIT_TERMINAL_PROMPT:GCM_INTERACTIVE${WSLENV:+:$WSLENV}"
+  export WSLENV
+fi
+GIT_TERMINAL_PROMPT=0
+GCM_INTERACTIVE=never
+export GIT_TERMINAL_PROMPT GCM_INTERACTIVE
+
+run_push() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 120 "$push_git" push --quiet -u origin "$branch"
+  else
+    "$push_git" push --quiet -u origin "$branch"
+  fi
+}
+
+log="$git_dir/auto-push.log"
+sha=$(git rev-parse --short HEAD)
+stamp=$(date '+%Y-%m-%d %H:%M:%S')
+if out=$(run_push 2>&1); then
+  echo "$stamp ok   $branch $sha" >>"$log"
+  echo "[auto-push] origin/$branch 갱신 ($sha)" >&2
+else
+  status=$?
+  {
+    echo "$stamp FAIL $branch $sha (exit $status)"
+    printf '%s\n' "$out" | sed 's/^/    /'
+  } >>"$log"
+  echo "[auto-push] push 실패 (exit $status). 커밋은 로컬에 남아 있습니다. 원인: $log, 재시도: git push" >&2
+fi
+exit 0
