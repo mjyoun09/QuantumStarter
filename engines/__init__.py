@@ -3,6 +3,12 @@
 
 def calculate(config, directory, progress=print):
     if config.system == 'molecule':
+        if config.calculation == 'gas_thermo':
+            from .gas_thermo import gas_properties
+            return gas_properties(config, directory, progress)
+        if config.calculation == 'spin_scan':
+            from .spin_scan import scan_bond
+            return scan_bond(config, directory, progress)
         if config.calculation in ('optimize', 'transition_state'):
             from .optimizer import optimize_molecule
             return optimize_molecule(config, directory, progress)

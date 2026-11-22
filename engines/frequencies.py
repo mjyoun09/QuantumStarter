@@ -8,7 +8,6 @@ Every displaced calculation is a full recorded run under displacements/.
 """
 from dataclasses import replace
 from datetime import datetime, timezone
-import json
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +15,7 @@ from scipy.constants import Avogadro, Boltzmann, Planck, physical_constants, spe
 
 from molecular import Atom, save_dft_config
 from scf_control import check_cancelled
-from .pyscf_engine import BOHR_ANGSTROM, HARTREE_TO_EV, calculate_molecule
+from .pyscf_engine import BOHR_ANGSTROM, HARTREE_TO_EV, calculate_molecule, publish_results
 
 HARTREE_J = physical_constants['Hartree energy'][0]
 BOHR_M = physical_constants['Bohr radius'][0]
@@ -119,22 +118,25 @@ def ideal_gas_thermo(electronic_energy, frequencies_cm1, masses, coords_bohr, mu
     internal = sum(t['energy'] for t in terms.values())
     entropy = sum(t['entropy'] for t in terms.values())
     enthalpy = internal + kt  # H = U + pV = U + kT for an ideal gas
+    cp = 2.5 * kb + u_rot / temperature + vib['cv_vib_hartree_per_k']
     return {'model': 'ideal gas, rigid rotor, harmonic oscillator (real modes); no quasi-RRHO, no scaling',
             'temperature_k': temperature, 'pressure_pa': pressure, 'multiplicity': multiplicity,
             'symmetry_number': sigma, 'rotor': rotor, 'moments_of_inertia_amu_bohr2': moments.tolist(),
             'terms_hartree': terms, 'zpe_hartree': vib['zpe_hartree'],
             'zpe_corrected_energy_hartree': electronic_energy + vib['zpe_hartree'],
             'internal_energy_hartree': internal, 'enthalpy_hartree': enthalpy,
+            'cp_hartree_per_k': cp,
             'entropy_hartree_per_k': entropy, 'gibbs_free_energy_hartree': enthalpy - temperature * entropy,
             'thermal_correction_to_g_hartree': enthalpy - temperature * entropy - electronic_energy}
 
 
-def frequency_molecule(config, directory, progress=print):
+def frequency_molecule(config, directory, progress=print, *, publish=True):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     if (directory / 'restart_input.npz').exists():
         raise ValueError('진동수 계산은 밀도 체크포인트 재시작을 지원하지 않습니다. 새 실행으로 시작하세요.')
-    save_dft_config(config, directory / 'settings.json')
+    if publish:
+        save_dft_config(config, directory / 'settings.json')
     scale = 1.0 if config.unit == 'angstrom' else BOHR_ANGSTROM
     atoms = tuple(Atom(a.element, tuple(x * scale for x in a.position)) for a in config.atoms)
     base = replace(config, atoms=atoms, unit='angstrom', calculation='gradient', cube_points=12)
@@ -177,8 +179,8 @@ def frequency_molecule(config, directory, progress=print):
     frequencies = analysis['frequencies_cm1']
     thermo = vibrational_thermo(frequencies, config.thermo_temperature_k)
     progress('기준 구조를 요청한 출력 설정으로 다시 계산합니다.')
-    summary = calculate_molecule(replace(base, cube_points=config.cube_points), directory, progress, reference_density)
-    save_dft_config(config, directory / 'settings.json')
+    summary = calculate_molecule(replace(base, cube_points=config.cube_points), directory, progress, reference_density,
+                                 publish=False)
     final_gradient = np.asarray(summary['gradient']['gradient_hartree_per_bohr'])
     sigma = config.symmetry_number or symmetry_number([a.element for a in atoms], coords)
     gas = ideal_gas_thermo(summary['total_energy_hartree'], frequencies, masses, coords, config.spin + 1, sigma,
@@ -228,9 +230,8 @@ def frequency_molecule(config, directory, progress=print):
                     f'p={config.thermo_pressure_pa:g} Pa, 대칭수 {sigma:g}, 다중도 {config.spin + 1}, '
                     '들뜬 전자 상태 무시)입니다.')
     summary['warnings'] = warnings + summary['warnings']
-    temporary = directory / 'results.json.tmp'
-    temporary.write_text(json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
-    temporary.replace(directory / 'results.json')
+    if publish:
+        publish_results(summary, directory)
     lowest = ', '.join(f'{f:.1f}' for f in frequencies[:3])
     progress(f'진동수 {len(frequencies)}개 · 최저 {lowest} cm⁻¹ · 허수 {len(imaginary)}개 · '
              f'ZPE {thermo["zpe_kj_mol"]:.3f} kJ/mol · 저장 완료')

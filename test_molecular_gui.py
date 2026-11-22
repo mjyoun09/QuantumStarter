@@ -163,6 +163,37 @@ class MolecularGuiTests(unittest.TestCase):
         self.assertEqual(load_dft_config(settings), cfg)
         self.assertFalse(self.errors, self.errors)
 
+    @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
+    def test_spectrum_spin_and_gas_presets(self):
+        app = self.app
+        for preset, operation, output in [('UV–Vis · 물', 'uvvis', 'uvvis.csv'),
+                                          ('스핀 해리 · H₂', 'spin_scan', 'spin_scan.csv'),
+                                          ('기체 열물성 · N₂', 'gas_thermo', 'nasa7.yaml')]:
+            with self.subTest(preset=preset):
+                app.example.set(preset)
+                app.use_example()
+                cfg = app.read_config()
+                self.assertEqual(cfg.calculation, operation)
+                cfg = replace(cfg, basis='def2-svp', grid_level=3, threads=1, cube_points=12)
+                if operation == 'spin_scan':
+                    cfg = replace(cfg, scan_spec='distance 1 2 1.55 1.75 2')
+                app.apply_config(cfg)
+                with patch('molecular_app.messagebox.showerror') as error:
+                    app.start_calculation()
+                    self.wait_finished(timeout=300)
+                    self.assertFalse(error.called, error.call_args)
+                self.assertEqual(app.summary['calculation'], operation)
+                self.assertTrue((app.current_dir / output).is_file())
+                self.assertTrue((app.current_dir / 'molecular.png').is_file())
+                self.assertEqual(app.field.get(), '분석 그래프')
+                self.assertTrue(app.plane_box.instate(['disabled']))
+                expected = app.summary['uvvis']['peaks'] if operation == 'uvvis' else app.summary['orbitals']
+                self.assertEqual(len(app.table.get_children()), len(expected))
+                app.field.set('density.cube')
+                app.redraw()
+                self.assertTrue(app.figure.axes)
+                self.assertTrue(app.plane_box.instate(['!disabled']))
+
     def test_native_selection_preset_and_geometry(self):
         app = self.app
         app.example.set('자체 DFT · 물 (LDA 검증)')

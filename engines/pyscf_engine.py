@@ -72,7 +72,21 @@ def configure_grids(grids, config):
         grids.atomic_radii = radi.BRAGG_RADII
 
 
-def calculate_molecule(config, directory, progress=print, guess_density=None):
+def build_molecule(config):
+    from pyscf import gto
+    return gto.M(atom=[(a.element, a.position) for a in config.atoms],
+                 unit=config.unit, charge=config.charge, spin=config.spin, basis=config.basis_by_element,
+                 ecp=config.resolved_ecp, nucmod='gaussian' if config.resolved_nuclear_model == 'gaussian' else 0,
+                 verbose=0, max_memory=config.memory_mb)
+
+
+def publish_results(summary, directory):
+    temporary = directory / 'results.json.tmp'
+    temporary.write_text(json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
+    temporary.replace(directory / 'results.json')
+
+
+def calculate_molecule(config, directory, progress=print, guess_density=None, *, publish=True):
     try:
         import pyscf
         from pyscf import dft, gto, lib
@@ -82,7 +96,8 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     started = time.perf_counter()
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    save_dft_config(config, directory / 'settings.json')
+    if publish:
+        save_dft_config(config, directory / 'settings.json')
     check_cancelled(directory)
     lib.num_threads(config.threads)
     progress(f'{config.formula} · 전자 {config.electrons}개 · {config.resolved_method.upper()} / '
@@ -91,11 +106,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
         progress(f'def2-ECP: {", ".join(config.resolved_ecp)} · 코어 {config.ecp_core_electrons}개 제외 / '
                  f'명시적 계산 전자 {config.explicit_electrons}개')
     try:
-        mol = gto.M(atom=[(a.element, a.position) for a in config.atoms],
-                    unit=config.unit, charge=config.charge, spin=config.spin,
-                    basis=config.basis_by_element, ecp=config.resolved_ecp,
-                    nucmod='gaussian' if config.resolved_nuclear_model == 'gaussian' else 0,
-                    verbose=0, max_memory=config.memory_mb)
+        mol = build_molecule(config)
     except Exception as exc:
         raise ValueError(f'원자·기저함수·전하/스핀 설정을 구성할 수 없습니다: {exc}') from exc
     atomic_numbers = np.asarray([ATOMIC_NUMBERS[a.element] for a in config.atoms], dtype=int)
@@ -351,7 +362,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
     else:
         actual_guess = 'minao'  # Native auto also uses PySCF init_guess_by_minao since 0.8.6.
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.9.8',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.10.0',
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',
@@ -426,13 +437,17 @@ def calculate_molecule(config, directory, progress=print, guess_density=None):
                         else 'nonrelativistic all-electron KS-DFT', 'no periodic boundary conditions']
                        + (['DFT-D4 dispersion (EEQ charges, BJ damping, ATM three-body) added after SCF']
                           if dispersion is not None else []),
-        'warnings': warnings, 'elapsed_seconds': time.perf_counter() - started,
+        'warnings': warnings,
         'environment': {'python': platform.python_version(), 'pyscf': pyscf.__version__,
                         'numpy': np.__version__, 'libxc': dft.libxc.__version__},
     }
+    if config.calculation == 'uvvis' and mf.converged:
+        from .uvvis import singlet_spectrum
+        progress('단일항 TDA 들뜸 에너지와 전이 쌍극자를 계산합니다.')
+        summary['uvvis'] = singlet_spectrum(mf, config.excited_states, directory)
+    summary['elapsed_seconds'] = time.perf_counter() - started
     # results.json is the commit marker: never publish success before all raw files exist.
-    temporary = directory / 'results.json.tmp'
-    temporary.write_text(json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
-    temporary.replace(directory / 'results.json')
+    if publish:
+        publish_results(summary, directory)
     progress('SCF 수렴 · 결과 저장 완료' if mf.converged else 'SCF 미수렴 · 진단 데이터 저장 완료')
     return summary

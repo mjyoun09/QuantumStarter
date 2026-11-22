@@ -23,7 +23,7 @@ def signature(config):
     for key in ('engine', 'calculation', 'max_cycle', 'conv_tol', 'threads', 'memory_mb', 'cube_points', 'cube_margin_bohr',
                 'initial_guess', 'scf_solver', 'native_density_tol', 'native_residual_tol',
                 'native_damping', 'native_damping_residual', 'native_stability', 'native_diis_space', 'dispersion', 'opt_convergence', 'opt_max_steps',
-                'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number',
+                'freq_step_bohr', 'thermo_temperature_k', 'thermo_pressure_pa', 'symmetry_number', 'excited_states',
                 'opt_constraints', 'scan_spec', 'neb_product', 'neb_images', 'neb_maxg_ev_per_angstrom'):
         data.pop(key, None)
     # Only overrides for elements in the structure change the AO basis. Without any,

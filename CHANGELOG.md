@@ -3,6 +3,13 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261121-MOLECULAR-SUITE · 분자 스펙트럼·기체 열물성·스핀 해리 · 0.10.0 · 2026-11-22
+
+- `engines/uvvis.py`와 `native_response.py`에서 자체 단일항 TDA의 에너지·파장·진동자 세기·주요 전이를 계산한다. 물·포름알데히드·에틸렌에서 4개 조건, 24개 피크를 독립 PySCF와 비교해 최대 차이 7.58×10⁻⁹ eV와 1.55×10⁻¹⁰를 확인했다. [피크별 비교](docs/validation/uvvis_comparison.csv)
+- `engines/gas_thermo.py`와 `frequencies.py`에서 N₂/O₂/CO₂의 1 bar RRHO 열물성과 두 구간 NASA7 계수를 출력한다. 298.15–2,000 K의 NIST 대비 열용량 최대 차이는 1.148 J/(mol·K), 내보낸 계수로 원래 RRHO 표를 복원한 최대 차이는 0.0142 J/(mol·K)였다. [108행 비교표](docs/validation/gas_thermo.csv) · [NASA7 계수](docs/validation/nasa7.yaml)
+- `engines/spin_scan.py`에서 고정 구조 결합 스캔의 실수 RKS→UKS 곡률과 더 낮은 수렴 해를 추적한다. PBE/def2-SVP에서 H₂는 약 1.618 Å, 물의 O–H는 약 1.777 Å에서 분기했다. [물의 거리별 에너지](docs/validation/water_spin_scan.csv)
+- `main.py`, `molecular.py`, `molecular_app.py`, `molecular_plotting.py`에 입력·결과 표·그래프를 연결했다. 세 계산의 실제 GUI·CLI, 상태 수를 바꾼 체크포인트 재시작, WSL 회귀 69건을 검증했다. [재현 명령과 모델 범위](docs/MOLECULAR_SUITE_KO.md)
+
 ## QS-20261121-H2-DISS · H₂ 결합 해리와 스핀 안정성 검증 · 2026-11-21
 
 - `scripts/validate_h2_dissociation.py`로 0.55–4.00 Å의 19개 거리에서 자체 및 PySCF의 PBE/def2-SVP RKS·UKS를 비교했다. 총에너지 최대 차이 5.64×10⁻¹⁴ Ha. [해리 곡선](docs/validation/h2_dissociation.png) · [표](docs/validation/h2_scan.csv)

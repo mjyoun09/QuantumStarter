@@ -188,19 +188,20 @@ def main():
                              '설정 파일의 원소별 지정을 대체합니다.')
     parser.add_argument("--xc", help="교환·상관 함수")
     parser.add_argument('--calculation', choices=['single_point', 'gradient', 'optimize', 'frequencies', 'scan',
-                                                  'transition_state', 'neb', 'irc', 'cell_optimize'],
+                                                  'transition_state', 'neb', 'irc', 'cell_optimize', 'uvvis', 'gas_thermo', 'spin_scan'],
                         help='gradient: 에너지+원자 힘. optimize: geomeTRIC 구조 최적화(geometric 필요). '
                              'frequencies: 조화 진동수·ZPE')
     parser.add_argument('--freq-step', dest='freq_step_bohr', type=float, help='진동수 유한차분 변위 [bohr] (기본 0.005)')
+    parser.add_argument('--states', dest='excited_states', type=int, help='uvvis 계산의 가장 낮은 단일항 들뜬 상태 수 (기본 6)')
     parser.add_argument('--temperature', dest='thermo_temperature_k', type=float, help='열역학 온도 [K]')
-    parser.add_argument('--pressure', dest='thermo_pressure_pa', type=float, help='열역학 압력 [Pa] (기본 101325)')
+    parser.add_argument('--pressure', dest='thermo_pressure_pa', type=float, help='열역학 압력 [Pa]. 기본 101325, gas_thermo 표준 상태 100000.')
     parser.add_argument('--symmetry-number', dest='symmetry_number', type=int, help='회전 대칭수 (0=자동 판정)')
     parser.add_argument('--opt-convergence', choices=['default', 'tight'], help='구조 최적화 수렴 기준')
     parser.add_argument('--opt-max-steps', type=int, help='구조 최적화 최대 단계 (기본 100)')
     parser.add_argument('--constraints', dest='opt_constraints', help='geomeTRIC 제약. 예: "$freeze;xyz 1" 또는 "$set;angle 2 1 3 100"')
     parser.add_argument('--neb-product', type=Path, help='NEB 생성물 XYZ(반응물과 같은 원자 순서, Å)')
     parser.add_argument('--neb-images', dest='neb_images', type=int, help='NEB 이미지 수(양 끝 포함, 기본 9)')
-    parser.add_argument('--scan', dest='scan_spec', help='이완 스캔. 예: "distance 1 2 0.7 1.2 6" (Å·도, 원자 1부터)')
+    parser.add_argument('--scan', dest='scan_spec', help='scan 또는 spin_scan의 좌표. 예: "distance 1 2 0.7 1.2 6" (거리 Å, 원자 번호 1부터)')
     parser.add_argument('--dispersion', choices=['none', 'd4'],
                         help='분산 보정. d4: Grimme DFT-D4 (dftd4 필요, PBE/PBE0/B3LYP)')
     parser.add_argument("--scf-solver", choices=['diis', 'newton'], help="SCF 반복 방식 (기본 diis)")
@@ -235,6 +236,8 @@ def main():
     parser.add_argument("--output", type=Path, help="실행 폴더들을 저장할 상위 경로")
     parser.add_argument("--no-show", action="store_true", help="그래프 창 없이 파일만 저장")
     args = parser.parse_args()
+    if args.excited_states is not None and (args.model or args.hydrogen_check):
+        parser.error('--states는 분자 uvvis 계산에서 사용합니다.')
     periodic_keys = ('boundary', 'kmesh', 'smearing_ev', 'band_path', 'band_points', 'integral_scheme', 'fft_mesh',
                      'cell_relaxation', 'cell_max_steps', 'cell_force_tol', 'cell_stress_tol_gpa', 'cell_energy_tol_ev')
     has_periodic_options = any(getattr(args, key) is not None for key in periodic_keys)
@@ -298,6 +301,14 @@ def main():
                 overrides['basis_overrides'] = parse_basis_overrides(','.join(args.basis_element))
             if args.neb_product:
                 overrides['neb_product'] = coordinates_text(read_xyz(args.neb_product))
+            if args.excited_states is not None:
+                if config.system != 'molecule' or (args.calculation or config.calculation) != 'uvvis':
+                    parser.error('--states에는 uvvis 계산이 필요합니다.')
+                overrides['excited_states'] = args.excited_states
+            if args.calculation in ('uvvis', 'spin_scan', 'gas_thermo') and not args.engine and not args.config:
+                overrides['engine'] = 'native'
+            if args.calculation == 'gas_thermo' and args.thermo_pressure_pa is None and not args.config:
+                overrides['thermo_pressure_pa'] = 100000
             config = replace(config, **overrides)
             summary, directory = run_calculation(config, args.output, args.backend, print, restart_from=args.restart)
             if summary['status'] == 'cancelled':
@@ -311,6 +322,16 @@ def main():
             plot_path = directory / ('periodic.png' if config.system == 'periodic' else 'molecular.png')
             figure.savefig(plot_path, dpi=150)
             print(f"총에너지: {summary['total_energy_hartree']:.12f} Ha")
+            if 'uvvis' in summary:
+                print('상태    에너지 (eV)    파장 (nm)    진동자 세기    주요 전이 (MO)')
+                for p in summary['uvvis']['peaks']:
+                    mo = p['leading_transitions'][0]
+                    print(f"{p['state']:4d} {p['energy_eV']:13.5f} {p['wavelength_nm']:12.3f} "
+                          f"{p['oscillator_strength']:12.5g}    {mo['occupied']} → {mo['virtual']}")
+            if 'spin_scan' in summary:
+                print('스핀 곡률 부호 전환 구간 (Å):', summary['spin_scan']['brackets_angstrom'])
+            if 'gas_thermo' in summary:
+                print('열물성 표·NASA7 계수:', directory / 'gas_thermo.csv', directory / 'nasa7.yaml')
             print(f"상태: {summary['status']} | 결과 폴더: {directory}")
             for warning in summary['warnings']:
                 print('확인:', warning)

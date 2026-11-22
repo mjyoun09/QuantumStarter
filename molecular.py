@@ -24,7 +24,8 @@ BASES = tuple(MOLECULAR_CAPABILITIES)
 RELATIVISTIC_BASES = frozenset({'dyall-v2z', 'dyall-v3z'})
 FUNCTIONALS = ('lda,vwn', 'pbe', 'b3lyp', 'pbe0')
 DISPERSIONS = ('none', 'd4')
-CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies', 'scan', 'transition_state', 'neb', 'irc')
+CALCULATIONS = ('single_point', 'gradient', 'optimize', 'frequencies', 'scan', 'transition_state', 'neb', 'irc',
+                'uvvis', 'gas_thermo', 'spin_scan')
 # Thresholds handed to geomeTRIC: energy change [Ha], RMS/max gradient [Ha/bohr], RMS/max step [Angstrom].
 # 'default' equals geomeTRIC's own defaults (as documented by PySCF's geomeTRIC driver).
 OPT_CONVERGENCE = {
@@ -192,7 +193,7 @@ class DFTConfig:
     scan_spec: str = ''  # calculation=scan: 'distance i j start stop points' (Angstrom / degrees, 1-based).
     freq_step_bohr: float = 0.005  # Central-difference displacement for the Hessian.
     thermo_temperature_k: float = 298.15
-    thermo_pressure_pa: float = 101325.0
+    thermo_pressure_pa: float | None = None
     symmetry_number: int = 0  # Rotational symmetry number; 0 = detect the point group.
     initial_guess: str = 'auto'
     native_density_tol: float = 1e-7
@@ -209,23 +210,25 @@ class DFTConfig:
     cube_margin_bohr: float = 4.0
     threads: int = 2
     memory_mb: int = 2000
+    excited_states: int = 6
 
     def __post_init__(self):
         if self.system != 'molecule':
             raise ValueError('주기적 고체·표면은 PeriodicConfig와 주기계 화면을 사용하세요. 분자 엔진은 고립계만 처리합니다.')
         if self.calculation not in CALCULATIONS:
-            raise ValueError('분자 계산 종류: single_point(에너지), gradient(에너지+원자 힘), '
-                             'optimize(geomeTRIC 구조 최적화), frequencies(조화 진동수), scan(이완 스캔), '
-                             'transition_state(전이상태 탐색), neb(CI-NEB), irc(TS에서 양 방향 반응 경로).')
+            raise ValueError('지원하는 분자 계산 종류: ' + ', '.join(CALCULATIONS))
         if self.opt_convergence not in OPT_CONVERGENCE:
             raise ValueError('구조 최적화 수렴 기준: ' + ', '.join(OPT_CONVERGENCE))
         integer(self.opt_max_steps, '구조 최적화 최대 단계', 1, 1000)
         if not isinstance(self.opt_constraints, str) or not isinstance(self.scan_spec, str):
             raise ValueError('opt_constraints와 scan_spec은 문자열이어야 합니다.')
-        if self.calculation == 'scan':
-            parse_scan(self.scan_spec, len(self.atoms))
+        integer(self.excited_states, 'UV–Vis 상태 수', 1, 100)
+        if self.calculation in ('scan', 'spin_scan'):
+            kind, _, values = parse_scan(self.scan_spec, len(self.atoms))
+            if self.calculation == 'spin_scan' and (kind != 'distance' or min(values) <= 0):
+                raise ValueError('spin_scan에는 서로 다른 두 양의 거리(Å)를 지정하세요.')
         elif self.scan_spec.strip():
-            raise ValueError('scan_spec은 calculation=scan에서만 사용합니다.')
+            raise ValueError('scan_spec은 scan 또는 spin_scan에서 사용합니다.')
         integer(self.neb_images, 'NEB 이미지 수(양 끝 포함)', 3, 41)
         real(self.neb_maxg_ev_per_angstrom, 'NEB 최대 힘 기준 [eV/Å]', 1e-4, 1)
         if not isinstance(self.neb_product, str):
@@ -240,7 +243,11 @@ class DFTConfig:
             raise ValueError('구조 제약은 optimize / scan / transition_state 계산에서만 사용합니다.')
         real(self.freq_step_bohr, '진동수 유한차분 변위 [bohr]', 1e-4, 0.05)
         real(self.thermo_temperature_k, '열역학 온도 [K]', 1, 5000)
+        if self.thermo_pressure_pa is None:
+            object.__setattr__(self, 'thermo_pressure_pa', 100000. if self.calculation == 'gas_thermo' else 101325.)
         real(self.thermo_pressure_pa, '열역학 압력 [Pa]', 1, 1e9)
+        if self.calculation == 'gas_thermo' and (self.thermo_temperature_k != 298.15 or self.thermo_pressure_pa != 100000):
+            raise ValueError('기체 열물성 표의 기준 상태는 298.15 K, 100000 Pa입니다.')
         integer(self.symmetry_number, '회전 대칭수 (0=자동)', 0, 1000)
         if not isinstance(self.atoms, (tuple, list)) or not 1 <= len(self.atoms) <= 100:
             raise ValueError('한 구조에 원자 1~100개를 입력하세요.')
@@ -261,6 +268,11 @@ class DFTConfig:
             if not isinstance(value, str) or value.lower().strip() not in choices:
                 raise ValueError(f'지원하지 않는 {key}: {value}. 선택 가능: {", ".join(choices)}')
             object.__setattr__(self, key, value.lower().strip())
+        if self.calculation in ('uvvis', 'spin_scan') and (
+                self.engine != 'native' or self.spin != 0 or self.resolved_method != 'rks'):
+            raise ValueError('UV–Vis와 스핀 해리 스캔은 자체 엔진의 닫힌껍질 RKS(spin=0)에서 실행하세요.')
+        if self.calculation == 'spin_scan' and self.native_stability != 'none':
+            raise ValueError('spin_scan은 각 거리에서 외부 스핀 안정성을 검사합니다. 내부 안정성 옵션은 none을 선택하세요.')
         if not isinstance(self.basis_overrides, dict):
             raise ValueError('basis_overrides는 {"원소": "기저"} 형식이어야 합니다.')
         overrides = {}

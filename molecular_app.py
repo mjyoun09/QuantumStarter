@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
-from app import AppCanvas, QuantumApp, ROOT, WHITE, INK, MUTED
+from app import AppCanvas, QuantumApp, ROOT, WHITE, INK, MUTED, VERSION
 from dft_workflow import CalculationError, RunControl, list_dft_runs, run_calculation
 from element_catalog import PERIODIC_CAPABILITIES
 from molecular import (BASES, CALCULATIONS, DISPERSIONS, ELEMENTS, OPT_CONVERGENCE, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
@@ -20,6 +20,9 @@ from molecular import (BASES, CALCULATIONS, DISPERSIONS, ELEMENTS, OPT_CONVERGEN
                        save_dft_config)
 from molecular_plotting import create_molecular_figure
 from geometry_tools import PRESETS, apply_preset, measure, BOHR_ANGSTROM
+
+DENSITY_CAPTION = '원자 중심에 가까운 격자면의 단면 · 전자밀도 e/bohr³ · 좌표 Å'
+ORBITAL_CAPTION = '오비탈 에너지의 합은 총에너지가 아닙니다. Kohn–Sham 에너지 차이는 실험적 여기 에너지와 다릅니다.'
 
 HELP = '''분자 DFT 사용 안내
 
@@ -98,6 +101,16 @@ Linux/macOS에서는 requirements-dft.txt 설치 후 같은 화면/명령행을 
 '''
 
 EXAMPLES = {
+    'UV–Vis · 물': ('O 0 0 0; H 0 -.757 .587; H 0 .757 .587', 0, 0,
+                   {'engine':'native', 'calculation':'uvvis'}),
+    '스핀 해리 · H₂': ('H 0 0 -.37; H 0 0 .37', 0, 0,
+                     {'engine':'native', 'calculation':'spin_scan', 'scan_spec':'distance 1 2 0.7 3.0 12'}),
+    '기체 열물성 · N₂': ('N 0 0 -.55; N 0 0 .55', 0, 0,
+                       {'engine':'native', 'calculation':'gas_thermo', 'thermo_pressure_pa':100000, 'basis':'def2-tzvp'}),
+    '기체 열물성 · O₂': ('O 0 0 -.605; O 0 0 .605', 0, 2,
+                       {'engine':'native', 'calculation':'gas_thermo', 'thermo_pressure_pa':100000, 'basis':'def2-tzvp'}),
+    '기체 열물성 · CO₂': ('O 0 0 -1.16; C 0 0 0; O 0 0 1.16', 0, 0,
+                        {'engine':'native', 'calculation':'gas_thermo', 'thermo_pressure_pa':100000, 'basis':'def2-tzvp'}),
     '자체 DFT · 물 (LDA 검증)': ('O 0 0 0\nH 0 -0.757 0.587\nH 0 0.757 0.587', 0, 0,
                                 {'engine': 'native', 'basis': 'sto-3g', 'xc': 'lda,vwn'}),
     '물 · H2O (예제)': ('O 0 0 0\nH 0 -0.757 0.587\nH 0 0.757 0.587', 0, 0),
@@ -139,7 +152,7 @@ class MolecularApp(QuantumApp):
         self.field = tk.StringVar(value='density.cube')
         self.plane = tk.StringVar(value='yz')
         self._setup_styles()
-        root.title('QuantumStarter 0.8 | 자체 / 외부 분자 DFT')
+        root.title(f'QuantumStarter {VERSION} | 자체 / 외부 분자 DFT')
         root.geometry('1440x960')
         root.minsize(1220, 820)
         self._build()
@@ -234,7 +247,8 @@ class MolecularApp(QuantumApp):
         self._combo(method, '계산 종류', self.vars['calculation'], list(CALCULATIONS),
                     'gradient: 에너지와 원자 힘. optimize: geomeTRIC 구조 최적화(격자 수준 3 이상 권장). '
                     'frequencies: 조화 진동수·ZPE·G. scan: 이완 스캔. transition_state: 전이상태 탐색(진동수로 확인). '
-                    'irc: TS에서 양 방향 최소 에너지 경로(끝점 최적화).',
+                    'irc: 양방향 반응 경로. uvvis: 단일항 흡수 스펙트럼. gas_thermo: 1 bar 기체 열물성. '
+                    'spin_scan: 지정한 결합의 스핀 안정성.',
                     self._settings_changed)
         self._combo(method, '분산 보정', self.vars['dispersion'], list(DISPERSIONS),
                     'd4: Grimme DFT-D4 (dftd4 라이브러리). PBE/PBE0/B3LYP만, LDA 불가. '
@@ -263,11 +277,12 @@ class MolecularApp(QuantumApp):
         self._entry(advanced, 'NEB 생성물 좌표 (calculation=neb)', 'neb_product',
                     '반응물과 같은 원자 순서. ; 로 원자 구분. 예: N 0 0 -0.38; H ...', self._settings_changed)
         self._entry(advanced, 'NEB 이미지 수', 'neb_images', '양 끝 포함 3~41. 기본 9.', self._settings_changed)
-        self._entry(advanced, '이완 스캔 (calculation=scan)', 'scan_spec',
+        self._entry(advanced, 'UV–Vis 들뜬 상태 수', 'excited_states', '닫힌껍질 단일항 TDA에서 계산할 상태 수.', self._settings_changed)
+        self._entry(advanced, '좌표 스캔 (scan / spin_scan)', 'scan_spec',
                     '예: distance 1 2 0.7 1.2 6 (Å·도, 원자 번호 1부터).', self._settings_changed)
         self._entry(advanced, '진동수 변위 [bohr]', 'freq_step_bohr',
                     '해석적 힘의 중심 유한차분 변위. 기본 0.005. 원자 수 N이면 6N회 계산.', self._settings_changed)
-        self._entry(advanced, '열역학 압력 [Pa]', 'thermo_pressure_pa', '이상기체 G의 압력. 기본 101325 (1 atm).',
+        self._entry(advanced, '열역학 압력 [Pa]', 'thermo_pressure_pa', '기체 열물성 표는 100000 (1 bar). 진동수 계산 기본은 101325 (1 atm).',
                     self._settings_changed)
         self._entry(advanced, '회전 대칭수', 'symmetry_number', '0이면 점군 자동 판정. 예: 물 2, NH3 3, CH4 12.',
                     self._settings_changed)
@@ -347,9 +362,9 @@ class MolecularApp(QuantumApp):
         self.field_box = ttk.Combobox(filters, textvariable=self.field, values=['density.cube'], state='readonly', width=23)
         self.field_box.pack(side='left', padx=(0, 8))
         self.field_box.bind('<<ComboboxSelected>>', self.redraw)
-        plane = ttk.Combobox(filters, textvariable=self.plane, values=['xy', 'xz', 'yz'], state='readonly', width=5)
-        plane.pack(side='left')
-        plane.bind('<<ComboboxSelected>>', self.redraw)
+        self.plane_box = ttk.Combobox(filters, textvariable=self.plane, values=['xy', 'xz', 'yz'], state='readonly', width=5)
+        self.plane_box.pack(side='left')
+        self.plane_box.bind('<<ComboboxSelected>>', self.redraw)
         self._button(filters, '그래프 저장', self.export_plot).pack(side='right')
         self.chart_frame = ttk.Frame(parent, style='Card.TFrame')
         self.chart_frame.grid(row=3, column=0, sticky='nsew')
@@ -357,7 +372,8 @@ class MolecularApp(QuantumApp):
                                '왼쪽에서 구조·전하·스핀을 입력한 뒤 계산 시작을 누르세요.',
                                style='Section.TLabel', justify='center')
         self.empty.pack(expand=True)
-        ttk.Label(parent, text='원자 중심에 가까운 격자면의 단면 · 전자밀도 e/bohr³ · 좌표 Å',
+        self.plot_caption = tk.StringVar(value=DENSITY_CAPTION)
+        ttk.Label(parent, textvariable=self.plot_caption,
                   style='Muted.TLabel').grid(row=4, column=0, sticky='w', pady=5)
         self.orbital_context = ttk.Label(self.orbital_tab, text='계산하면 모든 오비탈의 점유수와 에너지를 표시합니다.',
                                          style='Muted.TLabel', wraplength=820)
@@ -373,8 +389,8 @@ class MolecularApp(QuantumApp):
         scroll = ttk.Scrollbar(table_frame, command=self.table.yview)
         scroll.pack(side='right', fill='y')
         self.table.configure(yscrollcommand=scroll.set)
-        ttk.Label(self.orbital_tab, text='오비탈 에너지의 합은 총에너지가 아닙니다. '
-                  'Kohn–Sham 에너지 차이는 실험적 여기 에너지와 다릅니다.', style='Muted.TLabel',
+        self.table_caption = tk.StringVar(value=ORBITAL_CAPTION)
+        ttk.Label(self.orbital_tab, textvariable=self.table_caption, style='Muted.TLabel',
                   wraplength=820).pack(anchor='w', pady=12)
         self.quality = ttk.Label(parent, text='SCF 수렴 여부와 계산의 한계를 함께 표시합니다.', style='Muted.TLabel', wraplength=850)
         self.quality.grid(row=6, column=0, sticky='w', pady=10)
@@ -392,7 +408,7 @@ class MolecularApp(QuantumApp):
     def read_config(self):
         data = {key: var.get().strip() for key, var in self.vars.items()}
         for key in ('charge', 'spin', 'max_cycle', 'grid_level', 'cube_points', 'threads', 'memory_mb', 'native_diis_space',
-                    'opt_max_steps', 'symmetry_number', 'neb_images'):
+                    'opt_max_steps', 'symmetry_number', 'neb_images', 'excited_states'):
             try:
                 data[key] = int(data[key])
             except ValueError:
@@ -447,6 +463,7 @@ class MolecularApp(QuantumApp):
             self.orbital_context.configure(text=f'{self.summary["formula"]} · {self.summary["method"]} / '
                 f'{self.summary["xc"]} / '
                 f'{describe_bases(self.summary["basis"], self.summary.get("basis_by_element", {}))} · {status}\n'
+                + ('고정 구조 단일항 TDA · 기여율은 전이 진폭의 제곱입니다.\n' if 'uvvis' in self.summary else '')
                 + self.changed.get())
 
     def show_elements(self):
@@ -717,12 +734,27 @@ class MolecularApp(QuantumApp):
         engine_label = '자체' if summary['engine'] == 'quantumstarter-native' else 'PySCF'
         self.metrics[2].set(f'{engine_label} · {summary["method"]} / {summary["xc"].upper()}'
                             + ('-D4' if dispersion else ''))
-        self.field_box.configure(values=summary['cube_files'])
-        self.field.set('density.cube')
+        analysis = any(key in summary for key in ('uvvis', 'spin_scan', 'gas_thermo'))
+        self.field_box.configure(values=(['분석 그래프'] if analysis else []) + list(summary['cube_files']))
+        self.field.set('분석 그래프' if analysis else 'density.cube')
         self.table.delete(*self.table.get_children())
-        for mo in summary['orbitals']:
-            self.table.insert('', 'end', values=(mo['channel'], mo['index'], mo['label'],
-                f'{mo["occupation"]:.1f}', f'{mo["energy_hartree"]:.7f}', f'{mo["energy_ev"]:.6f}'))
+        if 'uvvis' in summary:
+            titles = ('상태', 'eV', '파장 (nm)', '진동자 세기', '주요 전이 (MO)', '기여율')
+            self.tabs.tab(self.orbital_tab, text='UV–Vis 피크')
+            self.table_caption.set('전체 전이 성분 중 기여가 가장 큰 궤도 쌍을 표시합니다. 상위 세 쌍은 uvvis.csv에 저장됩니다.')
+            for p in summary['uvvis']['peaks']:
+                lead = p['leading_transitions'][0]
+                self.table.insert('', 'end', values=(p['state'], f"{p['energy_eV']:.4f}", f"{p['wavelength_nm']:.2f}",
+                    f"{p['oscillator_strength']:.5g}", f"{lead['occupied']} → {lead['virtual']}", f"{lead['weight']:.1%}"))
+        else:
+            titles = ('채널', 'MO', '경계 오비탈', '점유수', '에너지 [Ha]', '에너지 [eV]')
+            self.tabs.tab(self.orbital_tab, text='오비탈')
+            self.table_caption.set(ORBITAL_CAPTION)
+            for mo in summary['orbitals']:
+                self.table.insert('', 'end', values=(mo['channel'], mo['index'], mo['label'],
+                    f'{mo["occupation"]:.1f}', f'{mo["energy_hartree"]:.7f}', f'{mo["energy_ev"]:.6f}'))
+        for key, title in zip(self.table['columns'], titles):
+            self.table.heading(key, text=title)
         self.quality.configure(text=' '.join(summary['warnings']), foreground='#b45309')
         self._set_text(self.detail_text, json.dumps(summary, ensure_ascii=False, indent=2))
         self.scf_figure.savefig(directory / 'scf_convergence.png', dpi=140)
@@ -743,6 +775,9 @@ class MolecularApp(QuantumApp):
     def redraw(self, *_):
         if self.summary is None:
             return
+        analysis = self.field.get() == '분석 그래프'
+        self.plane_box.configure(state='disabled' if analysis else 'readonly')
+        self.plot_caption.set('' if analysis else DENSITY_CAPTION)
         figure = create_molecular_figure(self.summary, self.current_dir, self.field.get(), self.plane.get())
         if self.toolbar is not None:
             self.toolbar.destroy()

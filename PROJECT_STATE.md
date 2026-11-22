@@ -1,10 +1,12 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신 2026-11-21 / ChatGPT Codex. 원자 SCF에 Anderson 혼합을 추가했다(0.9.8, QS-20261121-ATOM-MIX). 기본 선형 혼합과 비교해 H–Kr PBE 72조건 모두 기존 기준으로 수렴했고 반복 수 합계가 3,768회에서 1,060회로 줄었다. [검증 결과](docs/VALIDATION_KO.md) · [공통 작업 규칙](AGENTS.md)
+최종 갱신 2026-11-22 / ChatGPT Codex. 0.10.0에서 분자 GUI·CLI에 세 가지 계산을 추가했다. `engines/uvvis.py`는 자체 단일항 TDA 응답과 전이 세기를, `engines/gas_thermo.py`는 N₂/O₂/CO₂의 1 bar RRHO 표와 NASA7을, `engines/spin_scan.py`는 지정 결합의 실수 RKS→UKS 곡률과 낮은 해를 계산한다. UV–Vis는 독립 PySCF와, 기체별 열물성은 NIST와 대조했다. [검증 결과·재현 명령](docs/MOLECULAR_SUITE_KO.md) · [공통 작업 규칙](AGENTS.md)
 
-같은 날 QS-20261121-N2-THERMO에서 중성 질소의 평형 구조·조화 진동수로 1 bar, 298.15–2,000 K의 열물성을 계산해 NIST와 대조했다. 열용량은 36개 온도에서 모두 기준보다 작았고 최대 편차는 2,000 K에서 −0.292 J/(mol·K)였다. [질소 검증 기록](docs/VALIDATION_KO.md) · [온도별 표](docs/validation/n2_thermo.csv)
+0.9.8에서 원자 SCF에 Anderson 혼합을 추가했다(QS-20261121-ATOM-MIX). 기본 선형 혼합과 비교해 H–Kr PBE 72조건 모두 기존 기준으로 수렴했고 반복 수 합계가 3,768회에서 1,060회로 줄었다. [검증 결과](docs/VALIDATION_KO.md)
 
-QS-20261121-H2-DISS에서 고정 거리 H₂의 PBE/def2-SVP 해리 곡선을 검증했다. 19개 거리의 RKS·UKS 에너지가 독립 PySCF SCF와 일치했고 스핀 곡률이 1.6178125–1.618125 Å에서 부호를 바꿨다. 이 H₂ 연구 결과는 장기 미구현 항목인 일반 분자 RKS→UKS 안정성 진단을 개발할 때 쓸 기준이다. [계산 조건과 범위](docs/VALIDATION_KO.md) · [거리별 표](docs/validation/h2_scan.csv)
+2026-11-21 QS-20261121-N2-THERMO에서 중성 질소의 평형 구조·조화 진동수로 1 bar, 298.15–2,000 K의 열물성을 계산해 NIST와 대조했다. 열용량은 36개 온도에서 모두 기준보다 작았고 최대 편차는 2,000 K에서 −0.292 J/(mol·K)였다. [질소 검증 기록](docs/VALIDATION_KO.md) · [온도별 표](docs/validation/n2_thermo.csv)
+
+QS-20261121-H2-DISS에서 고정 거리 H₂의 PBE/def2-SVP 해리 곡선을 검증했다. 19개 거리의 RKS·UKS 에너지가 독립 PySCF SCF와 일치했고 스핀 곡률이 1.6178125–1.618125 Å에서 부호를 바꿨다. 이 결과를 0.10.0 일반 분자 스핀 스캔의 H₂ 회귀 기준으로 사용했다. [계산 조건과 범위](docs/VALIDATION_KO.md) · [거리별 표](docs/validation/h2_scan.csv)
 
 ## 목표와 연구 목적
 

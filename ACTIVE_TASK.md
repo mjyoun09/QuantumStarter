@@ -1,6 +1,12 @@
 # 현재 작업
 
-최신 별도 작업 **QS-20261121-H2-DISS / ChatGPT Codex / COMPLETED (2026-11-21)**. H₂ 19개 거리의 자체 RKS·UKS와 PySCF를 대조하고 분기를 1.6178125–1.618125 Å로 좁혔다. 최종 원시 결과는 `outputs/h2_dissociation/20261121_final`, DIIS가 1.70 Å에서 대칭 해로 돌아간 첫 시도는 `20261121`에 보존했다. 기능으로 확장할 때는 일반 분자의 실수 RKS→UKS 검사를 기존 내부 안정성 옵션과 연결하는 일이 남는다. [검증과 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
+## QS-20261121-MOLECULAR-SUITE · 분자 계산 3기능 업데이트
+
+- 담당 ChatGPT Codex · COMPLETED (2026-11-22). 시작 HEAD `24518b2`. 자체 단일항 TDA UV–Vis, N₂/O₂/CO₂의 1 bar 열물성·NASA7, 지정 결합의 실수 RKS→UKS 스캔을 분자 GUI와 CLI에 연결했다.
+- 최종 원시 계산은 `outputs/molecular_suite/gas_final`과 `outputs/molecular_suite/spectra_scan_final`이다. NIST 비교 108행·NASA7 독립 복원, PySCF와 피크 24개 대조, H₂와 물의 분기, Windows 숨김 GUI와 CLI 실계산, 체크포인트 재시작, WSL 회귀 69건을 확인했다. 첫 반복 TDA 참조의 미수렴은 PySCF 전체 A 행렬 대각화로 해결했다. 재현 시 OMP·OpenBLAS 스레드는 각 1개로 설정한다.
+- 이 작업의 추가 수행 항목은 없다. 아래 장기 작업은 HANDOFF_READY로 보존한다. [실행법·검증 자료](docs/MOLECULAR_SUITE_KO.md) · [변경 이력](CHANGELOG.md)
+
+이전 별도 작업 **QS-20261121-H2-DISS / ChatGPT Codex / COMPLETED (2026-11-21)**. H₂ 19개 거리의 자체 RKS·UKS와 PySCF를 대조하고 분기를 1.6178125–1.618125 Å로 좁혔다. 최종 원시 결과는 `outputs/h2_dissociation/20261121_final`, DIIS가 1.70 Å에서 대칭 해로 돌아간 첫 시도는 `20261121`에 보존했다. 이 자료는 0.10.0의 일반 분자 실수 RKS→UKS 스캔을 검증할 때 사용했다. [검증과 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
 
 이전 별도 작업 **QS-20261121-N2-THERMO / ChatGPT Codex / COMPLETED (2026-11-21)**. 질소 1 bar, 298.15–2,000 K의 PBE/RRHO 36점과 NIST 비교, 좌표 변위 절반 민감도 검사, 열역학 회귀 4건을 마쳤다. 원시 계산은 `outputs/n2_thermo/20261121`와 `20261121_halfstep_verified`에 있다. 앞선 `20261121_halfstep`는 중단된 계산이다. [표와 재현 명령](docs/VALIDATION_KO.md) · [변경 이력](CHANGELOG.md)
 
@@ -13,7 +19,7 @@
 - 작업 ID: QS-20261029-NATIVE-DFT
 - 작업명: 첨부 범용 DFT 요구사항의 누락 구현, 자체 SCF 기반부터 단계별 검증
 - 담당 AI: Claude — 2026-11-01 사용자 "codex가 12단계 완료하고 커밋 했다는데 해볼래"(직전 대화에서 Claude가 제안한 IRC·열역학 독립 검증 진행 승인)에 따라 단계 13 인수. 시작 HEAD 2dd6c8f, 작업 트리 깨끗함. 이전: ChatGPT Codex(단계 10·12).
-- 상태: HANDOFF_READY — 단계 13 COMPLETED(2026-11-01, CHANGELOG 0.9.4). 전체 장기 요구의 미완료 항목(quasi-RRHO·용매, 삼중항·복소 안정성, 항공우주 구체 주제)이 있으므로 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
+- 상태: HANDOFF_READY — 단계 13 COMPLETED(2026-11-01, CHANGELOG 0.9.4). 0.10.0에서 실수 RKS→UKS 결합 스캔과 세 기체의 열물성·NASA7을 구현했다. 장기 요구에는 quasi-RRHO·용매, 복소 궤도 안정성, 항공우주 세부 연구 주제 선정이 남아 인계서를 보존한다. **GUI 시험은 QUANTUMSTARTER_TK_HIDDEN=1로만.**
 - 별도 작업 QS-20261112-HE-LDA(중성 He 방사 격자 LDA-SCF, 0.9.5, Claude)는 2026-11-12 완료 — CHANGELOG 참조. 작업 메모 TASK_HE_LDA_SCF.md는 사용자 지시에 따라 완료 후 삭제했다.
 - 별도 작업 QS-20261117-ATOM-LSDA(원자 LDA/LSDA H–Kr, 로그 방사 격자, 0.9.6, Claude)는 2026-11-17 완료 — CHANGELOG 참조. 작업 메모 TASK_ATOM_LSDA.md는 완료 후 삭제했다. 이 방향의 다음 후보는 아래 "방사 격자 원자 DFT 다음 단계" 절.
 

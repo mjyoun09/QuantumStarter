@@ -50,14 +50,17 @@ class FockResponse:
                 fxc = fxc[None, :, None, :, :]
             yield ao, mf.grids.weights[start:start + 2048], fxc
 
-    def __call__(self, delta_density):
+    def __call__(self, delta_density, *, transition=False):
         mf = self.mf
         check_cancelled(mf.directory)
         matrices = delta_density if mf.unrestricted else delta_density[None]
+        # A TDA transition density is oriented. Local density and gradient see its
+        # symmetric part; exact exchange must contract the original matrix.
+        local = (matrices + matrices.swapaxes(-1, -2)) / 2 if transition else matrices
         potentials = np.zeros_like(matrices)
         for ao, weights, fxc in self.cache if self.cache is not None else self._chunks():
             check_cancelled(mf.directory)
-            delta_rho = grid_density(ao, matrices)
+            delta_rho = grid_density(ao, local)
             delta_v = np.einsum('sxtyg,tyg->sxg', fxc, delta_rho, optimize=True)
             values = ao[0]
             for spin in range(len(matrices)):

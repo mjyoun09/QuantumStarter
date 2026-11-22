@@ -1,4 +1,6 @@
-# QuantumStarter 0.9.8 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.10.0 · 자체/외부 분자 DFT와 주기계 계산
+
+분자 화면에서 **UV–Vis · 물**, **기체 열물성 · N₂/O₂/CO₂**, **스핀 해리 · H₂** 예제를 선택해 흡수 피크, 1 bar 열물성 표와 NASA7 계수, 결합 거리별 스핀 안정성을 계산할 수 있습니다. [실행 예제·계산 조건·검증 결과](docs/MOLECULAR_SUITE_KO.md)
 
 원자 SCF에서 Anderson 혼합을 쓰려면 `--model atom` 명령에 `--mixing-method anderson`을 추가합니다. 기본 혼합은 `linear`이며 원자 LDA·LSDA·PBE 모두 같은 옵션을 씁니다. [원자별 수렴과 계산 시간](docs/VALIDATION_KO.md)
 

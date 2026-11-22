@@ -11,7 +11,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from app import AppCanvas
+from app import AppCanvas, VERSION
 from dft_workflow import ROOT, RunControl, _wsl_path, process_options, run_calculation
 from molecular import save_dft_config
 from periodic import PERIODIC_BASES, PeriodicAtom, PeriodicConfig, load_calculation_config, read_periodic_structure
@@ -26,7 +26,7 @@ class PeriodicApp:
         self.screen_path = None
         self.control = None
         self.summary, self.current_dir = None, None
-        root.title('QuantumStarter 0.9.8 | 고체·표면 · DFT / 힘 / 셀 최적화')
+        root.title(f'QuantumStarter {VERSION} | 고체·표면 · DFT / 힘 / 셀 최적화')
         root.geometry('1320x900')
         root.minsize(1100, 760)
         self.status = tk.StringVar(value='주기계 단일점 PBE · 격자와 k점을 확인하세요.')

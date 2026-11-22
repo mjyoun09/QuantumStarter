@@ -39,7 +39,49 @@ def read_cube(path):
     return values.reshape(shape), origin, np.array(steps) * (np.array(shape) - 1)[:, None]
 
 
-def create_molecular_figure(summary, directory, field='density.cube', plane='yz'):
+def analysis_figure(summary):
+    fig = Figure(figsize=(9, 4.5), layout='constrained')
+    if 'uvvis' in summary:
+        peaks = summary['uvvis']['peaks']
+        ax = fig.subplots()
+        x = [p['wavelength_nm'] for p in peaks]
+        y = [p['oscillator_strength'] for p in peaks]
+        ax.vlines(x, 0, y, color='#176389', lw=2)
+        ax.scatter(x, y, s=16, color='#176389')
+        ax.set(xlabel='Wavelength (nm)', ylabel='Oscillator strength', title=f"{summary['formula']} | Singlet TDA")
+        ax.set_ylim(bottom=0)
+    elif 'gas_thermo' in summary:
+        rows = summary['gas_thermo']['rows']
+        for ax, key, label in zip(fig.subplots(1, 3), ('cp_J_mol_K','delta_h_kJ_mol','s_J_mol_K'),
+                                  ('Cp (J/mol/K)', 'H − H298 (kJ/mol)', 'S (J/mol/K)')):
+            for prefix, style, name in [('', '-', 'RRHO'), ('nist_', '--', 'NIST')]:
+                ax.plot([r['temperature_K'] for r in rows], [r[prefix+key] for r in rows], style, label=name)
+            ax.set(xlabel='Temperature (K)', ylabel=label)
+        fig.axes[0].legend()
+        fig.suptitle(f"{summary['formula']} | Gas at 1 bar")
+    else:
+        block = summary['spin_scan']
+        rows = block['points']
+        x = [r['distance_angstrom'] for r in rows]
+        en, cv = fig.subplots(1, 2)
+        for key, label, marker in [('rks_hartree','RKS','o-'), ('lowest_found_hartree','Lowest found','x--')]:
+            en.plot(x, [r[key] for r in rows], marker, label=label)
+        en.set_ylabel('Total energy (hartree)')
+        en.legend()
+        cv.plot(x, [r['spin_curvature_hartree'] for r in rows], '.-')
+        cv.axhline(0, color='.4', lw=.8)
+        cv.set_ylabel('Lowest spin curvature (hartree)')
+        for ax in (en, cv):
+            ax.set_xlabel('Bond distance (Å)')
+            for interval in block['brackets_angstrom']:
+                ax.axvline(np.mean(interval), color='.5', ls=':')
+    return fig
+
+
+def create_molecular_figure(summary, directory, field=None, plane='yz'):
+    if field in (None, '분석 그래프') and any(k in summary for k in ('uvvis', 'gas_thermo', 'spin_scan')):
+        return analysis_figure(summary)
+    field = field or 'density.cube'
     directory = Path(directory)
     with np.load(directory / 'density_grid.npz', allow_pickle=False) as data:
         coords = data['atom_coords_bohr'].copy()
