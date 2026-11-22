@@ -7,6 +7,7 @@ import time
 import numpy as np
 from scipy.constants import physical_constants
 from molecular import ATOMIC_NUMBERS, save_dft_config
+from workflow import VERSION
 
 HARTREE_TO_EV = physical_constants['Hartree energy in eV'][0]
 
@@ -177,7 +178,7 @@ def calculate_periodic(config, directory, progress=print, cancel_directory=None)
     if config.boundary == 'slab':
         warnings.append('xy 주기·z 비주기 2D Coulomb 경계입니다. z 방향 셀 길이에 대한 수치 수렴도 확인하세요.')
     result = {
-        'schema_version': 3, 'version': '0.10.0', 'engine': 'pyscf-pbc', 'pyscf_version': pyscf.__version__,
+        'schema_version': 3, 'version': VERSION, 'engine': 'pyscf-pbc', 'pyscf_version': pyscf.__version__,
         'created_at_utc': datetime.now(timezone.utc).isoformat(), 'config': config.to_dict(),
         'formula': config.formula, 'status': 'converged' if mf.converged else 'not_converged',
         'converged': bool(mf.converged), 'total_energy_hartree': energy, 'total_energy_ev': energy * HARTREE_TO_EV,

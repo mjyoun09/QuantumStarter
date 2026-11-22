@@ -10,6 +10,7 @@ import numpy as np
 from scipy.constants import physical_constants
 
 from molecular import ATOMIC_NUMBERS, DEF2_CORE_ELECTRONS, TRANSITION_METALS, save_dft_config
+from workflow import VERSION
 from scf_control import CalculationCancelled, check_cancelled, save_checkpoint, load_checkpoint
 
 HARTREE_TO_EV = physical_constants['Hartree energy in eV'][0]
@@ -362,7 +363,7 @@ def calculate_molecule(config, directory, progress=print, guess_density=None, *,
     else:
         actual_guess = 'minao'  # Native auto also uses PySCF init_guess_by_minao since 0.8.6.
     summary = {
-        'schema_version': 4, 'program': 'QuantumStarter', 'version': '0.10.0',
+        'schema_version': 4, 'program': 'QuantumStarter', 'version': VERSION,
         'created_at_utc': datetime.now(timezone.utc).isoformat(),
         'engine': 'quantumstarter-native' if config.engine == 'native' else 'pyscf-molecular', 'system': 'molecule',
         'provenance': {'scf_driver': 'QuantumStarter' if config.engine == 'native' else 'PySCF',

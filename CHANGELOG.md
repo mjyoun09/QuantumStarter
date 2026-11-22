@@ -3,6 +3,12 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261122-MIX-CONV · 혼합기체 음속과 기저·격자 비교 · 0.11.0 · 2026-11-22
+
+- `gas_mixture.py`에서 N₂·O₂·CO₂ 몰분율과 기존 NASA7 계수로 비열·비열비·음속 및 γ=1.4 가정의 편차를 출력한다. Cantera 3.2.0의 다섯 조성, 190조건에서 음속 최대 차이 2.28×10⁻¹³ m/s 이하. [혼합물 독립 검증](docs/validation/mixture_cantera.csv)
+- `molecular_convergence.py`에서 기저×격자의 개별 실행과 인접 조건 변화량을 보존한다. 물의 UV–Vis·진동수와 H₂ 스핀 분기 12조건을 검증했다. N₂/O₂ 기체 계수 8세트를 다시 구해 비교한 2,000 K 혼합물 음속은 866.173–866.362 m/s였다. [재현 절차와 수치](docs/MIXTURE_CONVERGENCE_KO.md)
+- `main.py`에 `gas-mixture`와 `basis-grid`를, 분자 GUI에 혼합기체 그래프·온도 표와 기저·격자 비교 창을 추가했다. WSL 회귀 47건, Windows 숨김 GUI 2건이 통과했다.
+
 ## QS-20261122-GIT-REMOTE · GitHub 원격과 커밋 후 자동 push · 2026-11-22
 
 - GitHub Private 저장소 https://github.com/mjyoun09/QuantumStarter 를 만들어 `origin`으로 연결하고 `main`의 커밋 28개(`65d19ba`까지)를 올렸다.

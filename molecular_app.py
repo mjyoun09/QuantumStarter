@@ -176,6 +176,7 @@ class MolecularApp(QuantumApp):
         ttk.Label(header, text='  /  범용 분자 DFT', style='Section.TLabel').pack(side='left')
         ttk.Label(header, text='H~Og · 118개 원소', style='Muted.TLabel').pack(side='right')
         ttk.Button(header, text='원소별 지원표', command=self.show_elements).pack(side='right', padx=6)
+        ttk.Button(header, text='혼합기체 / 계산 비교', command=self.open_studies).pack(side='right', padx=6)
         ttk.Button(header, text='고체·표면 / GPU 탐색', command=self.open_periodic).pack(side='right', padx=14)
         footer = ttk.Frame(self.root, padding=(20, 8))
         footer.pack(side='bottom', fill='x')
@@ -325,6 +326,14 @@ class MolecularApp(QuantumApp):
         self._text(self.help_tab, HELP)
         self._build_history()
 
+    def open_studies(self):
+        from molecular_studies_app import MolecularStudies
+        if getattr(self, 'studies', None) and self.studies.root.winfo_exists():
+            self.studies.root.lift()
+        else:
+            self.studies = MolecularStudies(tk.Toplevel(self.root), self)
+        return self.studies
+
     def open_periodic(self):
         from periodic_app import PeriodicApp
         if getattr(self, 'periodic_window', None) is not None and self.periodic_window.winfo_exists():
@@ -334,6 +343,11 @@ class MolecularApp(QuantumApp):
         self.periodic_app = PeriodicApp(self.periodic_window)
 
     def close(self):
+        studies = getattr(self, 'studies', None)
+        if studies and studies.busy:
+            studies.close()
+            self.root.after(150, self.close)
+            return
         child = getattr(self, 'periodic_app', None)
         if child is not None and child.busy:
             self.status.set('고체·표면 계산 결과를 저장한 뒤 창을 닫습니다.')

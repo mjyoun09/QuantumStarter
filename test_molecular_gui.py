@@ -164,6 +164,31 @@ class MolecularGuiTests(unittest.TestCase):
         self.assertFalse(self.errors, self.errors)
 
     @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
+    def test_mixture_and_basis_grid_window(self):
+        self.app.example.set('UV–Vis · 물')
+        self.app.use_example()
+        self.app.apply_config(replace(self.app.read_config(), cube_points=12, threads=1))
+        window = self.app.open_studies()
+        window.calculate_mix()
+        self.assertTrue((window.mix_dir/'mixture.png').is_file())
+        self.assertEqual(len(window.properties.get_children()), 36)
+        self.assertIn('866.17', window.mix_info.get())
+        window.bases.set('sto-3g')
+        window.grids.set('1 2')
+        window.start_comparison()
+        deadline = time.monotonic()+180
+        while window.busy and time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(.04)
+        self.assertFalse(window.busy)
+        self.assertTrue(window.status.get().startswith('completed'), window.status.get())
+        self.assertEqual(len(window.runs.get_children()), 2)
+        self.assertGreater(len(window.diffs.get_children()), 0)
+        self.assertTrue((window.conv_dir/'differences.csv').is_file())
+        self.assertFalse(self.errors)
+        window.close()
+
+    @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
     def test_spectrum_spin_and_gas_presets(self):
         app = self.app
         for preset, operation, output in [('UV–Vis · 물', 'uvvis', 'uvvis.csv'),

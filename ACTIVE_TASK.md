@@ -1,5 +1,11 @@
 # 현재 작업
 
+## QS-20261122-MIX-CONV · 혼합기체 음속과 분자 계산 조건 비교
+
+- 담당 ChatGPT Codex · COMPLETED (2026-11-22, 0.11.0). 시작 HEAD `0091865`. 고정 몰분율 기체의 비열·비열비·음속과 분자 기저·격자 비교를 Windows GUI와 CLI에 구현했다.
+- Cantera 3.2.0에서 NASA7 입력 5조성×38온도, 자체 PBE에서 물·H₂ 12조건과 N₂·O₂ 8조건을 검증했다. 2,000 K의 79/21 혼합기체에서 γ=1.4 가정은 +32.12 m/s, 네 DFT 조건 간 최대 차이는 0.190 m/s였다. WSL 회귀 47건·숨김 GUI 2건이 통과했다.
+- 원시 계산은 `outputs/mix_conv_validation`에 있다. Cantera 기준 계산은 같은 계수 파일을 UTF-8로 읽고 YAML 문자열로 전달한다. 기저 비교는 상태·모드 순번 기준이며, 분기 개수가 바뀌면 위치를 직접 비교하지 않는다. 이 작업은 완료했고 아래 별도 장기 인계는 보존한다. [재현 명령과 수치 자료](docs/MIXTURE_CONVERGENCE_KO.md) · [변경 이력](CHANGELOG.md)
+
 ## QS-20261122-GIT-REMOTE · GitHub 원격과 커밋 후 자동 push
 
 - 담당 Claude · COMPLETED (2026-11-22). 시작 HEAD `65d19ba`, 작업 트리 깨끗함. 사용자 요청: "현재까지 만들어진 것 GIT에 올리고, 편집 끝나면 GIT에 자동 반영". 사용자 선택: Private 저장소, "커밋되면 자동 push"(Claude 응답마다 자동 커밋하는 방식은 고르지 않음).
