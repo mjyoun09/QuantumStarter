@@ -46,10 +46,14 @@ class IsotopeTests(unittest.TestCase):
         bonds = np.array([[-1, 0, 0, 1, 0, 0, 0, 0, 0], [0, -1, 0, 0, 0, 0, 0, 1, 0]])
         hessian = bonds.T @ np.diag([1, 2]) @ bonds
         source = spring_model(['O', 'H', 'H'], [[0, 0, 0], [1, 0, 0], [0, 1, 0]], [16, 1, 1], hessian)
+        source['frequencies']['infrared'] = {'dipole_derivative_e': np.outer([1, 0, 0], bonds[1]).tolist()}
         rows = compare_isotopes(source, assignments=['3=4'])['modes']
         self.assertEqual([row['substituted_mode'] for row in rows], [1, 3, 2])
         self.assertAlmostEqual(rows[1]['shift_cm1'], 0, places=8)
         self.assertLess(rows[2]['shift_cm1'], 0)
+        for label in ('reference', 'substituted'):
+            self.assertLess(rows[1][f'{label}_ir_km_mol'], 1e-15)
+            self.assertGreater(rows[2][f'{label}_ir_km_mol'], 100)
 
     def test_old_water_input_and_output_preservation(self):
         with tempfile.TemporaryDirectory() as tmp:

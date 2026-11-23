@@ -10,8 +10,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from app import open_directory
 from dft_workflow import RunControl
 from gas_mixture import DEFAULT_DATA, DEFAULT_MIX, mixture_figure, run_mixture
+from engines.infrared import DEFAULT_FWHM_CM1
 from molecular_convergence import DEFAULT_BASES, DEFAULT_GRIDS, OPERATIONS, run_comparison
-from molecular_isotopes import WATER_EXAMPLE, run_isotopes
+from molecular_isotopes import WATER_IR_EXAMPLE, isotope_spectrum, run_isotopes
+from molecular_plotting import infrared_figure
 
 
 class MolecularStudies:
@@ -77,30 +79,39 @@ class MolecularStudies:
 
     def build_isotope_tab(self, book):
         page = ttk.Frame(book, padding=14)
-        book.add(page, text='동위원소 진동수')
+        book.add(page, text='동위원소 진동수 · IR')
         first = ttk.Frame(page)
         first.pack(fill='x')
         ttk.Label(first, text='기준 진동수 파일').pack(side='left')
-        source = WATER_EXAMPLE
+        source = WATER_IR_EXAMPLE
         if self.parent.current_dir and (self.parent.summary or {}).get('calculation') == 'frequencies':
             source = Path(self.parent.current_dir) / 'results.json'
         self.isotope_source = tk.StringVar(value=str(source))
         ttk.Entry(first, textvariable=self.isotope_source).pack(side='left', fill='x', expand=True, padx=6)
         ttk.Button(first, text='파일 선택', command=self.choose_isotope_source).pack(side='left')
+        ttk.Button(first, text='물 예제', command=lambda: self.isotope_source.set(str(WATER_IR_EXAMPLE))).pack(side='left', padx=4)
         second = ttk.Frame(page)
         second.pack(fill='x', pady=8)
         ttk.Label(second, text='원자 순번=질량(u)').pack(side='left')
         self.isotope_masses = tk.StringVar()
-        ttk.Entry(second, textvariable=self.isotope_masses, width=26).pack(side='left', padx=6)
-        ttk.Label(second, text='비우면 모든 H를 D로 치환합니다. 예시  2=2.0141').pack(side='left')
+        ttk.Entry(second, textvariable=self.isotope_masses, width=20).pack(side='left', padx=6)
+        ttk.Label(second, text='빈칸은 H 전체 → D   예시  2=2.0141').pack(side='left')
+        ttk.Label(second, text='IR 선폭 FWHM (cm⁻¹)').pack(side='left', padx=(14, 0))
+        self.ir_width = tk.StringVar(value=f'{DEFAULT_FWHM_CM1:g}')
+        ttk.Entry(second, textvariable=self.ir_width, width=6).pack(side='left', padx=5)
         ttk.Button(second, text='비교', command=self.calculate_isotopes).pack(side='right')
         self.isotope_info = tk.StringVar(value='기준과 치환 구조의 진동수 차이와 영점에너지(ZPE)를 계산합니다.')
         ttk.Label(page, textvariable=self.isotope_info, wraplength=850).pack(anchor='w', pady=6)
         self.isotope_folder = ttk.Button(page, text='결과 폴더 열기', state='disabled',
                                          command=lambda: open_directory(self.isotope_dir))
         self.isotope_folder.pack(side='bottom', anchor='e')
-        self.isotope_modes = self.table(page, None, ('기준 모드', '치환 모드', '기준 (cm⁻¹)', '치환 (cm⁻¹)',
-                                                    '차이 (cm⁻¹)', '모드 겹침'))
+        self.isotope_views = ttk.Notebook(page)
+        self.isotope_views.pack(fill='both', expand=True)
+        self.isotope_modes = self.table(self.isotope_views, '모드별 수치', ('기준 모드', '치환 모드', '기준 (cm⁻¹)',
+            '치환 (cm⁻¹)', '차이 (cm⁻¹)', '모드 겹침', '기준 IR (km/mol)', '치환 IR (km/mol)'))
+        self.ir_chart = ttk.Frame(self.isotope_views)
+        self.isotope_views.add(self.ir_chart, text='IR 스펙트럼', state='disabled')
+        self.ir_canvas = None
 
     def choose_isotope_source(self):
         filename = filedialog.askopenfilename(parent=self.root, title='분자 진동수 결과 선택',
@@ -112,15 +123,31 @@ class MolecularStudies:
         assignments = self.isotope_masses.get().split()
         try:
             report, directory = run_isotopes(self.isotope_source.get(), self.parent.output_root / 'isotopes',
-                                             deuterate=not assignments, assignments=assignments)
+                                             deuterate=not assignments, assignments=assignments, fwhm=self.ir_width.get())
         except (ValueError, OSError) as exc:
             messagebox.showerror('동위원소 비교', str(exc), parent=self.root)
             return
         self.isotope_modes.delete(*self.isotope_modes.get_children())
         for row in report['modes']:
+            strengths = ['—' if row.get(key) is None else f'{row[key]:.3f}'
+                         for key in ('reference_ir_km_mol', 'substituted_ir_km_mol')]
             self.isotope_modes.insert('', 'end', values=(row['reference_mode'], row['substituted_mode'],
                 f"{row['reference_cm1']:.2f}", f"{row['substituted_cm1']:.2f}", f"{row['shift_cm1']:+.2f}",
-                f"{row['absolute_overlap']:.3f}"))
+                f"{row['absolute_overlap']:.3f}", *strengths))
+        if self.ir_canvas:
+            self.ir_canvas.get_tk_widget().destroy()
+            self.ir_canvas = None
+        if report['ir_labels']:
+            grid, curves = isotope_spectrum(report)
+            figure = infrared_figure(grid, curves, report['ir_labels'], report['ir_fwhm_cm1'])
+            self.ir_canvas = FigureCanvasTkAgg(figure, master=self.ir_chart)
+            self.isotope_views.tab(self.ir_chart, state='normal')
+            self.isotope_views.select(self.ir_chart)
+            self.ir_canvas.get_tk_widget().pack(fill='both', expand=True)
+            self.ir_canvas.draw()
+        else:
+            self.isotope_views.select(0)
+            self.isotope_views.tab(self.ir_chart, state='disabled')
         change = 'H 전체 → D' if not assignments else ', '.join(assignments) + ' u'
         energy = (f"{report['formula'] or '기준 구조'} · {change} · ZPE {report['reference_zpe_kj_mol']:.3f} → "
                   f"{report['substituted_zpe_kj_mol']:.3f} kJ/mol (Δ {report['delta_zpe_kj_mol']:+.3f} kJ/mol)")

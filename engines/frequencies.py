@@ -15,6 +15,7 @@ from scipy.constants import Avogadro, Boltzmann, Planck, physical_constants, spe
 
 from molecular import Atom, save_dft_config
 from scf_control import check_cancelled
+from .infrared import mode_intensities
 from .pyscf_engine import BOHR_ANGSTROM, HARTREE_TO_EV, calculate_molecule, publish_results
 
 HARTREE_J = physical_constants['Hartree energy'][0]
@@ -56,7 +57,8 @@ def harmonic_analysis(hessian, coords_bohr, masses):
     cartesian = (internal @ vectors) / root[:, None]
     modes = (cartesian / np.linalg.norm(cartesian, axis=0)).T.reshape(-1, natm, 3)
     residual = np.linalg.eigvalsh(external.T @ weighted @ external)
-    return {'frequencies_cm1': frequencies, 'normal_modes': modes, 'linear': rank == 5,
+    return {'frequencies_cm1': frequencies, 'normal_modes': modes,
+            'mass_normalized_modes': cartesian.T.reshape(-1, natm, 3), 'linear': rank == 5,
             'external_mode_count': rank,
             'translation_rotation_residual_cm1': np.sign(residual) * np.sqrt(np.abs(residual)) * AU_TO_CM1}
 
@@ -160,25 +162,29 @@ def frequency_molecule(config, directory, progress=print, *, publish=True):
 
     def gradient_at(positions, name, guess):
         moved = tuple(Atom(a.element, tuple(p * BOHR_ANGSTROM)) for a, p in zip(atoms, positions))
-        summary = calculate_molecule(replace(base, atoms=moved), root / name, quiet, guess)
+        summary = calculate_molecule(replace(base, atoms=moved), root / name, quiet, guess, with_dipole=True)
         if not summary['converged'] or summary['gradient'] is None:
             raise RuntimeError(f'{name} 변위 계산의 SCF가 수렴하지 않아 진동수 계산을 중단합니다. {root / name}을 확인하세요.')
         with np.load(root / name / 'electronic_structure.npz', allow_pickle=False) as data:
             density = np.asarray(data['density_matrix'])
-        return np.asarray(summary['gradient']['gradient_hartree_per_bohr']).ravel(), density, summary
+        return np.asarray(summary['gradient']['gradient_hartree_per_bohr']).ravel(), density, np.asarray(summary['dipole_e_bohr'])
 
     progress(f'진동수: 해석적 힘의 중심 유한차분 · 변위 {step} bohr · 변위 계산 {count}회 + 기준 1회')
-    reference_gradient, reference_density, _ = gradient_at(coords, 'reference', None)
+    reference_gradient, reference_density, reference_dipole = gradient_at(coords, 'reference', None)
     hessian = np.zeros((coords.size, coords.size))
+    dipole_derivative = np.empty((3, coords.size))
     for index in range(coords.size):
         atom, axis = divmod(index, 3)
-        columns = []
+        gradients, dipoles = [], []
         for sign, label in ((1, 'plus'), (-1, 'minus')):
             check_cancelled(directory)
             positions = coords.copy()
             positions[atom, axis] += sign * step
-            columns.append(gradient_at(positions, f'atom{atom + 1:03d}_{"xyz"[axis]}_{label}', reference_density)[0])
-        hessian[:, index] = (columns[0] - columns[1]) / (2 * step)
+            gradient, _, dipole = gradient_at(positions, f'atom{atom + 1:03d}_{"xyz"[axis]}_{label}', reference_density)
+            gradients.append(gradient)
+            dipoles.append(dipole)
+        hessian[:, index] = (gradients[0] - gradients[1]) / (2 * step)
+        dipole_derivative[:, index] = (dipoles[0] - dipoles[1]) / (2 * step)
         progress(f'진동수 변위 {2 * index + 2}/{count} · 원자 {atom + 1} {"xyz"[axis]}')
     asymmetry = float(np.abs(hessian - hessian.T).max())
     hessian = (hessian + hessian.T) / 2
@@ -206,6 +212,11 @@ def frequency_molecule(config, directory, progress=print, *, publish=True):
         'stationary_point_character': ('minimum' if not significant else
                                        'transition_state_candidate' if len(significant) == 1 else 'higher_order_saddle'),
         'normal_modes_cartesian': analysis['normal_modes'].tolist(),
+        'infrared': {'method': 'central differences of fixed-origin molecular dipoles',
+                     'operator': 'scalar X2C picture-changed' if config.resolved_relativity == 'x2c' else 'length gauge',
+                     'origin_bohr': [0., 0., 0.], 'reference_dipole_e_bohr': reference_dipole.tolist(),
+                     'dipole_derivative_e': dipole_derivative.tolist(),
+                     'intensities_km_mol': mode_intensities(dipole_derivative, analysis)},
         'translation_rotation_residual_cm1': analysis['translation_rotation_residual_cm1'].tolist(),
         'hessian_hartree_per_bohr2': hessian.tolist(), 'hessian_asymmetry_max': asymmetry,
         'reference_max_gradient_hartree_per_bohr': float(np.abs(final_gradient).max()),

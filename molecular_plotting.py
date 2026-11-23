@@ -7,6 +7,7 @@ from matplotlib.figure import Figure
 from scipy.constants import physical_constants
 
 from molecular import ELEMENTS
+from engines.infrared import DEFAULT_FWHM_CM1, broaden_spectrum
 
 BOHR_TO_ANGSTROM = physical_constants['Bohr radius'][0] / 1e-10
 COLORS = {'H': '#c1c9d7', 'C': '#374151', 'N': '#3b82f6', 'O': '#ef4444',
@@ -39,7 +40,34 @@ def read_cube(path):
     return values.reshape(shape), origin, np.array(steps) * (np.array(shape) - 1)[:, None]
 
 
+def infrared_figure(grid, curves, labels, fwhm):
+    fig = Figure(figsize=(8.4, 4.4), layout='constrained')
+    ax = fig.subplots()
+    for curve, label, color, style in zip(curves, labels, ('#176389', '#bd5625'), ('-', '--')):
+        ax.plot(grid, curve, color=color, linestyle=style, linewidth=1.9, label=label)
+    ax.set(title=f'Harmonic IR absorption   |   Gaussian FWHM {fwhm:g} cm⁻¹',
+           xlabel='Wavenumber (cm⁻¹)', ylabel='Intensity density [(km/mol)/(cm⁻¹)]')
+    if len(grid):
+        ax.set_xlim(grid[-1], grid[0])
+        ax.set_ylim(0, max(float(np.max(curves)) * 1.12, 1e-6))
+    else:
+        ax.text(0.5, 0.5, 'No positive-frequency vibrational modes', ha='center', transform=ax.transAxes)
+    ax.grid(axis='y', color='#dce4e8', linewidth=0.6)
+    ax.legend(frameon=False)
+    return fig
+
+
+def has_analysis_plot(summary):
+    return ((summary.get('calculation') == 'frequencies' and 'infrared' in (summary.get('frequencies') or {}))
+            or any(k in summary for k in ('uvvis', 'gas_thermo', 'spin_scan')))
+
+
 def analysis_figure(summary):
+    vibrations = summary.get('frequencies') or {}
+    if summary.get('calculation') == 'frequencies' and 'infrared' in vibrations:
+        bands = list(zip(vibrations['frequencies_cm1'], vibrations['infrared']['intensities_km_mol']))
+        grid, curves = broaden_spectrum([bands], DEFAULT_FWHM_CM1)
+        return infrared_figure(grid, curves, [summary['formula']], DEFAULT_FWHM_CM1)
     fig = Figure(figsize=(9, 4.5), layout='constrained')
     if 'uvvis' in summary:
         peaks = summary['uvvis']['peaks']
@@ -79,7 +107,7 @@ def analysis_figure(summary):
 
 
 def create_molecular_figure(summary, directory, field=None, plane='yz'):
-    if field in (None, '분석 그래프') and any(k in summary for k in ('uvvis', 'gas_thermo', 'spin_scan')):
+    if field in (None, '분석 그래프') and has_analysis_plot(summary):
         return analysis_figure(summary)
     field = field or 'density.cube'
     directory = Path(directory)

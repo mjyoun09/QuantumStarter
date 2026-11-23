@@ -1,6 +1,8 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신 2026-11-23 / ChatGPT Codex. 0.11.1은 저장된 구조와 분자 헤시안의 질량 가중치를 바꿔 동위원소 진동수·영점에너지를 CLI와 Windows GUI에서 비교한다. 첫 사례는 H₂O/HDO/D₂O이다. 남은 구현의 기준 문서는 로드맵이며, 다음은 쌍극자 미분으로 구한 IR 세기다. [개발 순서와 완료 기준](ROADMAP.md) · [검증](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교) · [공통 작업 규칙](AGENTS.md)
+최종 갱신 2026-11-23 / ChatGPT Codex. 0.12.0은 분자 조화 진동수 계산에서 변위별 쌍극자 미분과 IR 적분 세기를 저장한다. Windows GUI와 CLI에서 원본과 동위원소의 피크를 같은 선폭으로 비교할 수 있다. H₂ 선택규칙을 확인하고 H₂O/D₂O의 IR 활성 모드 여섯 개를 독립 계산과 대조했다. 다음은 고정 조성 N₂/O₂ 혼합물의 비열·음속과 독립 기준 대조다. [IR 그림·검증](docs/INFRARED_KO.md) · [개발 로드맵](ROADMAP.md) · [공통 작업 규칙](AGENTS.md)
+
+0.11.1은 저장된 구조와 분자 헤시안의 질량 가중치를 바꿔 동위원소 진동수·영점에너지를 CLI와 Windows GUI에서 비교한다. 첫 사례는 H₂O/HDO/D₂O이다. [검증](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교)
 
 0.11.0은 기존 NASA7 계수로 N₂/O₂/CO₂ 혼합물의 비열·비열비·음속을 계산한다. 분자 기저와 격자의 교차 비교를 같은 GUI와 CLI에 추가했다. 물·H₂ 및 혼합물 계수의 실제 DFT 민감도를 검사했고 독립 Cantera로 혼합 계산을 확인했다. [실행·검증](docs/MIXTURE_CONVERGENCE_KO.md)
 
@@ -31,6 +33,7 @@ PySCF는 적분/격자 제공과 독립 기준값(검증용)으로 쓴다. 아�
 | engines/native_scf.py / scf_control.py | 자체 밀도/Fock/XC/DIIS/SCF/에너지, 분자 중단·호환 체크포인트 |
 | engines/native_newton.py / native_stability.py / native_response.py | 자체 Newton·실수 내부 안정성, 해석적 J/K/XC 선형응답 |
 | engines/optimizer.py / irc.py / neb.py / frequencies.py | geomeTRIC 최적화·제약·스캔·TS, IRC(끝점 판정·최소화·경로 복구), CI-NEB, 유한차분 진동수·RRHO |
+| engines/infrared.py / molecular_isotopes.py | 질량 정규화 모드에 쌍극자 미분을 투영해 IR 적분 세기 계산, 동위원소 피크 대응·스펙트럼 CSV/PNG 저장 |
 | geometry_tools.py / energy_analysis.py | 입력 구조 측정·수치 프리셋, 조건/수지 검사 반응·흡착 분석 |
 | periodic.py / engines/periodic.py / periodic_app.py | 격자·k점·2D/3D 경계, 주기적 PBE, 별도 화면 |
 | engines/periodic_optimizer.py / periodic_convergence.py | FFTDF bulk 원자·셀 완화, 고정 구조 FFT mesh 수렴 검사 |

@@ -57,16 +57,25 @@ class MolecularGuiTests(unittest.TestCase):
         self.root.update()
 
     def test_isotope_studies_from_saved_water(self):
-        from molecular_isotopes import WATER_EXAMPLE
+        from molecular_isotopes import WATER_EXAMPLE, WATER_IR_EXAMPLE
         window = self.app.open_studies()
-        self.assertEqual(Path(window.isotope_source.get()), WATER_EXAMPLE)
+        self.assertEqual(Path(window.isotope_source.get()), WATER_IR_EXAMPLE)
         window.calculate_isotopes()
         self.assertEqual(len(window.isotope_modes.get_children()), 3)
         self.assertIn('39.554', window.isotope_info.get())
         self.assertTrue((window.isotope_dir / 'modes.csv').is_file())
+        self.assertTrue((window.isotope_dir / 'infrared.png').is_file())
+        self.assertEqual(len(window.ir_canvas.figure.axes[0].lines), 2)
+        self.assertEqual(window.isotope_views.select(), str(window.ir_chart))
+        window.ir_width.set('22')
         window.isotope_masses.set('2=2.01410177812')
         window.calculate_isotopes()
         self.assertIn('47.064', window.isotope_info.get())
+        window.isotope_source.set(str(WATER_EXAMPLE))
+        window.calculate_isotopes()
+        self.assertIsNone(window.ir_canvas)
+        self.assertEqual(window.isotope_views.tab(window.ir_chart, 'state'), 'disabled')
+        self.assertIn('쌍극자 미분', window.isotope_info.get())
         self.assertFalse(self.errors)
         window.close()
 
@@ -346,11 +355,14 @@ class MolecularGuiTests(unittest.TestCase):
             error.assert_not_called()
         self.assertEqual(len(app.summary['frequencies']['frequencies_cm1']), 1)
         self.assertIn('최저 진동', app.metrics[1].get())
+        self.assertEqual(app.field.get(), '분석 그래프')
+        self.assertIn('Harmonic IR', app.figure.axes[0].get_title())
         window = app.open_studies()
         self.assertEqual(Path(window.isotope_source.get()), app.current_dir / 'results.json')
         window.calculate_isotopes()
         self.assertEqual(len(window.isotope_modes.get_children()), 1)
         self.assertTrue((window.isotope_dir / 'isotopes.json').is_file())
+        self.assertTrue((window.isotope_dir / 'infrared.png').is_file())
         window.close()
 
     @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')

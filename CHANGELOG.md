@@ -3,6 +3,12 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261123-INFRARED · 분자 적외선 세기와 동위원소 스펙트럼 · 0.12.0 · 2026-11-23
+
+- `engines/pyscf_engine.py`, `engines/frequencies.py`, `engines/infrared.py`에서 기존 변위 계산으로 쌍극자 미분과 조화 적분 세기(km/mol)를 구한다. 자체 PBE-D4/def2-SVP에서 물·중수의 굽힘 세기는 47.515와 25.263 km/mol이었다. [조건과 결과](docs/INFRARED_KO.md)
+- `molecular_isotopes.py`와 분자 GUI·그림 모듈에서 원본·치환체의 피크 표와 가우스 선폭 지정, 스펙트럼 CSV·PNG 저장을 지원한다. 구버전 파일은 진동수·ZPE 비교를 제공한다. [데스크톱 물 예제](examples/water_ir_reference.json) · [비교 그림](docs/validation/water_ir_spectrum.png)
+- H₂ 비활성 모드, 물·중수 여섯 피크의 독립 PySCF 방향 미분(최대 차이 0.00130 km/mol)과 변위 간격 절반(최대 변화 0.000169 km/mol)을 검증했다. 관련 WSL 회귀 35건과 Windows 숨김 GUI 3건이 통과했다. [수치 비교표](docs/validation/water_ir_comparison.csv) · [재현 스크립트](scripts/validate_infrared.py)
+
 ## QS-20261123-ROADMAP-ISOTOPE · 개발 로드맵과 동위원소 진동 비교 · 0.11.1 · 2026-11-23
 
 - `ROADMAP.md`에 순차 과제 5개의 선행 조건·완료 기준, 연구 주제별 확장 후보를 기록했다. 기존 요구 목록에서 분자 D4 힘과 제약의 상태를, 표면 문서에서 bulk와 slab의 힘·응력 지원 범위를 바로잡았다. [개발 로드맵](ROADMAP.md)

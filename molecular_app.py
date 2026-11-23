@@ -18,7 +18,7 @@ from element_catalog import PERIODIC_CAPABILITIES
 from molecular import (BASES, CALCULATIONS, DISPERSIONS, ELEMENTS, OPT_CONVERGENCE, FUNCTIONALS, DEF2_CORE_ELECTRONS, Atom, DFTConfig, available_bases, coordinates_text, load_dft_config,
                        describe_bases, format_basis_overrides, parse_basis_overrides, parse_coordinates, read_xyz,
                        save_dft_config)
-from molecular_plotting import create_molecular_figure
+from molecular_plotting import create_molecular_figure, has_analysis_plot
 from geometry_tools import PRESETS, apply_preset, measure, BOHR_ANGSTROM
 
 DENSITY_CAPTION = '원자 중심에 가까운 격자면의 단면 · 전자밀도 e/bohr³ · 좌표 Å'
@@ -748,7 +748,7 @@ class MolecularApp(QuantumApp):
         engine_label = '자체' if summary['engine'] == 'quantumstarter-native' else 'PySCF'
         self.metrics[2].set(f'{engine_label} · {summary["method"]} / {summary["xc"].upper()}'
                             + ('-D4' if dispersion else ''))
-        analysis = any(key in summary for key in ('uvvis', 'spin_scan', 'gas_thermo'))
+        analysis = has_analysis_plot(summary)
         self.field_box.configure(values=(['분석 그래프'] if analysis else []) + list(summary['cube_files']))
         self.field.set('분석 그래프' if analysis else 'density.cube')
         self.table.delete(*self.table.get_children())

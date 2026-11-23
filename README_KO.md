@@ -1,8 +1,10 @@
-# QuantumStarter 0.11.1 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.12.0 · 자체/외부 분자 DFT와 주기계 계산
 
 무엇부터 만들고 어떻게 완료를 확인할지는 [개발 로드맵](ROADMAP.md)에서 확인할 수 있습니다.
 
-**동위원소 진동수**는 기존 분자 진동수 결과를 읽어 H₂O와 D₂O의 조화 진동수·영점에너지를 비교합니다. 분자 화면에서 **혼합기체 / 계산 비교 → 동위원소 진동수 → 비교**를 누르면 저장된 물 예제를 실행할 수 있습니다. 현재 표시 중인 진동수 결과가 있으면 그 파일이 선택됩니다. 명령행에서는 `.\.venv\Scripts\python.exe main.py isotopes examples/water_frequency_reference.json --deuterate`를 실행하세요. [물 예제·원자별 치환·검증](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교)
+**물과 중수의 적외선 스펙트럼**은 분자 화면에서 **혼합기체 / 계산 비교 → 동위원소 진동수 · IR → 물 예제 → 비교**로 열 수 있습니다. 두 곡선의 파수와 흡수 세기를 한 그림에서 보고, 모드별 수치와 영점에너지도 확인할 수 있습니다. 명령행에서는 `.\.venv\Scripts\python.exe main.py isotopes examples/water_ir_reference.json --deuterate`를 실행하세요. [스펙트럼·수치·계산 조건](docs/INFRARED_KO.md)
+
+이전 버전의 분자 진동수 파일도 같은 화면에서 열 수 있습니다. 헤시안으로 진동수와 영점에너지를 비교하고, 새 버전으로 진동수를 다시 계산하면 IR 세기가 추가됩니다. [기존 동위원소 비교 검증](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교)
 
 **혼합기체 / 계산 비교**에서 N₂·O₂·CO₂의 몰분율로 비열비와 음속을 계산하거나, 분자 계산의 기저·격자를 바꿔 UV–Vis 피크·진동수·스핀 분기·기체 열용량의 변화량을 비교할 수 있습니다. [사용법·실제 음속 그래프·검증표](docs/MIXTURE_CONVERGENCE_KO.md)
 

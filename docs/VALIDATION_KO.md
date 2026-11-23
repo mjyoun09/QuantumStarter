@@ -1,5 +1,9 @@
 # DFT 검증 기록 · 최근 정리 2026-11-23
 
+## 분자 IR 세기와 동위원소 스펙트럼
+
+0.12.0. 물·중수 여섯 피크의 적분 세기를 별도 PySCF 정상모드 방향 미분과 비교해 최대 0.00130 km/mol 차이를 확인했다. 변위 간격을 절반으로 줄인 결과와 H₂의 비활성 모드도 검사했다. [계산 조건·그림·재현 명령](INFRARED_KO.md) · [전체 수치 CSV](validation/water_ir_comparison.csv)
+
 ## 물의 동위원소 진동수 비교
 
 0.11.1, QS-20261123-ROADMAP-ISOTOPE. 0.8.4에서 계산한 최적화 물 구조와 자체 PBE-D4/def2-SVP 헤시안을 사용했다. 격자 수준은 3, 힘의 중심차분 간격은 0.005 bohr, 기준 구조의 최대 기울기는 1.00×10⁻⁵ Ha/bohr이다. 구버전 원본에서 좌표·질량·헤시안 등 필요한 필드를 추출해 예제에 보존했다. 기준 질량은 당시 결과에 저장된 ¹⁶O 15.994915 u와 ¹H 1.007825 u이며, 치환용 ²H는 2.01410177812 u를 사용한다. [예제 입력](../examples/water_frequency_reference.json) · [NIST 동위원소 질량표](https://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=H)
@@ -21,7 +25,7 @@ Windows 프로젝트 폴더에서 다음 두 명령으로 전체 치환과 단�
 .\.venv\Scripts\python.exe main.py isotopes examples/water_frequency_reference.json --mass 2=2.01410177812
 ```
 
-H₂/HD/D₂는 동일 스프링에서 환산질량 해석해와 진동수 비가 소수 12자리까지 일치했다. H₂O/HDO/D₂O는 같은 헤시안·질량을 받는 독립 PySCF 진동 분석과 모든 모드에서 0.001 cm⁻¹ 이내로 일치했다. 모드 순서가 뒤바뀌는 합성 예제, 허수 모드의 ZPE 처리, 구버전 파일 보존, Å/bohr 입력도 검사했다. WSL 재현 명령은 `.venv-dft/bin/python -m unittest test_molecular_isotopes test_frequencies test_molecular_studies`이다. IR 흡수 세기 계산은 로드맵의 다음 항목이다. [검증 코드](../test_molecular_isotopes.py) · [PySCF 진동 분석](https://pyscf.org/_modules/pyscf/hessian/thermo.html) · [개발 순서](../ROADMAP.md)
+H₂/HD/D₂는 동일 스프링에서 환산질량 해석해와 진동수 비가 소수 12자리까지 일치했다. H₂O/HDO/D₂O는 같은 헤시안·질량을 받는 독립 PySCF 진동 분석과 모든 모드에서 0.001 cm⁻¹ 이내로 일치했다. 모드 순서가 뒤바뀌는 합성 예제, 허수 모드의 ZPE 처리, 구버전 파일 보존, Å/bohr 입력도 검사했다. WSL 재현 명령은 `.venv-dft/bin/python -m unittest test_molecular_isotopes test_frequencies test_molecular_studies`이다. [검증 코드](../test_molecular_isotopes.py) · [PySCF 진동 분석](https://pyscf.org/_modules/pyscf/hessian/thermo.html)
 
 ## 이전 버전의 검증 요약
 

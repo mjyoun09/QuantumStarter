@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -10,11 +11,14 @@ from scipy.optimize import linear_sum_assignment
 from engines.frequencies import (BOHR_ANGSTROM, HARTREE_TO_KJ_MOL, STATIONARY_GRADIENT_LIMIT,
                                  harmonic_analysis, zero_point_energy_hartree)
 from engines.gas_thermo import write_csv
+from engines.infrared import DEFAULT_FWHM_CM1, broaden_spectrum, mode_intensities, validate_fwhm
 from molecular import Atom
+from molecular_plotting import infrared_figure
 from workflow import VERSION, new_run_dir
 
 ROOT = Path(__file__).resolve().parent
 WATER_EXAMPLE = ROOT / 'examples' / 'water_frequency_reference.json'
+WATER_IR_EXAMPLE = ROOT / 'examples' / 'water_ir_reference.json'
 # NIST, Atomic Weights and Isotopic Compositions for Hydrogen (neutral ²H, u).
 DEUTERIUM_MASS_AMU = 2.01410177812
 
@@ -47,6 +51,7 @@ def substituted_masses(elements, reference, deuterate, assignments):
 
 
 def compare_isotopes(summary, *, deuterate=False, assignments=()):
+    assignments = tuple(assignments) if assignments is not None else ()
     if (not isinstance(summary, dict) or summary.get('system', 'molecule') != 'molecule'
             or summary.get('calculation') != 'frequencies' or summary.get('converged') is not True):
         raise ValueError('수렴한 분자 진동수 계산의 results.json을 선택하세요.')
@@ -101,6 +106,26 @@ def compare_isotopes(summary, *, deuterate=False, assignments=()):
         warnings.append(f'기준 구조의 최대 기울기가 {gradient:.2g} Ha/bohr입니다. 평형 구조인지 확인하세요.')
     if np.any(freqs < 0) or np.any(new_freqs < 0):
         warnings.append('허수 모드는 음수 파수로 표시했습니다. ZPE에는 양의 파수만 포함했습니다.')
+    infrared = vibrations.get('infrared')
+    labels = None
+    if infrared is None:
+        warnings.append('쌍극자 미분이 없는 이전 결과입니다. IR 세기는 같은 입력으로 진동수를 다시 계산하면 얻을 수 있습니다.')
+    else:
+        if not isinstance(infrared, dict) or 'dipole_derivative_e' not in infrared:
+            raise ValueError('IR 블록에 데카르트 쌍극자 미분(dipole_derivative_e)이 필요합니다.')
+        derivative = infrared['dipole_derivative_e']
+        reference_ir = mode_intensities(derivative, original)
+        changed_ir = mode_intensities(derivative, changed)
+        for row, i, j in zip(rows, before, after):
+            row['reference_ir_km_mol'] = reference_ir[i]
+            row['substituted_ir_km_mol'] = changed_ir[j]
+        formula = summary.get('formula')
+        if deuterate:
+            substituted = re.sub(r'H(?![a-z])', 'D', formula) if formula else 'Deuterated'
+        else:
+            change = f'{assignments[0]} u' if len(assignments) == 1 else f'{len(assignments)} specified masses'
+            substituted = f"{formula or 'Substituted'} ({change})"
+        labels = [formula or 'Reference', substituted]
     return {
         'version': VERSION, 'model': 'Born-Oppenheimer harmonic vibrations at the source geometry and Hessian',
         'matching': 'maximum total absolute Cartesian mode overlap in the reference mass metric',
@@ -110,19 +135,33 @@ def compare_isotopes(summary, *, deuterate=False, assignments=()):
                   for i, (e, a, b) in enumerate(zip(elements, reference, masses), 1)],
         'modes': rows, 'reference_zpe_kj_mol': zpe, 'substituted_zpe_kj_mol': new_zpe,
         'delta_zpe_kj_mol': new_zpe - zpe,
-        'warnings': warnings, 'source_warnings': summary.get('warnings', []),
+        'ir_labels': labels, 'warnings': warnings, 'source_warnings': summary.get('warnings', []),
     }
 
 
-def run_isotopes(source, output_root=None, *, deuterate=False, assignments=()):
+def isotope_spectrum(report):
+    bands = [[(r[f'{key}_cm1'], r[f'{key}_ir_km_mol']) for r in report['modes']]
+             for key in ('reference', 'substituted')]
+    return broaden_spectrum(bands, report['ir_fwhm_cm1'])
+
+
+def run_isotopes(source, output_root=None, *, deuterate=False, assignments=(), fwhm=DEFAULT_FWHM_CM1):
+    fwhm = validate_fwhm(fwhm)
     source = Path(source).resolve()
     if source.is_dir():
         source = source / 'results.json'
     raw = source.read_bytes()
     report = compare_isotopes(json.loads(raw), deuterate=deuterate, assignments=assignments)
     report.update(source_file=str(source), source_sha256=hashlib.sha256(raw).hexdigest())
+    if report['ir_labels']:
+        report.update(ir_fwhm_cm1=fwhm, ir_line_shape='unit-area Gaussian', ir_spectrum_file='infrared.csv')
+        grid, curves = isotope_spectrum(report)
     directory = new_run_dir(output_root or ROOT / 'outputs' / 'isotopes')
     write_csv(directory / 'modes.csv', report['modes'])
+    if report['ir_labels']:
+        np.savetxt(directory / 'infrared.csv', np.column_stack((grid, curves.T)), delimiter=',', comments='',
+                   header='wavenumber_cm1,reference_km_mol_per_cm1,substituted_km_mol_per_cm1')
+        infrared_figure(grid, curves, report['ir_labels'], fwhm).savefig(directory / 'infrared.png', dpi=160)
     (directory / 'isotopes.json').write_text(
         json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False), encoding='utf-8')
     return report, directory
@@ -135,15 +174,22 @@ def main(argv=None):
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--deuterate', action='store_true', help='모든 수소를 중수소(²H)로 치환')
     group.add_argument('--mass', nargs='+', metavar='INDEX=AMU', help='입력 순서(1부터)와 질량(u), 예: 2=2.0141 3=2.0141')
+    parser.add_argument('--fwhm', type=float, default=DEFAULT_FWHM_CM1, help='IR 가우스 선폭 FWHM(cm⁻¹), 기본 30')
     parser.add_argument('--output', type=Path, help='새 비교 결과 폴더를 만들 상위 경로')
     args = parser.parse_args(argv)
     try:
-        report, directory = run_isotopes(args.source, args.output, deuterate=args.deuterate, assignments=args.mass)
+        report, directory = run_isotopes(args.source, args.output, deuterate=args.deuterate,
+                                         assignments=args.mass, fwhm=args.fwhm)
     except (ValueError, OSError) as exc:
         parser.exit(1, f'동위원소 비교 오류: {exc}\n')
     for row in report['modes']:
+        strengths = ''
+        if report['ir_labels']:
+            values = ['—' if row[key] is None else f"{row[key]:.3f}"
+                      for key in ('reference_ir_km_mol', 'substituted_ir_km_mol')]
+            strengths = f'    IR {values[0]} → {values[1]} km/mol'
         print(f"{row['reference_mode']} → {row['substituted_mode']}    {row['reference_cm1']:.2f} → "
-              f"{row['substituted_cm1']:.2f} cm⁻¹    Δ {row['shift_cm1']:+.2f} cm⁻¹")
+              f"{row['substituted_cm1']:.2f} cm⁻¹    Δ {row['shift_cm1']:+.2f} cm⁻¹{strengths}")
     print(f"ZPE {report['reference_zpe_kj_mol']:.3f} → {report['substituted_zpe_kj_mol']:.3f} kJ/mol "
           f"(Δ {report['delta_zpe_kj_mol']:+.3f})\n{directory}")
     for warning in report['warnings']:

@@ -87,7 +87,7 @@ def publish_results(summary, directory):
     temporary.replace(directory / 'results.json')
 
 
-def calculate_molecule(config, directory, progress=print, guess_density=None, *, publish=True):
+def calculate_molecule(config, directory, progress=print, guess_density=None, *, publish=True, with_dipole=False):
     try:
         import pyscf
         from pyscf import dft, gto, lib
@@ -442,6 +442,14 @@ def calculate_molecule(config, directory, progress=print, guess_density=None, *,
         'environment': {'python': platform.python_version(), 'pyscf': pyscf.__version__,
                         'numpy': np.__version__, 'libxc': dft.libxc.__version__},
     }
+    if with_dipole and mf.converged:
+        if config.resolved_relativity == 'x2c':
+            dipole = mf.dip_moment(mol=mol, dm=total_dm, unit='AU', picture_change=True, verbose=0)
+        else:
+            with mol.with_common_orig((0., 0., 0.)):
+                position = mol.intor_symmetric('int1e_r', comp=3)
+            dipole = effective_charges @ mol.atom_coords() - np.einsum('xij,ji->x', position, total_dm)
+        summary['dipole_e_bohr'] = dipole.tolist()
     if config.calculation == 'uvvis' and mf.converged:
         from .uvvis import singlet_spectrum
         progress('단일항 TDA 들뜸 에너지와 전이 쌍극자를 계산합니다.')
