@@ -1,5 +1,27 @@
 # 현재 작업
 
+## QS-20261123-ROADMAP-ISOTOPE · 개발 로드맵과 동위원소 진동 비교
+
+**작업 식별 정보** · ChatGPT Codex · COMPLETED · 2026-11-23 · 0.11.1 · 시작 HEAD `fffb892`
+
+**작업 목적** · 사용자가 요청한 남은 개발 목록을 실행 순서와 완료 기준까지 기록하고 첫 항목을 구현한다. 첫 완료 기준은 저장된 분자 진동수 결과 하나로 H₂O/D₂O 진동수와 영점에너지를 CLI·GUI에서 비교하고, 해석해와 독립 구현에 대조하는 것이다.
+
+**작업 계획**
+
+1. 범용 자체 DFT와 항공우주 물리라는 연구 목표에 맞춰 `ROADMAP.md`에 완료된 기반, 순차 작업, 주제에 따라 선택할 확장을 정리한다. 요구 목록과 현황에서 연결한다.
+2. 기존 `engines/frequencies.py`의 강체 운동 투영과 ZPE 계산을 재사용한다. 동위원소 질량·원자 순번 입력, 원본 보존, 별도 결과 저장, `main.py` 및 `molecular_studies_app.py`의 진입점을 추가한다.
+3. H₂/D₂의 해석적 질량비, 기존 물 계산의 두 질량 조합과 독립 PySCF 모드, GUI·CLI 경로를 검증한다. 새 결과와 다음 항목을 변경 이력에 남긴다.
+
+**진행 상황** · 로드맵에 순차 과제 5개와 연구 주제별 확장 조건을 작성했다. 01 동위원소 비교의 CLI·GUI·수치 대조를 마쳤다. 02–05와 아래 장기 작업은 남아 있다.
+
+**구현 및 실행 기록** · `molecular_isotopes.py`에서 정규모드와 ZPE를 계산하고, `main.py`·`molecular_studies_app.py`에서 실행한다. 0.8.4 자체 PBE-D4 물 결과의 원본과 배포 예제 모두 D₂O 1176.41/2662.39/2774.07 cm⁻¹을 재현했다. HDO를 포함한 독립 PySCF 대조 및 기울기·저장 등 WSL 회귀 29건, 숨김 Windows GUI 3건을 통과했다. `outputs/isotope_validation/final`·`hdo_final`에 원시 출력이 있다. [수치와 재현 명령](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교) · [변경 이력](CHANGELOG.md)
+
+최종 스테이징 검사에서 Windows로 생성한 예제 JSON의 CRLF 줄끝이 표시되어 LF로 통일했다. 수정 후 두 CLI 치환 결과를 다시 확인했다.
+
+GitHub 자동 push를 수반하는 커밋은 이번 파일의 외부 전송에 대한 명시적 승인을 확인할 수 없다는 자동 승인 검토 결과로 차단되었다. 이 작업의 이력은 커밋 한 번에만 `quantumstarter.autopush=false`를 적용해 로컬에 보존한다.
+
+**다음 AI를 위한 인계** · [로드맵 02](ROADMAP.md)의 IR 세기부터 시작한다. `engines/frequencies.py`의 `frequency_molecule` 안에서 ±변위 구조의 쌍극자 수집을 검토한다. 현재 `harmonic_analysis`가 돌려주는 변위는 데카르트 단위 길이로 정규화되어 있으므로 세기 계산에는 질량 정규화를 적용한다. 배포 물 예제는 헤시안·질량을 제공하며 쌍극자 미분은 담고 있지 않다. 아래 별도 장기 HANDOFF_READY 인계가 있어 이 파일을 보존한다.
+
 ## QS-20261122-MIX-CONV · 혼합기체 음속과 분자 계산 조건 비교
 
 - 담당 ChatGPT Codex · COMPLETED (2026-11-22, 0.11.0). 시작 HEAD `0091865`. 고정 몰분율 기체의 비열·비열비·음속과 분자 기저·격자 비교를 Windows GUI와 CLI에 구현했다.
@@ -58,7 +80,9 @@
   5. 격자 수렴 차수 2, 전자 수, 미수렴 처리, 기존 LDA/LSDA 72건 NIST 대조 재통과.
 - 당시 후보 중 Anderson 혼합은 0.9.8에서 완료했다. 남은 후보는 비구면·다중항 구분, 스칼라 상대론(ZORA/Koelling–Harmon), 원자 결과를 이용한 노름 보존 의사퍼텐셜 생성이다. 순서는 미정이다.
 
-### 단계 14 재개 후보 (미착수, 다음 AI는 이 절 우선)
+### 단계 14 당시 재개 후보
+
+아래는 0.9.4 당시의 계획이다. 이후 NASA7과 실수 스핀 해리 검증을 완료했다. 현재 작업 순서는 [개발 로드맵](ROADMAP.md)에서 관리한다.
 
 - 사용자 응용 방향: DFT × 항공우주 물리. 구체 주제는 사용자·지도교수 결정 대기. 열물성 방향이 확정되면: 온도 구간별 Cp/H/S 표 출력, NASA 7계수 다항식 적합(200–1000/1000–6000 K 관례), JANAF/NASA Glenn/ATcT 등 기준 데이터 대조(출처·라이선스 확인 후). 반응 속도 방향이면: TS·IRC(0.9.4) 위에 TST k(T)(분배함수 비, 터널링 보정은 별도 결정).
 - 코드 측 남은 항목: quasi-RRHO·용매/표준상태, 삼중항(RKS→UKS)·복소 SCF 안정성. IRC는 단계 13 완료이므로 반복 구현하지 않는다.
@@ -332,7 +356,7 @@ $env:QUANTUMSTARTER_GUI_DFT_TEST='1'
 .\.venv\Scripts\python.exe -m unittest test_molecular_gui -v
 ```
 
-정확한 다음 구현 지점:
+0.8 첫 단계 종료 당시의 다음 구현 지점은 아래와 같다. 최신 순서는 [개발 로드맵](ROADMAP.md)에 있다.
 
 1. 첨부5절 순서의 남은 분자 확장: 원소별 기저 선택을 먼저 설계한다. molecular.py의 DFTConfig/기저 지원 검증, engines/pyscf_engine.py의 분자 구성, molecular_app.py의 기저 선택, scf_control.signature 및 energy_analysis.compatibility를 함께 검토한다. 기존 단일 문자열 JSON을 깨지 않으며 실제 원소별 기저/ECP가 다른 에너지는 섞지 않는다.
 2. 분산력은 선택 의존성과 물리 모델(D3/D4 등)을 명시해 별도 에너지 성분으로 추가한 뒤 독립 기준값과 검증한다. 아직 라이브러리 설치나 모델 선택을 하지 않았다. 기본 기능이 선택 패키지 없이 동작해야 한다.

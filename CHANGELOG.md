@@ -3,6 +3,12 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261123-ROADMAP-ISOTOPE · 개발 로드맵과 동위원소 진동 비교 · 0.11.1 · 2026-11-23
+
+- `ROADMAP.md`에 순차 과제 5개의 선행 조건·완료 기준, 연구 주제별 확장 후보를 기록했다. 기존 요구 목록에서 분자 D4 힘과 제약의 상태를, 표면 문서에서 bulk와 slab의 힘·응력 지원 범위를 바로잡았다. [개발 로드맵](ROADMAP.md)
+- `molecular_isotopes.py`, `main.py`, `molecular_studies_app.py`, `engines/frequencies.py`에서 기존 헤시안과 원자별 질량을 사용해 모드 겹침·파수·조화 ZPE를 비교한다. CLI와 GUI는 실행마다 개별 CSV·JSON을 저장한다. 과거 최적화 물 입력으로 얻은 ZPE는 H₂O 54.366, HDO 47.064, D₂O 39.554 kJ/mol이다. [배포 예제](examples/water_frequency_reference.json)
+- H₂/HD/D₂ 환산질량 해석해와 H₂O/HDO/D₂O의 독립 PySCF 분석을 대조했다. 두 물 분자의 계산 파수와 NIST 기체 기본진동도 비교했다. WSL 회귀 29건과 숨김 Windows GUI 3건이 통과했다. [표·조건·재현 명령](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교)
+
 ## QS-20261122-MIX-CONV · 혼합기체 음속과 기저·격자 비교 · 0.11.0 · 2026-11-22
 
 - `gas_mixture.py`에서 N₂·O₂·CO₂ 몰분율과 기존 NASA7 계수로 비열·비열비·음속 및 γ=1.4 가정의 편차를 출력한다. Cantera 3.2.0의 다섯 조성, 190조건에서 음속 최대 차이 2.28×10⁻¹³ m/s 이하. [혼합물 독립 검증](docs/validation/mixture_cantera.csv)

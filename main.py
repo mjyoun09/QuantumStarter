@@ -163,6 +163,9 @@ def run(config: Config, output_dir: Path, show: bool):
 
 
 def main():
+    if sys.argv[1:2] == ['isotopes']:
+        from molecular_isotopes import main as isotope_cli
+        return isotope_cli(sys.argv[2:])
     if sys.argv[1:2] == ['gas-mixture']:
         from gas_mixture import main as mixture_cli
         return mixture_cli(sys.argv[2:])
@@ -170,7 +173,7 @@ def main():
         from molecular_convergence import main as comparison_cli
         return comparison_cli(sys.argv[2:])
     parser = argparse.ArgumentParser(description="원자 좌표·전하·스핀으로 계산하는 분자 DFT. 화면: app.py",
-        epilog="혼합기체 비열·음속: main.py gas-mixture --help / 분자 기저·격자 비교: main.py basis-grid --help")
+        epilog="추가 명령은 main.py isotopes --help, gas-mixture --help, basis-grid --help에서 확인하세요.")
     parser.add_argument("--config", type=Path, help="분자 JSON 설정 (기본 molecule.json)")
     parser.add_argument("--xyz", type=Path, help="단일 구조 XYZ, 좌표 단위 Å")
     parser.add_argument('--structure', type=Path, help='주기 구조 POSCAR / CIF / extxyz')

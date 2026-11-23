@@ -56,6 +56,20 @@ class MolecularGuiTests(unittest.TestCase):
         self.assertFalse(self.errors, self.errors)
         self.root.update()
 
+    def test_isotope_studies_from_saved_water(self):
+        from molecular_isotopes import WATER_EXAMPLE
+        window = self.app.open_studies()
+        self.assertEqual(Path(window.isotope_source.get()), WATER_EXAMPLE)
+        window.calculate_isotopes()
+        self.assertEqual(len(window.isotope_modes.get_children()), 3)
+        self.assertIn('39.554', window.isotope_info.get())
+        self.assertTrue((window.isotope_dir / 'modes.csv').is_file())
+        window.isotope_masses.set('2=2.01410177812')
+        window.calculate_isotopes()
+        self.assertIn('47.064', window.isotope_info.get())
+        self.assertFalse(self.errors)
+        window.close()
+
     def test_input_validation_xyz_and_settings(self):
         app = self.app
         # Essential structure controls must be visible without scrolling at the default size.
@@ -332,6 +346,12 @@ class MolecularGuiTests(unittest.TestCase):
             error.assert_not_called()
         self.assertEqual(len(app.summary['frequencies']['frequencies_cm1']), 1)
         self.assertIn('최저 진동', app.metrics[1].get())
+        window = app.open_studies()
+        self.assertEqual(Path(window.isotope_source.get()), app.current_dir / 'results.json')
+        window.calculate_isotopes()
+        self.assertEqual(len(window.isotope_modes.get_children()), 1)
+        self.assertTrue((window.isotope_dir / 'isotopes.json').is_file())
+        window.close()
 
     @unittest.skipUnless(os.environ.get('QUANTUMSTARTER_GUI_DFT_TEST') == '1', 'Enable real GUI DFT integration explicitly')
     def test_real_native_irc_run(self):

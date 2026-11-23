@@ -1,4 +1,8 @@
-# QuantumStarter 0.11.0 · 자체/외부 분자 DFT와 주기계 계산
+# QuantumStarter 0.11.1 · 자체/외부 분자 DFT와 주기계 계산
+
+무엇부터 만들고 어떻게 완료를 확인할지는 [개발 로드맵](ROADMAP.md)에서 확인할 수 있습니다.
+
+**동위원소 진동수**는 기존 분자 진동수 결과를 읽어 H₂O와 D₂O의 조화 진동수·영점에너지를 비교합니다. 분자 화면에서 **혼합기체 / 계산 비교 → 동위원소 진동수 → 비교**를 누르면 저장된 물 예제를 실행할 수 있습니다. 현재 표시 중인 진동수 결과가 있으면 그 파일이 선택됩니다. 명령행에서는 `.\.venv\Scripts\python.exe main.py isotopes examples/water_frequency_reference.json --deuterate`를 실행하세요. [물 예제·원자별 치환·검증](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교)
 
 **혼합기체 / 계산 비교**에서 N₂·O₂·CO₂의 몰분율로 비열비와 음속을 계산하거나, 분자 계산의 기저·격자를 바꿔 UV–Vis 피크·진동수·스핀 분기·기체 열용량의 변화량을 비교할 수 있습니다. [사용법·실제 음속 그래프·검증표](docs/MIXTURE_CONVERGENCE_KO.md)
 

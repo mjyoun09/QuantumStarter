@@ -1,4 +1,29 @@
-# DFT 검증 기록 · 최근 정리 2026-11-22
+# DFT 검증 기록 · 최근 정리 2026-11-23
+
+## 물의 동위원소 진동수 비교
+
+0.11.1, QS-20261123-ROADMAP-ISOTOPE. 0.8.4에서 계산한 최적화 물 구조와 자체 PBE-D4/def2-SVP 헤시안을 사용했다. 격자 수준은 3, 힘의 중심차분 간격은 0.005 bohr, 기준 구조의 최대 기울기는 1.00×10⁻⁵ Ha/bohr이다. 구버전 원본에서 좌표·질량·헤시안 등 필요한 필드를 추출해 예제에 보존했다. 기준 질량은 당시 결과에 저장된 ¹⁶O 15.994915 u와 ¹H 1.007825 u이며, 치환용 ²H는 2.01410177812 u를 사용한다. [예제 입력](../examples/water_frequency_reference.json) · [NIST 동위원소 질량표](https://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=H)
+
+| 모드 | H₂O 계산 (cm⁻¹) | H₂O 기체 관측 (cm⁻¹) | D₂O 계산 (cm⁻¹) | D₂O 기체 관측 (cm⁻¹) | 계산된 치환 변화 (cm⁻¹) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 굽힘 | 1608.48 | 1594.59 | 1176.41 | 1178.33 | −432.07 |
+| 대칭 신축 | 3690.73 | 3656.65 | 2662.39 | 2671.46 | −1028.34 |
+| 비대칭 신축 | 3790.01 | 3755.79 | 2774.07 | 2788.05 | −1015.94 |
+
+관측값은 NIST에 수록된 기체 적외선 기본진동 파수다. 표의 계산값은 같은 전자 퍼텐셜과 평형 구조를 사용한 무보정 조화 근사다. 세 모드 모두 치환에 따른 파수 감소를 재현했고, 계산한 감소폭은 관측값보다 15.81–48.20 cm⁻¹ 컸다. 같은 헤시안으로 얻은 조화 영점에너지는 H₂O 54.366, HDO 47.064, D₂O 39.554 kJ/mol이다. [NIST 물 기본진동](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=800) · [NIST 중수 기본진동](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7789200&Mask=800)
+
+두 질량 조합에서 각각 병진·회전을 투영한다. 기준 질량 내적으로 비교한 변위 벡터의 겹침 절댓값을 합산해 일대일 대응을 정한다. CSV에 양쪽 모드 번호와 개별 겹침을 남긴다. 축퇴 또는 강하게 혼합된 모드에서는 여러 대응이 가능하다. 음수 파수는 허수 모드를 뜻하며 ZPE에는 양의 파수만 합산한다. 결과 JSON은 기준 파일 경로·SHA-256, 원자별 질량, 원본 경고를 포함한다.
+
+Windows 프로젝트 폴더에서 다음 두 명령으로 전체 치환과 단일 치환을 재현할 수 있다. 원자 순번은 입력에 등장하는 순서이며 이 예제는 O, H, H 순이다. 다른 분자에서는 JSON 경로에 해당 진동수 결과 파일 또는 실행 폴더를 넣는다. 출력은 실행마다 `outputs/isotopes/` 아래의 새 폴더에 `modes.csv`와 `isotopes.json`으로 저장한다.
+
+```powershell
+.\.venv\Scripts\python.exe main.py isotopes examples/water_frequency_reference.json --deuterate
+.\.venv\Scripts\python.exe main.py isotopes examples/water_frequency_reference.json --mass 2=2.01410177812
+```
+
+H₂/HD/D₂는 동일 스프링에서 환산질량 해석해와 진동수 비가 소수 12자리까지 일치했다. H₂O/HDO/D₂O는 같은 헤시안·질량을 받는 독립 PySCF 진동 분석과 모든 모드에서 0.001 cm⁻¹ 이내로 일치했다. 모드 순서가 뒤바뀌는 합성 예제, 허수 모드의 ZPE 처리, 구버전 파일 보존, Å/bohr 입력도 검사했다. WSL 재현 명령은 `.venv-dft/bin/python -m unittest test_molecular_isotopes test_frequencies test_molecular_studies`이다. IR 흡수 세기 계산은 로드맵의 다음 항목이다. [검증 코드](../test_molecular_isotopes.py) · [PySCF 진동 분석](https://pyscf.org/_modules/pyscf/hessian/thermo.html) · [개발 순서](../ROADMAP.md)
+
+## 이전 버전의 검증 요약
 
 0.11.0의 고정 조성 혼합기체를 Cantera와 190조건에서 비교했다. 2,000 K의 79/21 N₂/O₂ 혼합물에서 γ=1.4 가정의 음속 편차는 +3.71%였으며, DFT 기저·격자 네 조건 사이의 음속 차이는 약 0.19 m/s였다. [조건·재현 명령·원자료](MIXTURE_CONVERGENCE_KO.md)
 

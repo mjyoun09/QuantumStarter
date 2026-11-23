@@ -25,6 +25,7 @@ AU_TO_CM1 = np.sqrt(HARTREE_J / (BOHR_M**2 * AMU_KG)) / (2 * np.pi * speed_of_li
 CM1_TO_HARTREE = Planck * speed_of_light * 100 / HARTREE_J
 HARTREE_TO_KJ_MOL = HARTREE_J * Avogadro / 1000
 SIGNIFICANT_IMAGINARY_CM1 = 20.0
+STATIONARY_GRADIENT_LIMIT = 4.5e-4  # Hartree/bohr, maximum Cartesian component.
 
 
 def isotope_masses(elements):
@@ -60,10 +61,16 @@ def harmonic_analysis(hessian, coords_bohr, masses):
             'translation_rotation_residual_cm1': np.sign(residual) * np.sqrt(np.abs(residual)) * AU_TO_CM1}
 
 
+def zero_point_energy_hartree(frequencies_cm1):
+    """Harmonic zero-point energy of the real, positive modes."""
+    frequencies = np.asarray(frequencies_cm1)
+    return 0.5 * float(np.sum(frequencies[frequencies > 0])) * CM1_TO_HARTREE
+
+
 def vibrational_thermo(frequencies_cm1, temperature):
     """Harmonic-oscillator ZPE and thermal vibrational terms for real modes; Hartree per molecule."""
     real = np.asarray([f for f in frequencies_cm1 if f > 0])
-    zpe = 0.5 * float(np.sum(real)) * CM1_TO_HARTREE
+    zpe = zero_point_energy_hartree(real)
     x = real * CM1_TO_HARTREE * HARTREE_J / (Boltzmann * temperature)  # h c nu / k T
     kt = Boltzmann * temperature / HARTREE_J
     # Written with q = exp(-x), which underflows to 0 instead of overflowing at low T.
@@ -214,7 +221,7 @@ def frequency_molecule(config, directory, progress=print, *, publish=True):
     summary['assumptions'] = ['isolated finite molecule', 'harmonic vibrations at the input geometry',
                               *summary['assumptions'][2:]]
     warnings = []
-    if np.abs(final_gradient).max() > 4.5e-4:
+    if np.abs(final_gradient).max() > STATIONARY_GRADIENT_LIMIT:
         warnings.append(f'입력 구조의 최대 기울기 {np.abs(final_gradient).max():.1e} Ha/bohr: 정지점이 아닙니다. '
                         '조화 진동수와 ZPE는 최적화된 구조에서만 물리적으로 해석하세요.')
     if significant:

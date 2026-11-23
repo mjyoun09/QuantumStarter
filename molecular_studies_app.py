@@ -1,4 +1,4 @@
-"""Desktop views of gas-mixture properties and molecular basis/grid comparisons."""
+"""Desktop views of gas-mixture properties, basis/grid studies and isotope shifts."""
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Thread
@@ -11,6 +11,7 @@ from app import open_directory
 from dft_workflow import RunControl
 from gas_mixture import DEFAULT_DATA, DEFAULT_MIX, mixture_figure, run_mixture
 from molecular_convergence import DEFAULT_BASES, DEFAULT_GRIDS, OPERATIONS, run_comparison
+from molecular_isotopes import WATER_EXAMPLE, run_isotopes
 
 
 class MolecularStudies:
@@ -28,6 +29,7 @@ class MolecularStudies:
         conv = ttk.Frame(book, padding=14)
         book.add(mix, text='혼합기체 비열·음속')
         book.add(conv, text='기저·격자 비교')
+        self.build_isotope_tab(book)
 
         bar = ttk.Frame(mix)
         bar.pack(fill='x')
@@ -73,10 +75,66 @@ class MolecularStudies:
         self.diffs = self.table(tables, '조건별 변화량', ('변경 축', '이전 조건', '다음 조건', '물성', '순번 / K', '단위', '차이'))
         self.root.protocol('WM_DELETE_WINDOW', self.close)
 
+    def build_isotope_tab(self, book):
+        page = ttk.Frame(book, padding=14)
+        book.add(page, text='동위원소 진동수')
+        first = ttk.Frame(page)
+        first.pack(fill='x')
+        ttk.Label(first, text='기준 진동수 파일').pack(side='left')
+        source = WATER_EXAMPLE
+        if self.parent.current_dir and (self.parent.summary or {}).get('calculation') == 'frequencies':
+            source = Path(self.parent.current_dir) / 'results.json'
+        self.isotope_source = tk.StringVar(value=str(source))
+        ttk.Entry(first, textvariable=self.isotope_source).pack(side='left', fill='x', expand=True, padx=6)
+        ttk.Button(first, text='파일 선택', command=self.choose_isotope_source).pack(side='left')
+        second = ttk.Frame(page)
+        second.pack(fill='x', pady=8)
+        ttk.Label(second, text='원자 순번=질량(u)').pack(side='left')
+        self.isotope_masses = tk.StringVar()
+        ttk.Entry(second, textvariable=self.isotope_masses, width=26).pack(side='left', padx=6)
+        ttk.Label(second, text='비우면 모든 H를 D로 치환합니다. 예시  2=2.0141').pack(side='left')
+        ttk.Button(second, text='비교', command=self.calculate_isotopes).pack(side='right')
+        self.isotope_info = tk.StringVar(value='기준과 치환 구조의 진동수 차이와 영점에너지(ZPE)를 계산합니다.')
+        ttk.Label(page, textvariable=self.isotope_info, wraplength=850).pack(anchor='w', pady=6)
+        self.isotope_folder = ttk.Button(page, text='결과 폴더 열기', state='disabled',
+                                         command=lambda: open_directory(self.isotope_dir))
+        self.isotope_folder.pack(side='bottom', anchor='e')
+        self.isotope_modes = self.table(page, None, ('기준 모드', '치환 모드', '기준 (cm⁻¹)', '치환 (cm⁻¹)',
+                                                    '차이 (cm⁻¹)', '모드 겹침'))
+
+    def choose_isotope_source(self):
+        filename = filedialog.askopenfilename(parent=self.root, title='분자 진동수 결과 선택',
+                                              filetypes=[('진동수 결과', '*.json')])
+        if filename:
+            self.isotope_source.set(filename)
+
+    def calculate_isotopes(self):
+        assignments = self.isotope_masses.get().split()
+        try:
+            report, directory = run_isotopes(self.isotope_source.get(), self.parent.output_root / 'isotopes',
+                                             deuterate=not assignments, assignments=assignments)
+        except (ValueError, OSError) as exc:
+            messagebox.showerror('동위원소 비교', str(exc), parent=self.root)
+            return
+        self.isotope_modes.delete(*self.isotope_modes.get_children())
+        for row in report['modes']:
+            self.isotope_modes.insert('', 'end', values=(row['reference_mode'], row['substituted_mode'],
+                f"{row['reference_cm1']:.2f}", f"{row['substituted_cm1']:.2f}", f"{row['shift_cm1']:+.2f}",
+                f"{row['absolute_overlap']:.3f}"))
+        change = 'H 전체 → D' if not assignments else ', '.join(assignments) + ' u'
+        energy = (f"{report['formula'] or '기준 구조'} · {change} · ZPE {report['reference_zpe_kj_mol']:.3f} → "
+                  f"{report['substituted_zpe_kj_mol']:.3f} kJ/mol (Δ {report['delta_zpe_kj_mol']:+.3f} kJ/mol)")
+        self.isotope_info.set('\n'.join([energy, *report['warnings']]))
+        self.isotope_dir = directory
+        self.isotope_folder.configure(state='normal')
+
     @staticmethod
     def table(book, label, headings):
         frame = ttk.Frame(book)
-        book.add(frame, text=label)
+        if label:
+            book.add(frame, text=label)
+        else:
+            frame.pack(fill='both', expand=True)
         keys = tuple(str(i) for i in range(len(headings)))
         tree = ttk.Treeview(frame, columns=keys, show='headings')
         for key, heading in zip(keys, headings):

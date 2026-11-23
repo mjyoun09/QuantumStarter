@@ -94,7 +94,7 @@ wsl --exec .venv-mlip/bin/python benchmark_mace.py outputs/surfaces/my_hea/ontop
   실제 설치 데이터가 없는 조합은 명확히 거부합니다. 목표 금속의 MOLOPT-SR/PBE 조합을 검사했습니다.
 - 실제 원자가 전자: Cu/Ag/Au 11, Pd/Pt 18, H 1. 이 값을 전체 원자번호와 구분합니다.
 - 원자 200개, AO 2000개, k점 216개는 입력 상한이지 이 PC에서 실용적인 규모를 보장하는 값이 아닙니다.
-- 현재 주기계 DFT 미지원: 원자 힘/응력 출력, 셀/원자 구조 최적화, SOC, 분산 보정, 하이브리드 XC, 하전 표면.
+- bulk FFTDF는 원자 힘·응력과 셀/원자 동시 최적화를 지원합니다. 이 표면 워크플로의 slab/GDF 경로에는 힘·응력·구조 최적화가 없습니다. 주기계 SOC·분산·하이브리드 XC·하전 표면은 후속 과제입니다. [bulk 지원 조건](PERIODIC_CELL_KO.md)
 - SCF가 마지막 추가 검사에서 실패하면 남은 반복 한도 안에서 같은 조건·최종 밀도로 한 번 재시도합니다.
   허용 오차를 느슨하게 만들지 않으며 그래도 실패하면 `not_converged`입니다.
 - 각 실행의 `settings.json`, `results.json`, `scf.csv`, `scf.chk`, `electronic_structure.npz`, `execution.log`를 보관합니다.

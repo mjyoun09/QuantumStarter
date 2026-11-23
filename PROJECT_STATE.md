@@ -1,6 +1,8 @@
 # QuantumStarter 프로젝트 상태
 
-최종 갱신 2026-11-22 / ChatGPT Codex. 0.11.0은 기존 NASA7 계수로 N₂/O₂/CO₂ 혼합물의 비열·비열비·음속을 계산한다. 분자 기저와 격자의 교차 비교를 같은 GUI와 CLI에 추가했다. 물·H₂ 및 혼합물 계수의 실제 DFT 민감도를 검사했고 독립 Cantera로 혼합 계산을 확인했다. [실행·검증](docs/MIXTURE_CONVERGENCE_KO.md) · [공통 작업 규칙](AGENTS.md)
+최종 갱신 2026-11-23 / ChatGPT Codex. 0.11.1은 저장된 구조와 분자 헤시안의 질량 가중치를 바꿔 동위원소 진동수·영점에너지를 CLI와 Windows GUI에서 비교한다. 첫 사례는 H₂O/HDO/D₂O이다. 남은 구현의 기준 문서는 로드맵이며, 다음은 쌍극자 미분으로 구한 IR 세기다. [개발 순서와 완료 기준](ROADMAP.md) · [검증](docs/VALIDATION_KO.md#물의-동위원소-진동수-비교) · [공통 작업 규칙](AGENTS.md)
+
+0.11.0은 기존 NASA7 계수로 N₂/O₂/CO₂ 혼합물의 비열·비열비·음속을 계산한다. 분자 기저와 격자의 교차 비교를 같은 GUI와 CLI에 추가했다. 물·H₂ 및 혼합물 계수의 실제 DFT 민감도를 검사했고 독립 Cantera로 혼합 계산을 확인했다. [실행·검증](docs/MIXTURE_CONVERGENCE_KO.md)
 
 0.10.0에서 분자 GUI·CLI에 세 가지 계산을 추가했다. `engines/uvvis.py`는 자체 단일항 TDA 응답과 전이 세기를, `engines/gas_thermo.py`는 N₂/O₂/CO₂의 1 bar RRHO 표와 NASA7을, `engines/spin_scan.py`는 지정 결합의 실수 RKS→UKS 곡률과 낮은 해를 계산한다. UV–Vis는 독립 PySCF와, 기체별 열물성은 NIST와 대조했다. [검증 결과·재현 명령](docs/MOLECULAR_SUITE_KO.md)
 
