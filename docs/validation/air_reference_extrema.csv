@@ -1,0 +1,4 @@
+quantity,unit,reference_type,pressure_Pa,x_N2,x_O2,x_CO2,valid_min_K,valid_max_K,sampled_min_K,sampled_max_K,sampled_points,max_abs_delta,signed_delta_at_peak,delta_peak_temperature_K,max_abs_percent,signed_percent_at_peak,percent_peak_temperature_K
+molar_cp,J/(mol K),NIST Shomate Cp,100000,0.79,0.21,0.0,298.15,2000.0,298.15,2000.0,36,0.4718223873534555,-0.4718223873534555,2000.0,1.2980750174320839,-1.2980750174320839,2000.0
+specific_cp,J/(kg K),NIST Shomate Cp,100000,0.79,0.21,0.0,298.15,2000.0,298.15,2000.0,36,16.353966059451555,-16.353966059451555,2000.0,1.2980750174320839,-1.2980750174320839,2000.0
+sound_speed,m/s,derived from NIST Cp,100000,0.79,0.21,0.0,298.15,2000.0,298.15,2000.0,36,1.6909527423401869,1.6909527423401869,2000.0,0.19560301072773645,0.19560301072773645,2000.0

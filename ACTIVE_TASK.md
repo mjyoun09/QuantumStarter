@@ -1,5 +1,27 @@
 # 현재 작업
 
+## QS-20261124-MIX-REFERENCE · 로드맵 03 혼합기체 비열·음속의 독립 기준 대조
+
+**작업 식별 정보** · ChatGPT Codex · COMPLETED · 2026-11-24 · 0.12.1 · 시작 HEAD `fe13aff`
+
+**작업 목적** · 몰분율 N₂ 0.79/O₂ 0.21, 1 bar, 298.15–2,000 K에서 자체 DFT 유래 NASA7의 Cp와 음속을 독립 종별 열화학 자료로 산출한 값과 대조한다. 표에 기준의 종류·단위·온도 범위·최대 편차 및 그 온도를 남긴다. 원문에서 조건이 일치하는 직접 음속 측정점도 확인되면 별도로 대조한다.
+
+**작업 계획**
+
+1. NIST 원문·기존 Shomate 계수와 구간을 대조하고, 정확한 조성·압력·온도와 음향 조건을 확인할 수 있는 측정 자료를 조사한다.
+2. `gas_mixture.py`의 기존 계산/내보내기와 `molecular_studies_app.py`의 혼합기체 화면에 기준 Cp·유도 음속과 편차·극값을 연결한다. CSV·그림·출처와 재현 절차를 보존한다.
+3. 순수 기체·혼합 조성, 기준 온도 구간 경계, 독립 수치와 기본 36점 전 구간, CLI와 숨김 Windows GUI를 검증한 뒤 로드맵·장기 상태·변경 이력을 갱신한다.
+
+**진행 상황** · 03의 GUI·CLI, 36점 기준표, 최대 편차표와 그림을 완성했다. 순수 기체·삼원 조성·온도 구간 경계, JANAF 표, 사용자 계수 교체, GUI 재계산을 검증했다. 후속 04–05는 대기 중이다.
+
+**구현 및 실행 기록**
+
+- `gas_mixture.py`가 NIST Shomate 기준 Cp와 유도 음속을 계산한다. `molecular_studies_app.py`와 CLI에서 부호 있는 편차를 확인할 수 있다. 기본 2,000 K의 편차는 −16.353966 J/(kg·K), +1.690953 m/s다. 검토한 이원계 실험은 범위보다 저온이었고 정밀 실험의 합성 공기에는 Ar이 포함되었다. [수식·출처·측정 조건](docs/MIXTURE_REFERENCE_KO.md)
+- Windows 기본 테스트 231건 중 139건 통과·92건 건너뜀. 관련 테스트 15건은 Windows·WSL에서 각각 모두 통과했고, 별도의 Windows 숨김 GUI 3건도 통과했다. Cantera 3.2.0으로 같은 NASA7 계수의 혼합 연산 190조건을 재검사했다.
+- `main.py gas-mixture --output outputs/mixture_reference_validation/release` 실행 결과의 두 CSV와 PNG는 `docs/validation/air_reference_*` 세 파일과 바이트 단위로 일치한다. 이원계·삼원계 실제 CLI 결과는 `outputs/mixture_reference_validation/`에 보존했다. [온도별 대조표](docs/validation/air_reference_comparison.csv) · [극값·적용 범위](docs/validation/air_reference_extrema.csv)
+
+**다음 AI를 위한 인계** · [로드맵 04](ROADMAP.md)부터 시작한다. 먼저 `scripts/validate_air_sensitivity.py`와 `docs/validation/air_basis_grid.csv`에서 기존 기저×격자 계산 조건을 확인한다. 03의 NIST 기준을 고정하고 헤시안 변위·교환상관 함수 등 한 조건씩 바꾼 비교쌍에서 종별 진동수·Cp와 혼합 음속을 추적한다. 아래 별도 장기 HANDOFF_READY 인계가 있어 이 파일을 보존한다.
+
 ## QS-20261123-INFRARED · 로드맵 02 분자 적외선 세기와 동위원소 스펙트럼
 
 **작업 식별 정보** · ChatGPT Codex · COMPLETED · 2026-11-23 · 0.12.0 · 시작 HEAD `0aa2caa`
@@ -12,11 +34,11 @@
 2. `molecular_isotopes.py`와 기존 비교 탭·CLI에서 질량 정규화한 모드에 미분을 투영한다. 각 피크의 적분 세기, 가우스 선폭, 겹친 스펙트럼을 저장한다. 구버전 헤시안으로는 기존 진동수·ZPE 비교를 계속 제공한다.
 3. 자체 DFT 물·H₂ 실계산, 독립 구현·변위 간격 대조, 숨김 GUI를 검증한다. 재현 가능한 물 예제와 검증 수치, 로드맵 및 변경 기록을 갱신한다.
 
-**진행 상황** · 로드맵 02를 완료했다. 새 진동수 계산은 단일 IR 그래프를 표시하고, 동위원소 비교 창·CLI는 겹친 스펙트럼과 모드별 수치를 저장한다. 이전 헤시안의 진동수·ZPE 비교도 확인했다. 03–05는 대기 중이다.
+**진행 상황 (0.12.0 당시)** · 로드맵 02를 완료했다. 새 진동수 계산은 단일 IR 그래프를 표시하고, 동위원소 비교 창·CLI는 겹친 스펙트럼과 모드별 수치를 저장한다. 이전 헤시안의 진동수·ZPE 비교도 확인했다. 당시 03–05는 대기 중이었다.
 
 **구현 및 실행 기록** · `engines/pyscf_engine.py`·`frequencies.py`·`infrared.py`와 기존 분자 그림·동위원소 비교 경로를 확장했다. `scripts/validate_infrared.py`의 실계산은 `outputs/ir_validation/20261123_095118_066934_ohtz1m40`에 있다. 여섯 피크의 독립 세기 차이는 최대 0.00130 km/mol, 변위 절반에서 0.000169 km/mol이었다. H₂ 신축은 1.09×10⁻²³ km/mol이었다. WSL 회귀 35건과 숨김 Windows GUI 3건, 실제 CLI의 H₂O/D₂O·HDO·구버전 경로가 통과했다. [사용법·그림·전체 수치](docs/INFRARED_KO.md) · [변경 이력](CHANGELOG.md)
 
-**다음 AI를 위한 인계** · [로드맵 03](ROADMAP.md)부터 시작한다. `gas_mixture.py`의 79/21 몰분율 N₂/O₂ 출력과 `engines/gas_thermo.py`의 종별 NIST 기준 열용량을 같은 1 bar·298.15–2,000 K에서 대조한다. 음속 측정값을 추가할 때는 측정 조성·온도·압력을 확인한다. 이번 개발은 로컬 Git 이력에 보존하고, 아래 별도 장기 HANDOFF_READY 인계도 유지한다.
+**다음 AI를 위한 인계 (0.12.0 당시)** · [로드맵 03](ROADMAP.md)에서 `gas_mixture.py`의 79/21 몰분율 N₂/O₂ 출력과 `engines/gas_thermo.py`의 종별 NIST 기준 열용량을 같은 1 bar·298.15–2,000 K에서 대조하도록 인계했다.
 
 ## QS-20261123-ROADMAP-ISOTOPE · 개발 로드맵과 동위원소 진동 비교
 

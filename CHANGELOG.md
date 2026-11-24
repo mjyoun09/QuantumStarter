@@ -3,6 +3,11 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261124-MIX-REFERENCE · 혼합기체 비열·음속의 독립 기준 대조 · 0.12.1 · 2026-11-24
+
+- `gas_mixture.py`와 `molecular_studies_app.py`에 NIST Shomate 기준 곡선·편차 그래프와 대조표를 추가했다. CLI는 온도별 수치와 최대 편차의 크기·부호·온도를 내보낸다. 몰분율 79/21의 N₂/O₂, 1 bar, 36점에서 최대 차이는 2,000 K의 비열 −16.354 J/(kg·K), 음속 +1.691 m/s였다. 기준 음속은 NIST 비열에서 유도했다. [그래프·식·재현 명령](docs/MIXTURE_REFERENCE_KO.md) · [36점 표](docs/validation/air_reference_comparison.csv) · [극값](docs/validation/air_reference_extrema.csv)
+- `test_mixture_reference.py`와 `test_molecular_gui.py`에서 JANAF 표, 기체별 계수 경계, 기준의 입력 NASA7 독립성, GUI 갱신과 파일 출력을 검사했다. 관련 테스트 Windows·WSL 각 15건, 숨김 GUI 3건 통과. Windows 기본 전체 231건 중 139건 통과·92건 건너뜀. 같은 NASA7 입력에 대한 Cantera 3.2.0 회귀 190조건도 통과했다.
+
 ## QS-20261123-INFRARED · 분자 적외선 세기와 동위원소 스펙트럼 · 0.12.0 · 2026-11-23
 
 - `engines/pyscf_engine.py`, `engines/frequencies.py`, `engines/infrared.py`에서 기존 변위 계산으로 쌍극자 미분과 조화 적분 세기(km/mol)를 구한다. 자체 PBE-D4/def2-SVP에서 물·중수의 굽힘 세기는 47.515와 25.263 km/mol이었다. [조건과 결과](docs/INFRARED_KO.md)

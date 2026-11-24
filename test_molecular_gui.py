@@ -56,6 +56,29 @@ class MolecularGuiTests(unittest.TestCase):
         self.assertFalse(self.errors, self.errors)
         self.root.update()
 
+    def test_mixture_reference_table_and_plot_refresh(self):
+        window = self.app.open_studies()
+        window.calculate_mix()
+        self.root.update()
+        cells = window.reference_table
+        self.assertEqual(len(cells.get_children()), 36)
+        self.assertEqual(cells.item(cells.get_children()[-1], 'values')[1:],
+                         ('1243.509', '1259.863', '-16.354', '866.173', '864.482', '+1.691'))
+        self.assertIn('1.691 m/s (2000 K)', window.reference_info.get())
+        self.assertEqual(len(window.reference_canvas.figure.axes), 4)
+        self.assertTrue((window.mix_dir / 'reference_comparison.png').is_file())
+        first_run = window.mix_dir
+        first_plot = window.reference_canvas.get_tk_widget()
+        window.mix.set('CO2=1')
+        window.calculate_mix()
+        self.root.update()
+        self.assertFalse(first_plot.winfo_exists())
+        self.assertNotEqual(first_run, window.mix_dir)
+        self.assertEqual(len(cells.get_children()), 36)
+        self.assertAlmostEqual(float(cells.item(cells.get_children()[0], 'values')[2]), 37.129962 / .044009, delta=.001)
+        self.assertFalse(self.errors, self.errors)
+        window.close()
+
     def test_isotope_studies_from_saved_water(self):
         from molecular_isotopes import WATER_EXAMPLE, WATER_IR_EXAMPLE
         window = self.app.open_studies()

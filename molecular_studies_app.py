@@ -9,7 +9,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from app import open_directory
 from dft_workflow import RunControl
-from gas_mixture import DEFAULT_DATA, DEFAULT_MIX, mixture_figure, run_mixture
+from gas_mixture import DEFAULT_DATA, DEFAULT_MIX, mixture_figure, reference_figure, run_mixture
 from engines.infrared import DEFAULT_FWHM_CM1
 from molecular_convergence import DEFAULT_BASES, DEFAULT_GRIDS, OPERATIONS, run_comparison
 from molecular_isotopes import WATER_IR_EXAMPLE, isotope_spectrum, run_isotopes
@@ -22,7 +22,7 @@ class MolecularStudies:
         self.busy = self.closing = False
         self.files = (DEFAULT_DATA,)
         self.events = Queue()
-        self.canvas = None
+        self.canvas = self.reference_canvas = None
         self.root.title('혼합기체와 분자 계산 비교')
         self.root.geometry('960x640')
         book = ttk.Notebook(root)
@@ -48,6 +48,15 @@ class MolecularStudies:
         mix_views.add(self.chart, text='온도별 그래프')
         self.properties = self.table(mix_views, '온도별 수치', ('T (K)', 'Cp (J/kg/K)', 'Cv (J/kg/K)', 'γ',
                                   '음속 (m/s)', 'γ=1.4 (m/s)', '편차 (%)'))
+        self.reference_chart = ttk.Frame(mix_views)
+        mix_views.add(self.reference_chart, text='NIST 비교 그림')
+        reference_page = ttk.Frame(mix_views)
+        mix_views.add(reference_page, text='NIST 대조표')
+        ttk.Label(reference_page, text='정압 비열 Cp [J/(kg·K)] · 음속 [m/s] · 기준 음속은 NIST Cp에서 유도 · Δ = NASA7 − 기준').pack(anchor='w', pady=4)
+        self.reference_info = tk.StringVar()
+        ttk.Label(reference_page, textvariable=self.reference_info).pack(anchor='w')
+        self.reference_table = self.table(reference_page, '', ('T (K)', 'NASA7 Cp', 'NIST Cp', 'ΔCp',
+                                         'NASA7 음속', '기준 음속', 'Δ음속'))
         self.mix_info = tk.StringVar(value='298.15–2,000 K · 고정 몰분율 이상기체')
         ttk.Label(mix, textvariable=self.mix_info).pack(anchor='w')
         self.mix_folder = ttk.Button(mix, text='결과 폴더 열기', state='disabled',
@@ -196,6 +205,22 @@ class MolecularStudies:
             self.properties.insert('', 'end', values=(f"{r['temperature_K']:g}", f"{r['cp_J_kg_K']:.3f}",
                 f"{r['cv_J_kg_K']:.3f}", f"{r['gamma']:.5f}", f"{r['sound_speed_m_s']:.3f}",
                 f"{r['sound_speed_gamma14_m_s']:.3f}", f"{r['gamma14_error_percent']:+.3f}"))
+        comparison = report['reference_comparison']
+        self.reference_table.delete(*self.reference_table.get_children())
+        for r in comparison['rows']:
+            self.reference_table.insert('', 'end', values=(f"{r['temperature_K']:g}", f"{r['nasa7_cp_J_kg_K']:.3f}",
+                f"{r['nist_cp_J_kg_K']:.3f}", f"{r['cp_delta_J_kg_K']:+.3f}", f"{r['nasa7_sound_speed_m_s']:.3f}",
+                f"{r['nist_derived_sound_speed_m_s']:.3f}", f"{r['sound_speed_delta_m_s']:+.3f}"))
+        peaks = {r['quantity']: r for r in comparison['extrema']}
+        cp_peak, speed_peak = peaks['specific_cp'], peaks['sound_speed']
+        self.reference_info.set(f"최대 절대 편차   Cp {cp_peak['max_abs_delta']:.3f} J/(kg·K) "
+                                f"({cp_peak['delta_peak_temperature_K']:g} K) · 음속 {speed_peak['max_abs_delta']:.3f} m/s "
+                                f"({speed_peak['delta_peak_temperature_K']:g} K)")
+        if self.reference_canvas:
+            self.reference_canvas.get_tk_widget().destroy()
+        self.reference_canvas = FigureCanvasTkAgg(reference_figure(report), master=self.reference_chart)
+        self.reference_canvas.draw()
+        self.reference_canvas.get_tk_widget().pack(fill='both', expand=True)
         self.mix_dir = directory
         self.mix_folder.configure(state='normal')
         row = report['rows'][-1]
