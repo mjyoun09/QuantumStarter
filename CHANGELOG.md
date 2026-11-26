@@ -3,6 +3,12 @@
 완료된 작업만 기록한다. 진행 작업은 ACTIVE_TASK.md, 장기 상태는 PROJECT_STATE.md를 참조한다.
 규칙 등록 이전의 검증 이력은 [docs/VALIDATION_KO.md](docs/VALIDATION_KO.md)에 보존되어 있다.
 
+## QS-20261126-GIT-PUBLIC · GitHub 저장소 공개 전환 · 2026-11-26
+
+- 사용자 요청에 따라 https://github.com/mjyoun09/QuantumStarter 를 Public으로 바꿨다. 로그인 없이 페이지(HTTP 200)와 `main` ZIP 다운로드(191개 파일)가 되는 것을 확인했다. 수정은 소유자만 할 수 있다.
+- 전환 전에 전체 기록에서 키·토큰 등 비밀값이 없는 것을 확인했다. 작성자 이메일이 공개되는 점은 사용자가 확인하고 그대로 두기로 했다.
+- 자동 push 기록이 없던 커밋 `0aa2caa`·`fe13aff`·`8185c09`를 수동으로 올렸다. 훅이 실행되지 않은 원인은 미확인이며 PROJECT_STATE의 Git 항목에 남겼다.
+
 ## QS-20261124-MIX-REFERENCE · 혼합기체 비열·음속의 독립 기준 대조 · 0.12.1 · 2026-11-24
 
 - `gas_mixture.py`와 `molecular_studies_app.py`에 NIST Shomate 기준 곡선·편차 그래프와 대조표를 추가했다. CLI는 온도별 수치와 최대 편차의 크기·부호·온도를 내보낸다. 몰분율 79/21의 N₂/O₂, 1 bar, 36점에서 최대 차이는 2,000 K의 비열 −16.354 J/(kg·K), 음속 +1.691 m/s였다. 기준 음속은 NIST 비열에서 유도했다. [그래프·식·재현 명령](docs/MIXTURE_REFERENCE_KO.md) · [36점 표](docs/validation/air_reference_comparison.csv) · [극값](docs/validation/air_reference_extrema.csv)
